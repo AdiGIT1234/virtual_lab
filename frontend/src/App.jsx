@@ -1,152 +1,183 @@
-import { useState, useEffect } from "react";
-import GpioView from "./components/GpioView";
+import { useState } from "react";
+
+const PIN_LAYOUT = [
+  { num: 1, arduino: null },
+  { num: 2, arduino: 0 },
+  { num: 3, arduino: 1 },
+  { num: 4, arduino: 2 },
+  { num: 5, arduino: 3 },
+  { num: 6, arduino: 4 },
+  { num: 7, arduino: null },
+  { num: 8, arduino: null },
+  { num: 9, arduino: null },
+  { num: 10, arduino: null },
+  { num: 11, arduino: 5 },
+  { num: 12, arduino: 6 },
+  { num: 13, arduino: 7 },
+  { num: 14, arduino: 8 },
+
+  { num: 15, arduino: 9 },
+  { num: 16, arduino: 10 },
+  { num: 17, arduino: 11 },
+  { num: 18, arduino: 12 },
+  { num: 19, arduino: 13 },
+  { num: 20, arduino: null },
+  { num: 21, arduino: null },
+  { num: 22, arduino: null },
+  { num: 23, arduino: null },
+  { num: 24, arduino: null },
+  { num: 25, arduino: null },
+  { num: 26, arduino: null },
+  { num: 27, arduino: null },
+  { num: 28, arduino: null }
+];
 
 function App() {
   const [code, setCode] = useState(`pinMode(13, OUTPUT);
-digitalWrite(13, HIGH);`);
-
-  // Backend truth
-  const [ledMode, setLedMode] = useState("OFF");
-  const [validation, setValidation] = useState(null);
-  const [experiment, setExperiment] = useState(null);
-
-  // Visual state
-  const [ledOn, setLedOn] = useState(false);
-
-  // Input pin values: { pin: 0|1 }. Includes GPIO 2 button and GpioView toggles.
-  const [inputs, setInputs] = useState({ 2: 0 });
-  const [buttonValue, setButtonValue] = useState(null);
+digitalWrite(13, HIGH);
+delay(1000);
+digitalWrite(13, LOW);`);
 
   const [registers, setRegisters] = useState(null);
-
-  const handleInputChange = (pin, value) => {
-    setInputs((prev) => ({ ...prev, [pin]: value }));
-  };
+  const [ledOn, setLedOn] = useState(false);
+  const [inputs, setInputs] = useState({});
 
   const runCode = async () => {
     const response = await fetch("http://127.0.0.1:8000/run-experiment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code,
-        inputs,
-      }),
+      body: JSON.stringify({ code, inputs })
     });
 
     const data = await response.json();
+    setRegisters(data.registers);
 
-    setExperiment(data.experiment);
-    setLedMode(data.led);
-    setValidation(data.validation);
-    setButtonValue(data.button ?? null);
-    setRegisters(data.registers ?? null);
+    setLedOn(false);
 
-    if (data.led === "ON") {
-      setLedOn(true);
-    } else {
-      setLedOn(false);
-    }
+    (data.timeline || []).forEach(event => {
+      setTimeout(() => {
+        if (event.pin === 13) {
+          setLedOn(event.value === "HIGH");
+        }
+      }, event.time);
+    });
   };
 
-  // Blinking animation (future-ready)
-  useEffect(() => {
-    let interval = null;
+  const getPinState = (arduinoPin) => {
+    if (!registers || arduinoPin == null) return false;
 
-    if (ledMode === "BLINKING") {
-      interval = setInterval(() => {
-        setLedOn((prev) => !prev);
-      }, 500);
-    }
+    if (arduinoPin <= 7)
+      return registers.PORTD[arduinoPin] === 1;
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [ledMode]);
+    if (arduinoPin <= 13)
+      return registers.PORTB[arduinoPin - 8] === 1;
+
+    return false;
+  };
+
+  const toggleInput = (arduinoPin) => {
+    if (arduinoPin == null) return;
+
+    setInputs(prev => ({
+      ...prev,
+      [arduinoPin]: prev[arduinoPin] ? 0 : 1
+    }));
+  };
+
+  const renderPin = (pin, index) => {
+    const left = index < 14;
+    const y = 30 + (left ? index : index - 14) * 22;
+
+    const active =
+      pin.arduino === 13
+        ? ledOn
+        : getPinState(pin.arduino);
+
+    return (
+      <div key={pin.num}>
+        <div
+          onClick={() => toggleInput(pin.arduino)}
+          style={{
+            position: "absolute",
+            top: y,
+            left: left ? -24 : 284,
+            width: 24,
+            height: 8,
+            backgroundColor: active ? "#00ff66" : "#bbb",
+            cursor: pin.arduino != null ? "pointer" : "default"
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            top: y - 8,
+            left: left ? -50 : 320,
+            fontSize: 10,
+            color: "#aaa"
+          }}
+        >
+          {pin.num}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>Virtual Lab</h1>
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <h2>ATmega328P – 28 Pin DIP</h2>
 
-      {/* Experiment Info */}
-      {experiment && (
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h2>{experiment.title}</h2>
-          <p style={{ color: "#555" }}>{experiment.description}</p>
-        </div>
-      )}
-
-      {/* Code Editor */}
       <textarea
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        rows={8}
+        rows={4}
         style={{ width: "100%", fontFamily: "monospace" }}
       />
 
       <br /><br />
-
       <button onClick={runCode}>Run</button>
 
-      {/* Button Input */}
-      <div style={{ marginTop: "1rem" }}>
-        <button
-          onClick={() => handleInputChange(2, inputs[2] ? 0 : 1)}
-          style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: inputs[2] ? "#4caf50" : "#ccc",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          GPIO 2 Button: {inputs[2] ? "Pressed" : "Released"}
-        </button>
-
-        {buttonValue && (
-          <span style={{ marginLeft: "0.5rem" }}>→ {buttonValue}</span>
-        )}
-      </div>
-
-      {/* LED */}
-      <div style={{ marginTop: "2rem" }}>
+      <div style={{ marginTop: 60, display: "flex", justifyContent: "center" }}>
         <div
           style={{
-            width: "50px",
-            height: "50px",
-            borderRadius: "50%",
-            backgroundColor: ledOn ? "red" : "#333",
+            position: "relative",
+            width: 280,
+            height: 380,
+            background: "#1a1a1a",
+            borderRadius: 10,
+            boxShadow: "0 0 30px rgba(0,0,0,0.8)"
           }}
-        />
-        <p>LED Mode: {ledMode}</p>
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 60,
+              height: 24,
+              backgroundColor: "#111",
+              borderRadius: "0 0 50px 50px"
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              color: "white",
+              fontWeight: "bold"
+            }}
+          >
+            ATmega328P
+          </div>
+
+          {PIN_LAYOUT.map((pin, index) => renderPin(pin, index))}
+        </div>
       </div>
-
-      {/* GPIO Registers */}
-      {registers && (
-        <div style={{ marginTop: "2rem" }}>
-          <h3>GPIO Registers</h3>
-          <GpioView registers={registers} onInputChange={handleInputChange} />
-        </div>
-      )}
-
-      {/* Validation Result */}
-      {validation && (
-        <div style={{ marginTop: "2rem" }}>
-          <h3>
-            Result:{" "}
-            <span style={{ color: validation.passed ? "green" : "red" }}>
-              {validation.passed ? "PASS" : "FAIL"}
-            </span>
-          </h3>
-
-          {!validation.passed && validation.feedback?.length > 0 && (
-            <ul>
-              {validation.feedback.map((msg, idx) => (
-                <li key={idx}>{msg}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

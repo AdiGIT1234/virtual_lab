@@ -1,6 +1,7 @@
 from experiments.led_basic import LED_BASIC_EXPERIMENT
 from engine.experiment_runner import ExperimentRunner
 from engine.validator import Validator
+from engine.clock import VirtualClock   # ✅ Added
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -29,6 +30,7 @@ class CodeInput(BaseModel):
     code: str
     inputs: Optional[Dict[int, int]] = None
 
+
 # -------------------------
 # Routes
 # -------------------------
@@ -36,15 +38,19 @@ class CodeInput(BaseModel):
 def root():
     return {"status": "Backend running"}
 
+
 @app.post("/run-experiment")
 def run_experiment(payload: CodeInput):
     print("RECEIVED CODE:")
     print(payload.code)
 
-    # Create virtual GPIO
-    gpio = GPIO()
+    # ✅ Create virtual clock
+    clock = VirtualClock()
 
-    # Inject any provided input signals before running the code
+    # ✅ Inject clock into GPIO
+    gpio = GPIO(clock=clock)
+
+    # Inject external input signals (if any)
     if payload.inputs:
         for pin, value in payload.inputs.items():
             gpio.set_input(pin, value)
@@ -52,7 +58,7 @@ def run_experiment(payload: CodeInput):
     # Parse & execute code on virtual hardware
     parse_code(payload.code, gpio)
 
-    # Read-only snapshot of GPIO registers (copies, not references)
+    # Snapshot registers
     registers = {
         "DDRB": list(gpio.DDRB),
         "DDRC": list(gpio.DDRC),
@@ -65,20 +71,23 @@ def run_experiment(payload: CodeInput):
         "PIND": list(gpio.PIND),
     }
 
+    # ✅ Capture timeline
+    timeline = gpio.timeline
+
     # Validation
     validator = Validator(gpio)
     runner = ExperimentRunner(LED_BASIC_EXPERIMENT, validator)
     experiment_result = runner.run()
-    
+
     return {
         "experiment": {
             "id": LED_BASIC_EXPERIMENT["id"],
             "title": LED_BASIC_EXPERIMENT["title"],
             "description": LED_BASIC_EXPERIMENT["description"],
         },
-        "led": gpio.read_led(),
+        "led": gpio.read_led(),  # Final state
         "button": "HIGH" if gpio.digital_read(2) == 1 else "LOW",
         "registers": registers,
+        "timeline": timeline,  # ✅ New
         "validation": experiment_result,
     }
-

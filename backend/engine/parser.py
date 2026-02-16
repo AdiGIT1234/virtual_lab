@@ -1,5 +1,13 @@
 import re
 
+# -------------------------
+# delay pattern
+# -------------------------
+delay_pattern = re.compile(
+    r"""delay\s*\(\s*(?P<ms>\d+)\s*\)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
 
 def _inside_any(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
     """Return True if [start, end) overlaps any of the given spans."""
@@ -11,21 +19,14 @@ def _inside_any(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
 
 def parse_code(code, gpio):
     """
-    Parse a minimal Arduino-like sketch and apply it to the given GPIO instance.
+    Sequential parser / executor for a minimal Arduino-like language.
 
-    Supported statements (any whitespace/newlines allowed):
-      - pinMode(<pin>, INPUT);
-      - pinMode(<pin>, OUTPUT);
-      - digitalWrite(<pin>, HIGH);
-      - digitalWrite(<pin>, LOW);
-      - digitalRead(<pin>);
-
-    Minimal conditional (exact pattern only):
-      if (digitalRead(<pin>) == HIGH) {
-        digitalWrite(<pin>, HIGH|LOW);
-      } else {
-        digitalWrite(<pin>, HIGH|LOW);
-      }
+    Supported:
+      - pinMode(pin, INPUT|OUTPUT)
+      - digitalWrite(pin, HIGH|LOW)
+      - digitalRead(pin)
+      - delay(ms)
+      - if (digitalRead(pin) == HIGH) { digitalWrite(...) } else { digitalWrite(...) }
     """
 
     if not isinstance(code, str):
@@ -38,33 +39,17 @@ def parse_code(code, gpio):
     # -------------------------
 
     pin_mode_pattern = re.compile(
-        r"""pinMode\s*
-            \(\s*
-            (?P<pin>\d+)
-            \s*,\s*
-            (?P<mode>INPUT|OUTPUT)
-            \s*\)
-        """,
+        r"""pinMode\s*\(\s*(?P<pin>\d+)\s*,\s*(?P<mode>INPUT|OUTPUT)\s*\)""",
         re.IGNORECASE | re.VERBOSE,
     )
 
     digital_write_pattern = re.compile(
-        r"""digitalWrite\s*
-            \(\s*
-            (?P<pin>\d+)
-            \s*,\s*
-            (?P<value>HIGH|LOW)
-            \s*\)
-        """,
+        r"""digitalWrite\s*\(\s*(?P<pin>\d+)\s*,\s*(?P<value>HIGH|LOW)\s*\)""",
         re.IGNORECASE | re.VERBOSE,
     )
 
     digital_read_pattern = re.compile(
-        r"""digitalRead\s*
-            \(\s*
-            (?P<pin>\d+)
-            \s*\)
-        """,
+        r"""digitalRead\s*\(\s*(?P<pin>\d+)\s*\)""",
         re.IGNORECASE | re.VERBOSE,
     )
 
@@ -76,10 +61,14 @@ def parse_code(code, gpio):
         re.IGNORECASE | re.VERBOSE | re.DOTALL,
     )
 
-    # Collect if/else block spans so we skip digitalWrite/digitalRead inside them
+    # -------------------------
+    # Collect if/else spans
+    # -------------------------
     if_else_spans = [m.span() for m in if_else_pattern.finditer(code_str)]
 
-    # Build ordered list of (start_pos, action, data)
+    # -------------------------
+    # Build ordered action list
+    # -------------------------
     actions: list[tuple[int, str, object]] = []
 
     for m in pin_mode_pattern.finditer(code_str):
@@ -93,13 +82,19 @@ def parse_code(code, gpio):
         if not _inside_any(m.start(), m.end(), if_else_spans):
             actions.append((m.start(), "digital_read", m))
 
+    for m in delay_pattern.finditer(code_str):
+        actions.append((m.start(), "delay", m))
+
     for m in if_else_pattern.finditer(code_str):
         actions.append((m.start(), "if_else", m))
 
     actions.sort(key=lambda x: x[0])
 
+    # -------------------------
     # Execute in source order
+    # -------------------------
     for _, action_type, match in actions:
+
         if action_type == "pin_mode":
             try:
                 pin = int(match.group("pin"))
@@ -122,6 +117,15 @@ def parse_code(code, gpio):
             except (TypeError, ValueError):
                 continue
             gpio.digital_read(pin)
+
+        elif action_type == "delay":
+            try:
+                ms = int(match.group("ms"))
+            except (TypeError, ValueError):
+                continue
+
+            if gpio.clock:
+                gpio.clock.advance(ms)
 
         elif action_type == "if_else":
             try:
