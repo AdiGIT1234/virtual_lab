@@ -50,6 +50,9 @@ class GPIO:
         # Analog to Digital values (0-1023) mapped to pins 14-19 (A0-A5)
         self.ADC_VALUES = [0] * 6
 
+        # Standard PWM values (0-255) for all pins
+        self.PWM_VALUES = [0] * 20
+
         self.timeline = []
         # Initial snapshot at time 0
         self.timeline.append({
@@ -148,6 +151,26 @@ class GPIO:
             return self.ADC_VALUES[pin - 14]
         return 0
 
+    def analog_write(self, pin: int, value: int):
+        ddr, _, _, bit = self._get_registers(pin)
+        if ddr is None or bit is None:
+            return
+
+        import typing
+        ddr_list = typing.cast(list[int], ddr)
+        b = typing.cast(int, bit)
+        if ddr_list[b] == 1:
+            self.PWM_VALUES[pin] = max(0, min(255, value))
+            
+            if self.clock:
+                self.timeline.append({
+                    "time": self.clock.now(),
+                    "type": "A_WRITE",
+                    "pin": pin,
+                    "value": self.PWM_VALUES[pin],
+                    "registers": self._snapshot()
+                })
+
     def digital_read(self, pin: int) -> int:
         ddr, port, pin_reg, bit = self._get_registers(pin)
         if ddr is None or port is None or pin_reg is None or bit is None:
@@ -202,5 +225,6 @@ class GPIO:
             "PINB": list(self.PINB),
             "PINC": list(self.PINC),
             "PIND": list(self.PIND),
-            "ADC": list(self.ADC_VALUES)
+            "ADC": list(self.ADC_VALUES),
+            "PWM": list(self.PWM_VALUES)
         }

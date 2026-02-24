@@ -48,6 +48,11 @@ def parse_code(code, gpio):
         re.IGNORECASE | re.VERBOSE,
     )
 
+    analog_write_pattern = re.compile(
+        r"""analogWrite\s*\(\s*(?P<pin>\d+)\s*,\s*(?P<value>\d+)\s*\)""",
+        re.IGNORECASE | re.VERBOSE,
+    )
+
     digital_read_pattern = re.compile(
         r"""digitalRead\s*\(\s*(?P<pin>\d+)\s*\)""",
         re.IGNORECASE | re.VERBOSE,
@@ -60,8 +65,8 @@ def parse_code(code, gpio):
 
     if_else_pattern = re.compile(
         r"""if\s*\(\s*(?P<rtype>digitalRead|analogRead)\s*\(\s*(?P<read_pin>[A-Z]*\d+)\s*\)\s*(?P<operator>==|>|<|>=|<=)\s*(?P<cond_val>[A-Z0-9]+)\s*\)\s*\{
-            \s*digitalWrite\s*\(\s*(?P<if_pin>\d+)\s*,\s*(?P<if_val>HIGH|LOW)\s*\)\s*;\s*\}
-            \s*else\s*\{\s*digitalWrite\s*\(\s*(?P<else_pin>\d+)\s*,\s*(?P<else_val>HIGH|LOW)\s*\)\s*;\s*\}
+            \s*(?P<if_action>digitalWrite|analogWrite)\s*\(\s*(?P<if_pin>\d+)\s*,\s*(?P<if_val>[A-Z0-9]+)\s*\)\s*;\s*\}
+            \s*else\s*\{\s*(?P<else_action>digitalWrite|analogWrite)\s*\(\s*(?P<else_pin>\d+)\s*,\s*(?P<else_val>[A-Z0-9]+)\s*\)\s*;\s*\}
         """,
         re.IGNORECASE | re.VERBOSE | re.DOTALL,
     )
@@ -93,6 +98,10 @@ def parse_code(code, gpio):
     for m in digital_write_pattern.finditer(code_str):
         if not _inside_any(m.start(), m.end(), if_else_spans):
             actions.append((m.start(), "digital_write", m))
+
+    for m in analog_write_pattern.finditer(code_str):
+        if not _inside_any(m.start(), m.end(), if_else_spans):
+            actions.append((m.start(), "analog_write", m))
 
     for m in digital_read_pattern.finditer(code_str):
         if not _inside_any(m.start(), m.end(), if_else_spans):
@@ -140,6 +149,14 @@ def parse_code(code, gpio):
                 continue
             gpio.digital_write(pin, value)
 
+        elif action_type == "analog_write":
+            try:
+                pin = int(match.group("pin"))
+                value = int(match.group("value"))
+            except (TypeError, ValueError):
+                continue
+            gpio.analog_write(pin, value)
+
         elif action_type == "digital_read":
             try:
                 pin = int(match.group("pin"))
@@ -169,10 +186,15 @@ def parse_code(code, gpio):
                 cond_val_str = match.group("cond_val").upper()
                 cond_val = 1 if cond_val_str == "HIGH" else (0 if cond_val_str == "LOW" else int(cond_val_str))
                 
+                if_action = match.group("if_action").lower()
                 if_pin = int(match.group("if_pin"))
-                if_val = match.group("if_val").upper()
+                if_val_str = match.group("if_val").upper()
+                if_val = if_val_str if if_action == "digitalwrite" else int(if_val_str)
+
+                else_action = match.group("else_action").lower()
                 else_pin = int(match.group("else_pin"))
-                else_val = match.group("else_val").upper()
+                else_val_str = match.group("else_val").upper()
+                else_val = else_val_str if else_action == "digitalwrite" else int(else_val_str)
             except (TypeError, ValueError):
                 continue
 
@@ -186,9 +208,11 @@ def parse_code(code, gpio):
             elif operator == "<=": condition_met = result <= cond_val
 
             if condition_met:
-                gpio.digital_write(if_pin, if_val)
+                if if_action == "digitalwrite": gpio.digital_write(if_pin, if_val)
+                else: gpio.analog_write(if_pin, if_val)
             else:
-                gpio.digital_write(else_pin, else_val)
+                if else_action == "digitalwrite": gpio.digital_write(else_pin, else_val)
+                else: gpio.analog_write(else_pin, else_val)
 
         elif action_type == "serial_begin":
             try:

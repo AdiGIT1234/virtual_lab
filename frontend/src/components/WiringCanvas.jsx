@@ -7,30 +7,35 @@ const WiringCanvas = ({ items, activeWire }) => {
     const updateLines = () => {
       const newLines = [];
       items.forEach(item => {
-        if (item.pin !== "" && item.pin != null) {
-          const compNode = document.getElementById(`comp-terminal-${item.id}`);
-          const pinNode = document.getElementById(`chip-pin-${item.pin}`);
-          if (compNode && pinNode) {
-            const compRect = compNode.getBoundingClientRect();
-            const pinRect = pinNode.getBoundingClientRect();
+        // Fallback for legacy single-pin objects
+        const pins = item.pins ? item.pins : (item.pin != null && item.pin !== "" ? { main: item.pin } : {});
+        
+        Object.entries(pins).forEach(([termId, pinVal]) => {
+          if (pinVal !== "" && pinVal != null) {
+            let compNode = document.getElementById(`comp-terminal-${item.id}-${termId}`);
+            if (!compNode) compNode = document.getElementById(`comp-terminal-${item.id}-main`); // Legacy fallback
+            if (!compNode) compNode = document.getElementById(`comp-terminal-${item.id}`);
             
-            // For the pin side, target the tip of the pin
-            let px = pinRect.left;
-            // The pins on the left side have their tip on the left edge. Pins on the right side have their tip on the right edge.
-            if (pinRect.left > window.innerWidth / 2) {
-                px = pinRect.right;
-            }
+            const pinNode = document.getElementById(`chip-pin-${pinVal}`);
+            if (compNode && pinNode) {
+              const compRect = compNode.getBoundingClientRect();
+              const pinRect = pinNode.getBoundingClientRect();
+              
+              // For the pin side, target the tip of the pin
+              let px = pinRect.left;
+              if (pinRect.left > window.innerWidth / 2) px = pinRect.right;
 
-            newLines.push({
-              id: item.id,
-              x1: compRect.left + compRect.width / 2,
-              y1: compRect.top + compRect.height / 2,
-              x2: px,
-              y2: pinRect.top + pinRect.height / 2,
-              color: item.type.includes('LED') ? '#ff4040' : '#4dabf7'
-            });
+              newLines.push({
+                id: `${item.id}-${termId}`,
+                x1: compRect.left + compRect.width / 2,
+                y1: compRect.top + compRect.height / 2,
+                x2: px,
+                y2: pinRect.top + pinRect.height / 2,
+                color: termId === 'r' ? '#ff3333' : termId === 'g' ? '#33ff33' : termId === 'b' ? '#3333ff' : item.type.includes('LED') ? '#ff4040' : '#4dabf7'
+              });
+            }
           }
-        }
+        });
       });
       setLines(newLines);
     };

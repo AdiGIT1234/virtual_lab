@@ -9,6 +9,9 @@ import Resistor from "./components/Resistor";
 import PushButton from "./components/PushButton";
 import Dial from "./components/Dial";
 import Multimeter from "./components/Multimeter";
+import RGB_LED from "./components/RGB_LED";
+import Servo from "./components/Servo";
+import SevenSegment from "./components/SevenSegment";
 import DraggableWrapper from "./components/DraggableWrapper";
 import WiringCanvas from "./components/WiringCanvas";
 
@@ -77,20 +80,29 @@ Serial.println("LED is OFF");`);
   };
 
   const addComponent = (type) => {
+    let pins = { main: "" };
+    if (type === "RGB_LED") pins = { r: "", g: "", b: "" };
+    if (type === "SEVEN_SEG") pins = { a: "", b: "", c: "", d: "", e: "", f: "", g: "" };
+    
     const newItem = {
       id: `${type.toLowerCase()}-${Date.now()}`,
       type,
-      pin: "",
+      pins,
       x: window.innerWidth / 2 - 30, // Center approx
       y: window.innerHeight / 2 - 50
     };
     setWorkspaceItems([...workspaceItems, newItem]);
   };
 
-  const updateComponentPin = (id, newPin) => {
-    setWorkspaceItems(prev => prev.map(item => 
-      item.id === id ? { ...item, pin: parseInt(newPin, 10) } : item
-    ));
+  const updateComponentPin = (id, terminalId, newPin) => {
+    setWorkspaceItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const pinInt = parseInt(newPin, 10);
+        const newPins = { ...(item.pins || { main: item.pin }), [terminalId]: pinInt };
+        return { ...item, pins: newPins, pin: terminalId === 'main' ? pinInt : item.pin };
+      }
+      return item;
+    }));
   };
 
   const deleteComponent = (id) => {
@@ -106,7 +118,7 @@ Serial.println("LED is OFF");`);
   useEffect(() => {
     window.onCompleteWire = (pin) => {
       if (activeWireRef.current && pin != null) {
-        updateComponentPin(activeWireRef.current.sourceId, pin);
+        updateComponentPin(activeWireRef.current.sourceId, activeWireRef.current.termId || 'main', pin);
       }
       setActiveWire(null);
       activeWireRef.current = null;
@@ -183,6 +195,9 @@ Serial.println("LED is OFF");`);
             <option value="BUTTON">Push Button</option>
             <option value="DIAL">Potentiometer</option>
             <option value="MULTIMETER">Multimeter</option>
+            <option value="RGB_LED">RGB LED</option>
+            <option value="SERVO">Micro Servo</option>
+            <option value="SEVEN_SEG">7-Segment Display</option>
           </select>
         </div>
         
@@ -227,13 +242,45 @@ Serial.println("LED is OFF");`);
           
           {/* Workspace Area: External Components */}
           {workspaceItems.map(item => {
-            let configState = false;
-            // Digital pins are mapped 0-7 -> PORTD, 8-13 -> PORTB, 14-19 -> PORTC
-            if (item.pin !== "" && !isNaN(item.pin)) {
-              const p = item.pin;
-              if (p <= 7) configState = currentRegisters?.PORTD?.[p] === 1;
-              else if (p <= 13) configState = currentRegisters?.PORTB?.[p - 8] === 1;
-              else if (p >= 14 && p <= 19) configState = currentRegisters?.PORTC?.[p - 14] === 1;
+            const itemPins = item.pins || { main: item.pin };
+            
+            // Helper to get logic state for any specified pin value
+            const getPinLogic = (p) => {
+              if (p === "" || isNaN(p) || p == null) return false;
+              if (p <= 7) return currentRegisters?.PORTD?.[p] === 1;
+              if (p <= 13) return currentRegisters?.PORTB?.[p - 8] === 1;
+              if (p >= 14 && p <= 19) return currentRegisters?.PORTC?.[p - 14] === 1;
+              return false;
+            };
+
+            const getPinAnalog = (p) => {
+              if (p === "" || isNaN(p) || p == null) return 0;
+              return currentRegisters?.PWM?.[p] || (getPinLogic(p) ? 255 : 0);
+            };
+
+            const configState = getPinLogic(itemPins.main);
+            const analogState = getPinAnalog(itemPins.main);
+
+            // Determine terminals mapping for DraggableWrapper
+            let terminals = [{ id: "main", label: "PIN" }];
+            if (item.type === "RGB_LED") {
+                terminals = [
+                    { id: "r", label: "R", color: "#ff3333" },
+                    { id: "g", label: "G", color: "#33ff33" },
+                    { id: "b", label: "B", color: "#3333ff" }
+                ];
+            } else if (item.type === "SEVEN_SEG") {
+                terminals = [
+                  { id: "a", label: "A", color: "#ff6666" },
+                  { id: "b", label: "B", color: "#ff9966" },
+                  { id: "c", label: "C", color: "#ffcc66" },
+                  { id: "d", label: "D", color: "#ffff66" },
+                  { id: "e", label: "E", color: "#ccff66" },
+                  { id: "f", label: "F", color: "#99ff66" },
+                  { id: "g", label: "G", color: "#66ff66" }
+                ];
+            } else if (item.type === "SERVO") {
+                terminals = [{ id: "main", label: "SIG", color: "#ff6600"}];
             }
 
             return (
@@ -242,6 +289,7 @@ Serial.println("LED is OFF");`);
                 id={item.id}
                 initialX={item.x} 
                 initialY={item.y}
+                terminals={terminals}
                 onStartWire={startWire}
                 onDelete={deleteComponent}
               >
@@ -263,8 +311,31 @@ Serial.println("LED is OFF");`);
                 )}
                 {item.type === "MULTIMETER" && (
                   <Multimeter 
-                    value={configState ? 1023 : 0} 
+                    value={analogState > 0 ? (analogState/255)*1023 : 0} 
                     label={item.pin ? `Pin ${item.pin} Reading` : "Unwired"} 
+                  />
+                )}
+                {item.type === "RGB_LED" && (
+                  <RGB_LED 
+                    rState={getPinLogic(itemPins.r)} 
+                    gState={getPinLogic(itemPins.g)} 
+                    bState={getPinLogic(itemPins.b)} 
+                  />
+                )}
+                {item.type === "SERVO" && (
+                  <Servo 
+                    angle={analogState > 0 ? (analogState / 255) * 180 : 0} 
+                  />
+                )}
+                {item.type === "SEVEN_SEG" && (
+                  <SevenSegment 
+                    a={getPinLogic(itemPins.a)} 
+                    b={getPinLogic(itemPins.b)} 
+                    c={getPinLogic(itemPins.c)} 
+                    d={getPinLogic(itemPins.d)} 
+                    e={getPinLogic(itemPins.e)} 
+                    f={getPinLogic(itemPins.f)} 
+                    g={getPinLogic(itemPins.g)} 
                   />
                 )}
               </DraggableWrapper>
