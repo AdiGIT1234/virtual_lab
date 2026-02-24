@@ -1,4 +1,4 @@
-function RegisterPanel({ registers }) {
+function RegisterPanel({ registers, onToggleBit }) {
   if (!registers) return null;
 
   const getDesc = (name) => {
@@ -25,11 +25,13 @@ function RegisterPanel({ registers }) {
               <div key={i} style={styles.bitCol}>
                 <span style={styles.bitIndex}>{i}</span>
                 <div
+                  onClick={() => onToggleBit && onToggleBit(name, i)}
                   style={{
                     ...styles.bitBox,
                     background: bit ? "#00ff88" : "#222",
                     color: bit ? "#000" : "#666",
-                    boxShadow: bit ? "0 0 8px rgba(0,255,136,0.4)" : "none"
+                    boxShadow: bit ? "0 0 8px rgba(0,255,136,0.4)" : "none",
+                    cursor: onToggleBit ? "pointer" : "default"
                   }}
                 >
                   {bit}

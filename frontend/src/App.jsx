@@ -44,16 +44,24 @@ Serial.println("LED is OFF");`);
     { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 300 }
   ]);
 
-  // Inputs remain separate for now (static per run)
+  // Inputs (buttons, dials mapping dynamically to components)
   const [inputs, setInputs] = useState({});
 
-  // Derived state: current registers based on timeline step
+  // Manual override registers when not simulating
+  const [manualRegisters, setManualRegisters] = useState({
+    DDRB: [0,0,0,0,0,0,0,0], DDRC: [0,0,0,0,0,0,0,0], DDRD: [0,0,0,0,0,0,0,0],
+    PORTB: [0,0,0,0,0,0,0,0], PORTC: [0,0,0,0,0,0,0,0], PORTD: [0,0,0,0,0,0,0,0],
+    PINB: [0,0,0,0,0,0,0,0], PINC: [0,0,0,0,0,0,0,0], PIND: [0,0,0,0,0,0,0,0],
+    PWM: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  });
+
+  // Derived state: current registers based on timeline step, OR manual if none
   const currentRegisters = useMemo(() => {
-    if (!timeline || timeline.length === 0) return null;
+    if (!timeline || timeline.length === 0) return manualRegisters;
     // ensure step is within bounds
     const step = Math.min(Math.max(0, currentStep), timeline.length - 1);
-    return timeline[step]?.registers || null;
-  }, [timeline, currentStep]);
+    return timeline[step]?.registers || manualRegisters;
+  }, [timeline, currentStep, manualRegisters]);
 
   const runCode = async () => {
     try {
@@ -172,6 +180,30 @@ Serial.println("LED is OFF");`);
     }));
   };
 
+  const handleToggleBit = (regName, bitIndex) => {
+    // If a timeline exists, we are in playback mode. Ignore manual clicks.
+    if (timeline && timeline.length > 0) return;
+
+    setManualRegisters(prev => {
+      const newRegs = { ...prev };
+      const arr = [...newRegs[regName]];
+      arr[bitIndex] = arr[bitIndex] === 1 ? 0 : 1;
+      
+      // Auto-update PORT when PIN is toggled, and vice-versa, simulating basic hardware behavior for the Virtual Lab
+      if (regName.startsWith('PORT')) {
+          const pinName = 'PIN' + regName.charAt(regName.length - 1);
+          newRegs[pinName] = [...arr];
+      }
+      if (regName.startsWith('PIN')) {
+          const portName = 'PORT' + regName.charAt(regName.length - 1);
+          newRegs[portName] = [...arr];
+      }
+      
+      newRegs[regName] = arr;
+      return newRegs;
+    });
+  };
+
   return (
     <div style={styles.app}>
 
@@ -228,8 +260,8 @@ Serial.println("LED is OFF");`);
         <EditorPanel
           code={code}
           setCode={setCode}
-          runCode={runCode}
           registers={currentRegisters}
+          onToggleBit={handleToggleBit}
         />
       </div>
 

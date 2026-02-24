@@ -1,7 +1,7 @@
 import { useState } from "react";
 import RegisterPanel from "./RegisterPanel";
 
-function EditorPanel({ code, setCode, registers }) {
+function EditorPanel({ code, setCode, registers, onToggleBit }) {
   const [showRegisters, setShowRegisters] = useState(false);
   return (
     <div style={styles.panel}>
@@ -23,7 +23,7 @@ function EditorPanel({ code, setCode, registers }) {
         </button>
       </div>
 
-      {showRegisters && registers && <RegisterPanel registers={registers} />}
+      {showRegisters && registers && <RegisterPanel registers={registers} onToggleBit={onToggleBit} />}
     </div>
   );
 }
