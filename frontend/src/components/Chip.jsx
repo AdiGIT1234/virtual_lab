@@ -56,17 +56,17 @@ function Chip({ registers, toggleInput }) {
 
 const styles = {
   wrapper: {
-    width: "65%",
+    width: "100%",
     display: "flex",
     justifyContent: "center",
     alignItems: "center"
   },
 
-  // THIS is the key fix
   fullWidthContainer: {
     position: "relative",
-    width: 650,
-    height: 600,
+    width: "100%",
+    minWidth: 640,
+    height: 700,
     display: "flex",
     justifyContent: "center",
     alignItems: "center"
@@ -74,8 +74,8 @@ const styles = {
 
   chip: {
     position: "relative",
-    width: 360,
-    height: 520,
+    width: 240,
+    height: 600,
     borderRadius: 18,
     background: "linear-gradient(145deg, #1b1b1b, #0c0c0c)",
     boxShadow:
@@ -87,8 +87,8 @@ const styles = {
     top: 0,
     left: "50%",
     transform: "translateX(-50%)",
-    width: 120,
-    height: 40,
+    width: 80,
+    height: 30,
     backgroundColor: "#0c0c0c",
     borderBottomLeftRadius: 70,
     borderBottomRightRadius: 70
