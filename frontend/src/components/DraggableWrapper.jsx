@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
-const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, children }) => {
+const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, terminals, children }) => {
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showConfig, setShowConfig] = useState(false);
+
+  const termList = terminals || [{ id: "main" }];
 
   const handleMouseDown = (e) => {
     // Avoid dragging if clicking terminal or delete button
@@ -96,33 +98,42 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, child
         {children}
       </div>
 
-      {/* Wire Terminal Node */}
-      <div
-        id={`comp-terminal-${id}`}
-        data-type="terminal"
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          if (onStartWire) {
-            const rect = e.target.getBoundingClientRect();
-            onStartWire(id, rect.left + rect.width / 2, rect.top + rect.height / 2);
-          }
-        }}
-        style={{
+      {/* Wire Terminal Nodes */}
+      <div style={{
           position: 'absolute',
           bottom: -15, // Below the component
           left: '50%',
           transform: 'translateX(-50%)',
-          width: 14,
-          height: 14,
-          borderRadius: '50%',
-          background: '#222',
-          border: '2px solid #aaa',
-          cursor: 'crosshair',
-          zIndex: 60,
-          boxShadow: showConfig ? "0 0 10px #00ffcc" : "none",
-          transition: "all 0.2s"
-        }}
-      />
+          display: 'flex',
+          gap: '8px',
+          zIndex: 60
+      }}>
+        {termList.map(term => (
+          <div
+            key={term.id}
+            id={`comp-terminal-${id}-${term.id}`}
+            data-type="terminal"
+            title={term.label || term.id}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              if (onStartWire) {
+                const rect = e.target.getBoundingClientRect();
+                onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
+              }
+            }}
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: term.color || '#222',
+              border: `2px solid ${term.color || '#aaa'}`,
+              cursor: 'crosshair',
+              boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : "none",
+              transition: "all 0.2s"
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 };
