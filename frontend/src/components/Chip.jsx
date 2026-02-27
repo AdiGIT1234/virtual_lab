@@ -7,8 +7,11 @@ function Chip({ registers, toggleInput }) {
 
   const getPinState = (arduinoPin) => {
     if (!registers || arduinoPin == null) return false;
+    if (registers.PWM && registers.PWM[arduinoPin] > 0 && registers.PWM[arduinoPin] < 255) return "PWM";
+    if (registers.PWM && registers.PWM[arduinoPin] === 255) return true;
     if (arduinoPin <= 7) return registers.PORTD?.[arduinoPin] === 1;
     if (arduinoPin <= 13) return registers.PORTB?.[arduinoPin - 8] === 1;
+    if (arduinoPin >= 14 && arduinoPin <= 19) return registers.PORTC?.[arduinoPin - 14] === 1;
     return false;
   };
 
@@ -19,7 +22,7 @@ function Chip({ registers, toggleInput }) {
   return (
     <div style={styles.wrapper}>
       <div style={styles.fullWidthContainer}>
-        <div style={styles.chip}>
+        <div id="atmega-chip" style={styles.chip}>
           <div style={styles.notch} />
           <div style={styles.engravedMain}>ATMEGA328P-PU</div>
           <div style={styles.engravedSub}>Microchip Technology</div>
@@ -74,7 +77,7 @@ const styles = {
 
   chip: {
     position: "relative",
-    width: 240,
+    width: 320,
     height: 600,
     borderRadius: 18,
     background: "linear-gradient(145deg, #1b1b1b, #0c0c0c)",
@@ -101,9 +104,9 @@ const styles = {
     textAlign: "center",
     fontSize: 18,
     letterSpacing: 3,
-    color: "#222",
+    color: "#d4af37",
     textShadow:
-      "1px 1px 1px rgba(255,255,255,0.05), -1px -1px 1px rgba(0,0,0,0.9)"
+      "1px 1px 1px rgba(255,215,0,0.1), -1px -1px 1px rgba(0,0,0,0.9)"
   },
 
   engravedSub: {
@@ -113,9 +116,9 @@ const styles = {
     textAlign: "center",
     fontSize: 12,
     letterSpacing: 2,
-    color: "#1a1a1a",
+    color: "#b8860b",
     textShadow:
-      "1px 1px 1px rgba(255,255,255,0.05), -1px -1px 1px rgba(0,0,0,0.9)"
+      "1px 1px 1px rgba(255,215,0,0.1), -1px -1px 1px rgba(0,0,0,0.9)"
   },
 
   powerLed: {

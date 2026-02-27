@@ -46,16 +46,49 @@ const WiringCanvas = ({ items, activeWire }) => {
     return () => clearInterval(interval);
   }, [items]);
 
+  const getOrthogonalPath = (x1, y1, x2, y2) => {
+    // 1. Always drop down from component terminal to prevent wire from crossing over the component body
+    const dropY = y1 + 25; 
+    
+    // 2. The chip pin is at x2. Safe vertical corridor outside the chip pins
+    const isRightSide = x2 > window.innerWidth / 2;
+    const extendX = isRightSide ? x2 + 30 : x2 - 30;
+    
+    // 3. Default horizontal lane
+    let routeY = dropY;
+    
+    const chipNode = document.getElementById('atmega-chip');
+    if (chipNode) {
+      const chipRect = chipNode.getBoundingClientRect();
+      const margin = 40; 
+      
+      const minX = Math.min(x1, extendX);
+      const maxX = Math.max(x1, extendX);
+      
+      // Check if horizontal lane intersects chip
+      const hzCrosses = (minX < chipRect.right + 20 && maxX > chipRect.left - 20);
+      const vtCrosses = (routeY > chipRect.top - 20 && routeY < chipRect.bottom + 20);
+      
+      if (hzCrosses && vtCrosses) {
+         const routeTopY = chipRect.top - margin;
+         const routeBottomY = chipRect.bottom + margin;
+         
+         const distTop = Math.abs(routeY - chipRect.top);
+         const distBottom = Math.abs(routeY - chipRect.bottom);
+         
+         routeY = distTop < distBottom ? routeTopY : routeBottomY;
+      }
+    }
+
+    // Path generation: M(start) -> L(drop from comp) -> L(if routeY changed, move to safe lane) -> L(over to safe column) -> L(up/down to pin) -> L(hook into pin)
+    return `M ${x1} ${y1} L ${x1} ${dropY} L ${x1} ${routeY} L ${extendX} ${routeY} L ${extendX} ${y2} L ${x2} ${y2}`;
+  };
+
   return (
     <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
       {/* Existing Component Wires */}
       {lines.map(line => {
-        const dx = Math.abs(line.x2 - line.x1);
-        const cp1x = line.x1;
-        const cp1y = line.y1 + dx * 0.3; // Curve downwards from component
-        const cp2x = line.x2 + (line.x2 > line.x1 ? -dx * 0.4 : dx * 0.4);
-        const cp2y = line.y2;
-        const path = `M ${line.x1} ${line.y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${line.x2} ${line.y2}`;
+        const path = getOrthogonalPath(line.x1, line.y1, line.x2, line.y2);
 
         return (
           <path 
@@ -71,16 +104,19 @@ const WiringCanvas = ({ items, activeWire }) => {
       })}
 
       {/* Active Wires Being Dragged */}
-      {activeWire && (
-        <path 
-          d={`M ${activeWire.startX} ${activeWire.startY} Q ${(activeWire.startX + activeWire.currentX)/2} ${activeWire.currentY}, ${activeWire.currentX} ${activeWire.currentY}`}
-          fill="none"
-          stroke="#00ff88"
-          strokeWidth="4"
-          strokeDasharray="8 4"
-          style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
-        />
-      )}
+      {activeWire && (() => {
+        const path = getOrthogonalPath(activeWire.startX, activeWire.startY, activeWire.currentX, activeWire.currentY);
+        return (
+          <path 
+            d={path}
+            fill="none"
+            stroke="#00ff88"
+            strokeWidth="4"
+            strokeDasharray="8 4"
+            style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
+          />
+        );
+      })()}
     </svg>
   );
 };

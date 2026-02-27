@@ -14,6 +14,7 @@ import Servo from "./components/Servo";
 import SevenSegment from "./components/SevenSegment";
 import DraggableWrapper from "./components/DraggableWrapper";
 import WiringCanvas from "./components/WiringCanvas";
+import HardwareConfigPanel from "./components/HardwareConfigPanel";
 
 function App() {
   const [code, setCode] = useState(`Serial.begin(9600);
@@ -30,7 +31,12 @@ Serial.println("LED is OFF");`);
   const [timeline, setTimeline] = useState([]); // Array of snapshots
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [validation, setValidation] = useState(null);
   
+  // Compilation Output
+  const [hexOutput, setHexOutput] = useState("");
+  const [hexError, setHexError] = useState("");
+
   // States for sliding panels
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
@@ -75,6 +81,8 @@ Serial.println("LED is OFF");`);
       
       if (data.timeline && data.timeline.length > 0) {
         setTimeline(data.timeline);
+        setHexOutput(data.hex || "");
+        setHexError(data.hex_error || "");
         setCurrentStep(0);
         setIsPlaying(true); // Auto-play when simulation starts
         setIsAnalyzerOpen(true); // Auto-open the results pane
@@ -262,6 +270,12 @@ Serial.println("LED is OFF");`);
           setCode={setCode}
           registers={currentRegisters}
           onToggleBit={handleToggleBit}
+          hexOutput={hexOutput}
+          hexError={hexError}
+        />
+        <HardwareConfigPanel 
+          manualRegisters={manualRegisters} 
+          setManualRegisters={setManualRegisters} 
         />
       </div>
 
@@ -276,9 +290,11 @@ Serial.println("LED is OFF");`);
           {workspaceItems.map(item => {
             const itemPins = item.pins || { main: item.pin };
             
+            // We'll update getPinState to handle PWM natively.
             // Helper to get logic state for any specified pin value
             const getPinLogic = (p) => {
               if (p === "" || isNaN(p) || p == null) return false;
+              if (currentRegisters?.PWM?.[p] > 0 && currentRegisters?.PWM?.[p] < 255) return "PWM"; // Indicate PWM state
               if (p <= 7) return currentRegisters?.PORTD?.[p] === 1;
               if (p <= 13) return currentRegisters?.PORTB?.[p - 8] === 1;
               if (p >= 14 && p <= 19) return currentRegisters?.PORTC?.[p - 14] === 1;
@@ -424,7 +440,7 @@ const styles = {
     alignItems: "center",
     padding: "0 20px",
     boxSizing: "border-box",
-    zIndex: 50,
+    zIndex: 150,
   },
   dropdown: {
     background: "#222",
@@ -460,7 +476,7 @@ const styles = {
     boxSizing: "border-box",
     overflowY: "auto",
     transition: "margin-left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-    zIndex: 10
+    zIndex: 100
   },
   chipColumn: {
     flex: 1,
@@ -482,12 +498,12 @@ const styles = {
     overflowY: "auto",
     overflowX: "hidden",
     transition: "margin-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-    zIndex: 10
+    zIndex: 100
   },
   floatingBtn: {
     position: "absolute",
     top: 80, // Moved down to avoid overlapping the 60px TopBar
-    zIndex: 20,
+    zIndex: 120,
     background: "#00ff88",
     color: "#000",
     border: "none",

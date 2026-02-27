@@ -9,6 +9,7 @@ from typing import Dict, Optional
 
 from engine.gpio import GPIO
 from engine.parser import parse_code
+from engine.compiler import compile_code
 
 # -------------------------
 # App initialization
@@ -58,6 +59,14 @@ def run_experiment(payload: CodeInput):
     # Parse & execute code on virtual hardware
     parse_code(payload.code, gpio)
 
+    # Compile the code to verifiable Intel Hex using avr-gcc toolchain!
+    hex_output = ""
+    hex_error = ""
+    try:
+        hex_output = compile_code(payload.code)
+    except Exception as e:
+        hex_error = str(e)
+
     # Snapshot registers
     registers = {
         "DDRB": list(gpio.DDRB),
@@ -90,4 +99,6 @@ def run_experiment(payload: CodeInput):
         "registers": registers,
         "timeline": timeline,  # ✅ New
         "validation": experiment_result,
+        "hex": hex_output,
+        "hex_error": hex_error
     }

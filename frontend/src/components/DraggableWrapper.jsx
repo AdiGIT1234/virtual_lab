@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, terminals, children }) => {
+  const wrapperRef = useRef(null);
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -33,6 +34,30 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
     const handleMouseUp = () => {
       if (isDragging) {
         setIsDragging(false);
+        const chipNode = document.getElementById('atmega-chip');
+        if (chipNode && wrapperRef.current) {
+          const chipRect = chipNode.getBoundingClientRect();
+          const compRect = wrapperRef.current.getBoundingClientRect();
+          
+          const overlap = !(
+            compRect.right < chipRect.left || 
+            compRect.left > chipRect.right || 
+            compRect.bottom < chipRect.top || 
+            compRect.top > chipRect.bottom
+          );
+          
+          if (overlap) {
+            // Push component out to the left or right whichever is closer
+            const distLeft = compRect.right - chipRect.left;
+            const distRight = chipRect.right - compRect.left;
+            
+            if (distLeft < distRight) {
+               setPosition(prev => ({ ...prev, x: chipRect.left - compRect.width - 20 }));
+            } else {
+               setPosition(prev => ({ ...prev, x: chipRect.right + 20 }));
+            }
+          }
+        }
       }
     };
 
@@ -47,13 +72,15 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
   }, [isDragging, dragOffset]);
 
   return (
-    <div 
+    <div
+      ref={wrapperRef}
       style={{
         position: 'fixed',
         left: position.x,
         top: position.y,
         cursor: isDragging ? 'grabbing' : 'grab',
         zIndex: isDragging ? 100 : 8, // lower than wiring canvas
+        userSelect: 'none'
       }}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => setShowConfig(true)}

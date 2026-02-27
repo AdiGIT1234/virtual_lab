@@ -53,6 +53,13 @@ class GPIO:
         # Standard PWM values (0-255) for all pins
         self.PWM_VALUES = [0] * 20
 
+        # Timer Registers (8-bit representation for UI)
+        self.TIMERS = {
+            "TCCR0A": [0]*8, "TCCR0B": [0]*8, "TCNT0": [0]*8, "OCR0A": [0]*8, "OCR0B": [0]*8,
+            "TCCR1A": [0]*8, "TCCR1B": [0]*8, "TCNT1H": [0]*8, "TCNT1L": [0]*8, "OCR1A": [0]*8, "OCR1B": [0]*8,
+            "TCCR2A": [0]*8, "TCCR2B": [0]*8, "TCNT2": [0]*8, "OCR2A": [0]*8, "OCR2B": [0]*8
+        }
+
         self.timeline = []
         # Initial snapshot at time 0
         self.timeline.append({
@@ -226,5 +233,6 @@ class GPIO:
             "PINC": list(self.PINC),
             "PIND": list(self.PIND),
             "ADC": list(self.ADC_VALUES),
-            "PWM": list(self.PWM_VALUES)
+            "PWM": list(self.PWM_VALUES),
+            **self.TIMERS
         }

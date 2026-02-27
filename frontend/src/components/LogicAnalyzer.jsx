@@ -2,6 +2,8 @@ import React, { useState } from "react";
 
 const getPinState = (registers, arduinoPin) => {
   if (!registers || arduinoPin == null) return false;
+  if (registers.PWM && registers.PWM[arduinoPin] > 0 && registers.PWM[arduinoPin] < 255) return "PWM";
+  if (registers.PWM && registers.PWM[arduinoPin] === 255) return true;
   if (arduinoPin <= 7) return registers.PORTD?.[arduinoPin] === 1;
   if (arduinoPin <= 13) return registers.PORTB?.[arduinoPin - 8] === 1;
   if (arduinoPin >= 14 && arduinoPin <= 19) return registers.PORTC?.[arduinoPin - 14] === 1;
@@ -125,11 +127,12 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
 
             let pathData = "";
             let prevY = null;
+            let pwmSegments = [];
 
             timeline.forEach((snapshot, i) => {
-              const isHigh = getPinState(snapshot.registers, pin);
+              const state = getPinState(snapshot.registers, pin);
               const x = MARGIN_X + i * stepWidth;
-              const y = isHigh ? trackTop : trackBottom;
+              const y = state === "PWM" ? trackTop + amplitude / 2 : (state ? trackTop : trackBottom);
 
               if (i === 0) {
                 pathData += `M ${x} ${y}`;
@@ -140,6 +143,11 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
                 }
                 pathData += ` L ${x} ${y}`;
               }
+
+              if (state === "PWM" && i < timeline.length - 1) {
+                pwmSegments.push({ x, w: stepWidth, y: trackTop, h: amplitude });
+              }
+              
               prevY = y;
             });
 
@@ -168,15 +176,21 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
                 {timeline.map((snapshot, i) => {
                   const x = MARGIN_X + i * stepWidth;
                   // Look at the previous state to see if there was a transition
-                  const prevHigh = i > 0 ? getPinState(timeline[i-1].registers, pin) : false;
-                  const isHigh = getPinState(snapshot.registers, pin);
-                  if (i > 0 && prevHigh !== isHigh) {
+                  const prevState = i > 0 ? getPinState(timeline[i-1].registers, pin) : false;
+                  const currState = getPinState(snapshot.registers, pin);
+                  if (i > 0 && prevState !== currState) {
+                     const evtY = currState === "PWM" ? trackTop + amplitude/2 : (currState ? trackTop : trackBottom);
                      return (
-                       <circle key={`change-${pin}-${i}`} cx={x} cy={isHigh ? trackTop : trackBottom} r="3" fill="#fff" />
+                       <circle key={`change-${pin}-${i}`} cx={x} cy={evtY} r="3" fill="#fff" />
                      )
                   }
                   return null;
                 })}
+
+                {/* Shaded blocks for PWM */}
+                {pwmSegments.map((seg, idx) => (
+                   <rect key={`pwm-${idx}`} x={seg.x} y={seg.y} width={seg.w} height={seg.h} fill={color} fillOpacity="0.2" />
+                ))}
 
                 {/* The Waveform */}
                 <path 
@@ -185,6 +199,7 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
                   stroke={color} 
                   strokeWidth="2" 
                   strokeLinejoin="round" 
+                  strokeDasharray={pathData.includes("PWM") ? "2 2" : "none"}
                 />
               </g>
             );

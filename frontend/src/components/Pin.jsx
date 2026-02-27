@@ -40,12 +40,16 @@ function Pin({ pin, index, side, getPinState, toggleInput }) {
     top: y,
     width: 22,
     height: 8,
-    background: active
-      ? "linear-gradient(to bottom, #00ff88, #00cc66)"
-      : (hovered ? "linear-gradient(to bottom, #f5f5f5, #aaa)" : "linear-gradient(to bottom, #d9d9d9, #888)"),
-    boxShadow: hovered
-      ? (active ? "0 0 15px #00ff88, 0 0 5px #00ff88" : "0 0 10px rgba(255,255,255,1)")
-      : "inset 0 1px 2px rgba(255,255,255,0.6)",
+    background: active === "PWM" 
+      ? "linear-gradient(to bottom, #00aaff, #0077ff)"
+      : active
+        ? "linear-gradient(to bottom, #00ff88, #00cc66)"
+        : (hovered ? "linear-gradient(to bottom, #f5f5f5, #aaa)" : "linear-gradient(to bottom, #d9d9d9, #888)"),
+    boxShadow: active === "PWM"
+      ? "0 0 15px #00aaff, 0 0 5px #00aaff"
+      : active 
+        ? "0 0 15px #00ff88, 0 0 5px #00ff88" 
+        : (hovered ? "0 0 10px rgba(255,255,255,1)" : "inset 0 1px 2px rgba(255,255,255,0.6)"),
     cursor: pin.arduino != null ? "pointer" : "default",
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     transformOrigin: side === "left" ? "right center" : "left center",
@@ -60,12 +64,12 @@ function Pin({ pin, index, side, getPinState, toggleInput }) {
     fontSize: 12,
     fontWeight: 500,
     color: hovered ? "#fff" : getPortColor(pin.port),
-    textAlign: side === "left" ? "right" : "left",
+    textAlign: side === "left" ? "left" : "right",
     textShadow: hovered ? `0 0 8px ${getPortColor(pin.port)}` : "none",
     cursor: pin.arduino != null ? "pointer" : "default",
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     transform: hovered 
-      ? (side === "left" ? "translateX(-6px)" : "translateX(6px)") 
+      ? (side === "left" ? "translateX(4px)" : "translateX(-4px)") 
       : "translateX(0px)",
     zIndex: hovered ? 10 : 1
   };
@@ -74,12 +78,12 @@ function Pin({ pin, index, side, getPinState, toggleInput }) {
     leadStyle.left = -28;
     leadStyle.borderTopLeftRadius = 3;
     leadStyle.borderBottomLeftRadius = 3;
-    labelStyle.left = -170;
+    labelStyle.left = 12;
   } else {
     leadStyle.right = -28;
     leadStyle.borderTopRightRadius = 3;
     leadStyle.borderBottomRightRadius = 3;
-    labelStyle.right = -170;
+    labelStyle.right = 12;
   }
 
   const infoBoxStyle = {
@@ -134,8 +138,8 @@ function Pin({ pin, index, side, getPinState, toggleInput }) {
         <div style={{ color: "#aaa", marginBottom: "2px" }}>Type: {pinInfo.type}</div>
         <div style={{ color: "#777", fontSize: "9px" }}>{pinInfo.desc}</div>
         {pin.arduino != null && (
-          <div style={{ marginTop: "4px", color: active ? "#00ff88" : "#888", fontWeight: "bold" }}>
-            State: {active ? "HIGH (5V)" : "LOW (0V)"}
+          <div style={{ marginTop: "4px", color: active === "PWM" ? "#00aaff" : (active ? "#00ff88" : "#888"), fontWeight: "bold" }}>
+            State: {active === "PWM" ? "PWM (Wave)" : (active ? "HIGH (5V)" : "LOW (0V)")}
           </div>
         )}
       </div>
