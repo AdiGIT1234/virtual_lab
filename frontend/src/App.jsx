@@ -15,6 +15,7 @@ import SevenSegment from "./components/SevenSegment";
 import DraggableWrapper from "./components/DraggableWrapper";
 import WiringCanvas from "./components/WiringCanvas";
 import HardwareConfigPanel from "./components/HardwareConfigPanel";
+import { useAVR } from "./engine/useAVR";
 
 function App() {
   const [code, setCode] = useState(`Serial.begin(9600);
@@ -27,11 +28,13 @@ delay(500);
 digitalWrite(13, LOW);
 Serial.println("LED is OFF");`);
 
-  // State for timeline playback
-  const [timeline, setTimeline] = useState([]); // Array of snapshots
+  // Live WASM AVR Execution Engine hook
+  const { startSimulation, stopSimulation, isRunning, cpuRegisters, liveTimeline } = useAVR();
+  
+  // State for timeline playback (fallback)
+  const [timeline, setTimeline] = useState([]); 
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [validation, setValidation] = useState(null);
   
   // Compilation Output
   const [hexOutput, setHexOutput] = useState("");
@@ -63,11 +66,16 @@ Serial.println("LED is OFF");`);
 
   // Derived state: current registers based on timeline step, OR manual if none
   const currentRegisters = useMemo(() => {
-    if (!timeline || timeline.length === 0) return manualRegisters;
-    // ensure step is within bounds
-    const step = Math.min(Math.max(0, currentStep), timeline.length - 1);
-    return timeline[step]?.registers || manualRegisters;
-  }, [timeline, currentStep, manualRegisters]);
+    if (isRunning && cpuRegisters) return cpuRegisters;
+    
+    // Fallback back to recorded history if paused
+    if (timeline && timeline.length > 0) {
+      const step = Math.min(Math.max(0, currentStep), timeline.length - 1);
+      return timeline[step]?.registers || manualRegisters;
+    }
+    
+    return manualRegisters;
+  }, [isRunning, cpuRegisters, timeline, currentStep, manualRegisters]);
 
   const runCode = async () => {
     try {
@@ -79,7 +87,16 @@ Serial.println("LED is OFF");`);
 
       const data = await response.json();
       
-      if (data.timeline && data.timeline.length > 0) {
+      if (data.hex) {
+        // Boom! 16 MHz WASM CPU Execution Engine Kicks off Native Hardware Emulation!!
+        startSimulation(data.hex);
+        
+        setHexOutput(data.hex);
+        setHexError(data.hex_error || "");
+        setIsAnalyzerOpen(true);
+        setIsPlaying(true);
+        setTimeline([]); // clear fake pipeline
+      } else if (data.timeline && data.timeline.length > 0) {
         setTimeline(data.timeline);
         setHexOutput(data.hex || "");
         setHexError(data.hex_error || "");
@@ -395,7 +412,25 @@ Serial.println("LED is OFF");`);
       <WiringCanvas items={workspaceItems} activeWire={activeWire} />
 
       <div style={{...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : "-450px"}}>
-        {timeline.length > 0 ? (
+        {(isRunning && liveTimeline.length > 0) ? (
+          <>
+             <div style={{ color: "#00ffcc", fontFamily: "monospace", fontSize: 13, marginBottom: 10 }}>
+               LIVE: CPU RUNNING AT 16 MHz
+             </div>
+             <SimulationControls
+               totalSteps={liveTimeline.length}
+               currentStep={liveTimeline.length - 1}
+               onStepChange={() => {}}
+               isPlaying={true}
+               setIsPlaying={() => {
+                 stopSimulation();
+                 setIsPlaying(false);
+               }}
+             />
+             <SerialMonitor timeline={liveTimeline} currentStep={liveTimeline.length - 1} />
+             <LogicAnalyzer timeline={liveTimeline} currentStep={liveTimeline.length - 1} initialPins={[13, 2]} />
+          </>
+        ) : timeline.length > 0 ? (
           <>
             <SimulationControls
               totalSteps={timeline.length}
