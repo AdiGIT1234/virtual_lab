@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { 
-  CPU, 
+  CPU,
+  avrInstruction,
   AVRIOPort, 
   portBConfig, 
   portCConfig, 
@@ -55,9 +56,13 @@ export function useAVR() {
     const targetCycle = cpu.cycles + cyclesToRun;
 
     try {
-      while (cpu.cycles < targetCycle) {
-        // Execute a single RISC-V Machine Instruction!
-        cpu.tick(); 
+      let runLimit = 2000000; // Safeguard browser thread from absolute freezing
+      while (cpu.cycles < targetCycle && runLimit > 0) {
+        cpu.tick();
+        runLimit--;
+      }
+      if (runLimit === 0) {
+          console.warn("AVR execution hit runLimit! CPU cycles:", cpu.cycles, "Target:", targetCycle);
       }
 
       // Snapshot the memory state at the end of the frame
@@ -81,7 +86,7 @@ export function useAVR() {
 
       setCpuRegisters(currentRegState);
 
-      // Save to logic analyzer timeline roughly every 16ms (60 FPS)
+      // Save to logic analyzer timeline roughly every 16ms (60 FPS) for smooth UI. Buffer handles SVG limit.
       snapshotTimerRef.current += delta;
       if (snapshotTimerRef.current >= 16) {
         snapshotTimerRef.current = 0;
@@ -90,8 +95,8 @@ export function useAVR() {
           registers: currentRegState
         });
 
-        // Throttle memory array length strictly
-        if (timelineBufferRef.current.length > 500) {
+        // Throttle memory array length strictly to prevent SVG DOM explosion
+        if (timelineBufferRef.current.length > 100) {
           timelineBufferRef.current.shift();
         }
         
@@ -109,6 +114,12 @@ export function useAVR() {
   }, []);
 
   const startSimulation = useCallback((hexString) => {
+    console.log("Starting simulation with HEX size:", hexString.length);
+    // 0. Terminate any previously running simulation ghost loops
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+    }
+
     // 1. Initialize CPU
     const cpu = new CPU(new Uint16Array(16384));
     

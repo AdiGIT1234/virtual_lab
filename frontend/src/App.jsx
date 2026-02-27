@@ -18,15 +18,13 @@ import HardwareConfigPanel from "./components/HardwareConfigPanel";
 import { useAVR } from "./engine/useAVR";
 
 function App() {
-  const [code, setCode] = useState(`Serial.begin(9600);
-Serial.println("System starting...");
-delay(500);
-pinMode(13, OUTPUT);
-digitalWrite(13, HIGH);
-Serial.println("LED is ON");
-delay(500);
-digitalWrite(13, LOW);
-Serial.println("LED is OFF");`);
+  const [code, setCode] = useState(`void setup() {
+
+}
+
+void loop() {
+
+}`);
 
   // Live WASM AVR Execution Engine hook
   const { startSimulation, stopSimulation, isRunning, cpuRegisters, liveTimeline } = useAVR();
@@ -412,10 +410,18 @@ Serial.println("LED is OFF");`);
       <WiringCanvas items={workspaceItems} activeWire={activeWire} />
 
       <div style={{...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : "-450px"}}>
+        {hexError && (
+          <div style={{ color: "#ff3333", background: "#330000", padding: "10px", fontFamily: "monospace", fontSize: 13, marginBottom: 10, borderRadius: "5px", border: "1px solid #ff3333" }}>
+             <strong>COMPILATION FAILED:</strong><br/>
+             {hexError}
+          </div>
+        )}
+        
         {(isRunning && liveTimeline.length > 0) ? (
           <>
              <div style={{ color: "#00ffcc", fontFamily: "monospace", fontSize: 13, marginBottom: 10 }}>
-               LIVE: CPU RUNNING AT 16 MHz
+               LIVE: CPU RUNNING AT 16 MHz 
+               <span style={{color: "#888", marginLeft: "10px"}}>(HEX Size: {hexOutput.length} bytes)</span>
              </div>
              <SimulationControls
                totalSteps={liveTimeline.length}
