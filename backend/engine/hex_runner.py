@@ -1,5 +1,6 @@
-from engine.avr_cpu import AVRCPU
-from engine.avr_memory import AVRMemory
+from engine.avr_cpu import AVRCPU  # type: ignore
+from engine.avr_memory import AVRMemory  # type: ignore
+
 
 class HexRunner:
     """

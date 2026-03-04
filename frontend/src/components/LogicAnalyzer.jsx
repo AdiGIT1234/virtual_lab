@@ -2,8 +2,13 @@ import React, { useState } from "react";
 
 const getPinState = (registers, arduinoPin) => {
   if (!registers || arduinoPin == null) return false;
-  if (registers.PWM && registers.PWM[arduinoPin] > 0 && registers.PWM[arduinoPin] < 255) return "PWM";
-  if (registers.PWM && registers.PWM[arduinoPin] === 255) return true;
+  
+  if (registers.PWM && registers.PWM[arduinoPin] !== undefined) {
+      const val = registers.PWM[arduinoPin];
+      if (val > 0 && val < 255) return { type: "PWM", value: val };
+      if (val === 255) return true;
+  }
+  
   if (arduinoPin <= 7) return registers.PORTD?.[arduinoPin] === 1;
   if (arduinoPin <= 13) return registers.PORTB?.[arduinoPin - 8] === 1;
   if (arduinoPin >= 14 && arduinoPin <= 19) return registers.PORTC?.[arduinoPin - 14] === 1;
@@ -132,20 +137,24 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
             timeline.forEach((snapshot, i) => {
               const state = getPinState(snapshot.registers, pin);
               const x = MARGIN_X + i * stepWidth;
-              const y = state === "PWM" ? trackTop + amplitude / 2 : (state ? trackTop : trackBottom);
+              
+              const isPWM = typeof state === "object" && state.type === "PWM";
+              const logicState = state === true || state === false ? state : false;
+              // Map 0-255 to Analog Y line: 0 is bottom (ground), 255 is top (5V)
+              const y = isPWM ? trackTop + amplitude * (1 - (state.value / 255)) : (logicState ? trackTop : trackBottom);
 
               if (i === 0) {
                 pathData += `M ${x} ${y}`;
               } else {
-                // To make a square wave, we hold the previous Y until the current X
+                // To make a square wave/stepped chart, we hold the previous Y until the current X
                 if (y !== prevY) {
                   pathData += ` L ${x} ${prevY}`;
                 }
                 pathData += ` L ${x} ${y}`;
               }
 
-              if (state === "PWM" && i < timeline.length - 1) {
-                pwmSegments.push({ x, w: stepWidth, y: trackTop, h: amplitude });
+              if (isPWM && i < timeline.length - 1) {
+                pwmSegments.push({ x, w: stepWidth, y: trackTop, h: amplitude, val: state.value });
               }
               
               prevY = y;
@@ -178,10 +187,25 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
                   // Look at the previous state to see if there was a transition
                   const prevState = i > 0 ? getPinState(timeline[i-1].registers, pin) : false;
                   const currState = getPinState(snapshot.registers, pin);
-                  if (i > 0 && prevState !== currState) {
-                     const evtY = currState === "PWM" ? trackTop + amplitude/2 : (currState ? trackTop : trackBottom);
+                  
+                  const prevIsPWM = typeof prevState === "object" && prevState.type === "PWM";
+                  const currIsPWM = typeof currState === "object" && currState.type === "PWM";
+                  
+                  // Compare values to determine state change
+                  const prevVal = prevIsPWM ? prevState.value : (prevState ? 255 : 0);
+                  const currVal = currIsPWM ? currState.value : (currState ? 255 : 0);
+
+                  if (i > 0 && prevVal !== currVal) {
+                     const evtY = trackTop + amplitude * (1 - (currVal / 255));
                      return (
-                       <circle key={`change-${pin}-${i}`} cx={x} cy={evtY} r="3" fill="#fff" />
+                       <g key={`change-${pin}-${i}`}>
+                         <circle cx={x} cy={evtY} r="3" fill="#fff" />
+                         {currIsPWM && (
+                           <text x={x} y={evtY - 10} fill="#aaa" fontSize="9" fontFamily="monospace" textAnchor="middle">
+                             {Math.round((currVal/255)*100)}%
+                           </text>
+                         )}
+                       </g>
                      )
                   }
                   return null;
@@ -199,7 +223,6 @@ const LogicAnalyzer = ({ timeline, currentStep, initialPins = [13, 2] }) => {
                   stroke={color} 
                   strokeWidth="2" 
                   strokeLinejoin="round" 
-                  strokeDasharray={pathData.includes("PWM") ? "2 2" : "none"}
                 />
               </g>
             );

@@ -52,8 +52,9 @@ def run_experiment(payload: CodeInput):
     gpio = GPIO(clock=clock)
 
     # Inject external input signals (if any)
-    if payload.inputs:
-        for pin, value in payload.inputs.items():
+    inputs = payload.inputs
+    if inputs is not None:
+        for pin, value in inputs.items():
             gpio.set_input(pin, value)
 
     # Parse & execute code on virtual hardware

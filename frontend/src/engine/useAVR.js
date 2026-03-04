@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { 
   CPU,
-  avrInstruction,
   AVRIOPort, 
   portBConfig, 
   portCConfig, 
@@ -9,7 +8,9 @@ import {
   AVRTimer,
   timer0Config,
   timer1Config,
-  timer2Config
+  timer2Config,
+  AVRUSART,
+  usart0Config
 } from 'avr8js';
 
 // Parses Intel Hex format directly into a Uint8Array
@@ -72,6 +73,15 @@ export function useAVR() {
       const ddrc = data[0x27], portc_reg = data[0x28];
       const ddrd = data[0x2A], portd_reg = data[0x2B];
 
+      // Map AVR Output Compare Registers to Arduino PWM pins (0-255)
+      const pwmMap = new Array(20).fill(0);
+      pwmMap[3] = data[0xB4]; // OCR2B (PD3)
+      pwmMap[5] = data[0x48]; // OCR0B (PD5)
+      pwmMap[6] = data[0x47]; // OCR0A (PD6)
+      pwmMap[9] = data[0x88]; // OCR1AL (PB1)
+      pwmMap[10] = data[0x8A]; // OCR1BL (PB2)
+      pwmMap[11] = data[0xB3]; // OCR2A (PB3)
+
       /* 
          avr8js handles actual pin states depending on Pull-Ups and DDR values via portB.pinState
          We map this over to our Virtual Lab generic register format
@@ -80,23 +90,38 @@ export function useAVR() {
         DDRB: toBits(ddrb), PORTB: toBits(portb_reg), PINB: toBits(portB.pinState),
         DDRC: toBits(ddrc), PORTC: toBits(portc_reg), PINC: toBits(portC.pinState),
         DDRD: toBits(ddrd), PORTD: toBits(portd_reg), PIND: toBits(portD.pinState),
-        // Simplistic array to keep our legacy visualizer happy for now
-        PWM: new Array(20).fill(0) 
+        PWM: pwmMap
       };
 
       setCpuRegisters(currentRegState);
 
       // Save to logic analyzer timeline roughly every 16ms (60 FPS) for smooth UI. Buffer handles SVG limit.
       snapshotTimerRef.current += delta;
+      
+      // If there's serial output, inject it now!
+      if (cpuRef.current.serialBuffer) {
+         timelineBufferRef.current.push({
+           time: cpu.cycles,
+           registers: currentRegState,
+           type: "SERIAL_PRINT",
+           message: cpuRef.current.serialBuffer
+         });
+         cpuRef.current.serialBuffer = "";
+      }
+
       if (snapshotTimerRef.current >= 16) {
         snapshotTimerRef.current = 0;
+        
+        // Push a standard logic analyzer snapshot
         timelineBufferRef.current.push({
           time: cpu.cycles,
           registers: currentRegState
         });
 
         // Throttle memory array length strictly to prevent SVG DOM explosion
-        if (timelineBufferRef.current.length > 100) {
+        if (timelineBufferRef.current.length > 200) {
+          // Remove from start, but we shouldn't lose serial events too aggressively if we can help it.
+          // For now, simple shift is fine to keep browser running smoothly.
           timelineBufferRef.current.shift();
         }
         
@@ -131,15 +156,29 @@ export function useAVR() {
     const portC = new AVRIOPort(cpu, portCConfig);
     const portD = new AVRIOPort(cpu, portDConfig);
     
-    const timer0 = new AVRTimer(cpu, timer0Config);
-    const timer1 = new AVRTimer(cpu, timer1Config);
-    const timer2 = new AVRTimer(cpu, timer2Config);
+    // Initialize timers to attach them to CPU hardware interrupts
+    new AVRTimer(cpu, timer0Config);
+    new AVRTimer(cpu, timer1Config);
+    new AVRTimer(cpu, timer2Config);
 
-    cpuRef.current = { cpu, portB, portC, portD, timer0, timer1, timer2 };
+    // Mount USART (Serial output)
+    const usart = new AVRUSART(cpu, usart0Config, 16000000);
+    
+    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "" };
+    
+    usart.onByteTransmit = (data) => {
+      cpuRef.current.serialBuffer += String.fromCharCode(data);
+    };
     
     // 4. Reset State
-    timelineBufferRef.current = [];
-    setLiveTimeline([]);
+    timelineBufferRef.current = [{
+      time: 0,
+      registers: null,
+      type: "SERIAL_BEGIN",
+      baud: 9600 // We default to 9600 in our generic display
+    }];
+    
+    setLiveTimeline([...timelineBufferRef.current]);
     setCpuRegisters(null);
     setIsRunning(true);
     
