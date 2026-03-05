@@ -1,0 +1,39 @@
+{
+  "id": "exp01_led_blinking",
+  "title": "Level 1: Hello World (LED Blinking)",
+  "difficulty": "Beginner",
+  "aim": "To write an Embedded C program to blink an LED connected to an ATmega328P.",
+  "objective": "Understand GPIO configuration using DDRx and PORTx registers, and learn how to stall the MCU using delay routines.",
+  "theory": "<h3>What is GPIO?</h3><p>General Purpose Input/Output (GPIO) pins allow microcontrollers to read digital signals (like buttons) or write digital signals (like turning on an LED).</p><h3>The Registers</h3><ul><li><b>DDRx (Data Direction Register):</b> Configures a pin as INPUT (0) or OUTPUT (1). For example, setting DDRB = 0xFF makes all PORTB pins outputs.</li><li><b>PORTx (Data Register):</b> When a pin is configured as an output, writing a 1 to PORTx sets the pin HIGH (5V), and writing a 0 sets it LOW (0V).</li></ul><h3>The Delay Loop</h3><p>Microcontrollers operate infinitely fast (up to 16 million instructions per second on an Arduino UNO). If you turn an LED ON and OFF without a delay, it happens so fast that it will just look dimly lit. A delay function forces the microcontroller to count empty cycles, keeping the LED in its current state long enough for the human eye to see.</p>",
+  "pretest": [
+    {
+      "question": "Which register is responsible for setting a pin as an Input or Output?",
+      "options": ["PORTB", "PINB", "DDRB", "MCUCR"],
+      "correct_answer_index": 2,
+      "explanation": "The Data Direction Register (DDR) configures pin direction."
+    },
+    {
+      "question": "If you write '1' to a bit in the PORT register while the DDR bit is set to '1', what happens to the output pin?",
+      "options": ["It becomes High-Z", "It outputs 5V (HIGH)", "It outputs 0V (LOW)", "It acts as an input"],
+      "correct_answer_index": 1,
+      "explanation": "Writing 1 to PORT when DDR is 1 drives the pin HIGH."
+    }
+  ],
+  "procedure": [
+    "Connect the Anode (long leg) of an LED to Pin 13 (PORTB Pin 5) of the ATmega328P.",
+    "Connect the Cathode (short leg) of the LED through a 330Ω resistor to GND.",
+    "Write the code to set DDRB bit 5 as an output.",
+    "In the infinite loop, set PORTB bit 5 HIGH.",
+    "Call a delay function to wait for 1000ms.",
+    "Set PORTB bit 5 LOW, and wait another 1000ms."
+  ],
+  "posttest": [
+    {
+      "question": "Why do we need a resistor connected in series with the LED?",
+      "options": ["To increase the voltage", "To decrease the software delay", "To limit current and prevent burning out the LED", "To convert AC to DC"],
+      "correct_answer_index": 2,
+      "explanation": "LEDs have no internal resistance, so they will draw infinite current and burn out without a current-limiting resistor."
+    }
+  ],
+  "feedback": "Congratulations! You successfully configured an output pin and wrote a blocking loop to blink the LED."
+}
