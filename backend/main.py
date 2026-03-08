@@ -173,12 +173,46 @@ def chat(payload: ChatInput):
     try:
         engine = get_rag_engine()
         result = engine.ask(payload.message, context_mode=payload.context or "chatbot")
+        
+        answer = result.get("answer", "")
+        # Check if the answer itself contains an error (e.g. from Gemini quota)
+        if "Error generating response:" in answer:
+            error_lower = answer.lower()
+            if "429" in answer or "quota" in error_lower:
+                return {
+                    "answer": "⏳ I'm temporarily unavailable due to API rate limits. Please try again in a minute or two!",
+                    "sources": [],
+                    "has_context": False
+                }
+            return {
+                "answer": "😕 I had trouble generating a response. Please try rephrasing your question.",
+                "sources": [],
+                "has_context": False
+            }
+        
         return {
-            "answer": result["answer"],
-            "sources": result["sources"],
-            "has_context": result["has_context"]
+            "answer": answer,
+            "sources": result.get("sources", []),
+            "has_context": result.get("has_context", False)
         }
     except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        # GEMINI_API_KEY not set
+        return {
+            "answer": "🔑 The AI assistant is not configured yet. Please set the GEMINI_API_KEY in the backend .env file.",
+            "sources": [],
+            "has_context": False
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+        error_str = str(e)
+        if "429" in error_str or "quota" in error_str.lower():
+            return {
+                "answer": "⏳ I'm temporarily unavailable due to API rate limits. Please try again in a minute or two!",
+                "sources": [],
+                "has_context": False
+            }
+        return {
+            "answer": "😕 Something went wrong. Please try again shortly.",
+            "sources": [],
+            "has_context": False
+        }
+

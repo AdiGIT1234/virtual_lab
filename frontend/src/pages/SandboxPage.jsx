@@ -48,6 +48,12 @@ void loop() {
   const [activeWire, setActiveWire] = useState(null);
   const activeWireRef = useRef(null);
 
+  // Wire color customization
+  const [wireColors, setWireColors] = useState({});
+  const handleWireColorChange = (wireId, color) => {
+    setWireColors(prev => ({ ...prev, [wireId]: color }));
+  };
+
   // States for workspace components
   const [workspaceItems, setWorkspaceItems] = useState([
     { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 300 }
@@ -408,7 +414,7 @@ void loop() {
           </div>
         </div>
           
-        <WiringCanvas items={workspaceItems} activeWire={activeWire} />
+        <WiringCanvas items={workspaceItems} activeWire={activeWire} wireColors={wireColors} onWireColorChange={handleWireColorChange} />
 
         {/* RIGHT: Analysis Panel */}
         <div style={{...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : "-450px"}}>

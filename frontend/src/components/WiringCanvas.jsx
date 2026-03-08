@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
 
-const WiringCanvas = ({ items, activeWire }) => {
+const WIRE_COLORS = [
+  { name: "Blue", value: "#4dabf7" },
+  { name: "Red", value: "#ff4040" },
+  { name: "Green", value: "#00ff88" },
+  { name: "Yellow", value: "#ffcc00" },
+  { name: "Purple", value: "#cc66ff" },
+  { name: "Orange", value: "#ff8800" },
+  { name: "Pink", value: "#ff66cc" },
+  { name: "White", value: "#cccccc" },
+];
+
+const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange }) => {
   const [lines, setLines] = useState([]);
+  const [contextMenu, setContextMenu] = useState(null);
 
   useEffect(() => {
     const updateLines = () => {
@@ -25,13 +37,17 @@ const WiringCanvas = ({ items, activeWire }) => {
               let px = pinRect.left;
               if (pinRect.left > window.innerWidth / 2) px = pinRect.right;
 
+              const wireId = `${item.id}-${termId}`;
+              // Use custom color if set, otherwise default based on type
+              const defaultColor = termId === 'r' ? '#ff3333' : termId === 'g' ? '#33ff33' : termId === 'b' ? '#3333ff' : item.type.includes('LED') ? '#ff4040' : '#4dabf7';
+              
               newLines.push({
-                id: `${item.id}-${termId}`,
+                id: wireId,
                 x1: compRect.left + compRect.width / 2,
                 y1: compRect.top + compRect.height / 2,
                 x2: px,
                 y2: pinRect.top + pinRect.height / 2,
-                color: termId === 'r' ? '#ff3333' : termId === 'g' ? '#33ff33' : termId === 'b' ? '#3333ff' : item.type.includes('LED') ? '#ff4040' : '#4dabf7'
+                color: wireColors[wireId] || defaultColor,
               });
             }
           }
@@ -44,7 +60,7 @@ const WiringCanvas = ({ items, activeWire }) => {
     const interval = setInterval(updateLines, 16); // 60fps tracking for dragged components
 
     return () => clearInterval(interval);
-  }, [items]);
+  }, [items, wireColors]);
 
   const getOrthogonalPath = (x1, y1, x2, y2) => {
     // 1. Always drop down from component terminal to prevent wire from crossing over the component body
@@ -84,40 +100,119 @@ const WiringCanvas = ({ items, activeWire }) => {
     return `M ${x1} ${y1} L ${x1} ${dropY} L ${x1} ${routeY} L ${extendX} ${routeY} L ${extendX} ${y2} L ${x2} ${y2}`;
   };
 
+  const handleWireRightClick = (e, wireId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, wireId });
+  };
+
+  const handleColorSelect = (wireId, color) => {
+    if (onWireColorChange) {
+      onWireColorChange(wireId, color);
+    }
+    setContextMenu(null);
+  };
+
+  // Close context menu on any click
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    if (contextMenu) {
+      window.addEventListener("click", close);
+      return () => window.removeEventListener("click", close);
+    }
+  }, [contextMenu]);
+
   return (
-    <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
-      {/* Existing Component Wires */}
-      {lines.map(line => {
-        const path = getOrthogonalPath(line.x1, line.y1, line.x2, line.y2);
+    <>
+      <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
+        {/* Existing Component Wires */}
+        {lines.map(line => {
+          const path = getOrthogonalPath(line.x1, line.y1, line.x2, line.y2);
 
-        return (
-          <path 
-            key={line.id} 
-            d={path} 
-            fill="none" 
-            stroke={line.color} 
-            strokeWidth="4" 
-            strokeLinecap="round"
-            style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.6))" }}
-          />
-        );
-      })}
+          return (
+            <g key={line.id}>
+              {/* Invisible thick hitbox for right-click */}
+              <path 
+                d={path} 
+                fill="none" 
+                stroke="transparent" 
+                strokeWidth="16" 
+                strokeLinecap="round"
+                style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                onContextMenu={(e) => handleWireRightClick(e, line.id)}
+              />
+              {/* The visible wire */}
+              <path 
+                d={path} 
+                fill="none" 
+                stroke={line.color} 
+                strokeWidth="4" 
+                strokeLinecap="round"
+                style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.6))", pointerEvents: "none" }}
+              />
+            </g>
+          );
+        })}
 
-      {/* Active Wires Being Dragged */}
-      {activeWire && (() => {
-        const path = getOrthogonalPath(activeWire.startX, activeWire.startY, activeWire.currentX, activeWire.currentY);
-        return (
-          <path 
-            d={path}
-            fill="none"
-            stroke="#00ff88"
-            strokeWidth="4"
-            strokeDasharray="8 4"
-            style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
-          />
-        );
-      })()}
-    </svg>
+        {/* Active Wires Being Dragged */}
+        {activeWire && (() => {
+          const path = getOrthogonalPath(activeWire.startX, activeWire.startY, activeWire.currentX, activeWire.currentY);
+          return (
+            <path 
+              d={path}
+              fill="none"
+              stroke="#00ff88"
+              strokeWidth="4"
+              strokeDasharray="8 4"
+              style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
+            />
+          );
+        })()}
+      </svg>
+
+      {/* Wire Color Context Menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: "fixed",
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 9999,
+            background: "rgba(15,15,15,0.95)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid #333",
+            borderRadius: "12px",
+            padding: "8px",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "6px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ gridColumn: "1 / -1", padding: "4px 8px", fontSize: "11px", color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>
+            Wire Color
+          </div>
+          {WIRE_COLORS.map((c) => (
+            <button
+              key={c.value}
+              title={c.name}
+              onClick={() => handleColorSelect(contextMenu.wireId, c.value)}
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                background: c.value,
+                border: wireColors[contextMenu.wireId] === c.value ? "2px solid #fff" : "2px solid #333",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                boxShadow: wireColors[contextMenu.wireId] === c.value ? `0 0 10px ${c.value}` : "none",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 };
 
