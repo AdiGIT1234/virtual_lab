@@ -286,7 +286,7 @@ const styles = {
     minHeight: "100vh",
     background: "#000",
     color: "#fff",
-    fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+    fontFamily: "'Times New Roman', Times, serif",
   },
   loadingPage: {
     display: "flex",

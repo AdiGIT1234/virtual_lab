@@ -17,6 +17,7 @@ import DraggableWrapper from "../components/DraggableWrapper";
 import WiringCanvas from "../components/WiringCanvas";
 import HardwareConfigPanel from "../components/HardwareConfigPanel";
 import ChatbotWidget from "../components/ChatbotWidget";
+import GpioView from "../components/GpioView";
 import { useAVR } from "../engine/useAVR";
 
 export default function SandboxPage() {
@@ -196,6 +197,14 @@ void loop() {
     setInputs(prev => ({
       ...prev,
       [pin]: prev[pin] ? 0 : 1
+    }));
+  };
+
+  const handleInputChange = (pin, value) => {
+    if (pin == null) return;
+    setInputs(prev => ({
+      ...prev,
+      [pin]: value ? 1 : 0
     }));
   };
 
@@ -424,6 +433,11 @@ void loop() {
                {hexError}
             </div>
           )}
+
+          <div style={styles.gpioPanel}>
+            <div style={styles.gpioHeader}>GPIO View</div>
+            <GpioView registers={currentRegisters} onInputChange={handleInputChange} />
+          </div>
           
           {(isRunning && liveTimeline.length > 0) ? (
             <>
@@ -588,6 +602,21 @@ const styles = {
     overflowX: "hidden",
     transition: "margin-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     zIndex: 100,
+  },
+  gpioPanel: {
+    background: "#0a0a0a",
+    border: "1px solid #1c1c1c",
+    borderRadius: "12px",
+    padding: "16px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+  },
+  gpioHeader: {
+    fontSize: "14px",
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    marginBottom: "12px",
+    color: "#00ffcc",
   },
   floatingBtn: {
     position: "absolute",

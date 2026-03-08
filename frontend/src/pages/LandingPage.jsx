@@ -48,32 +48,60 @@ const FEATURES = [
   { icon: "🧩", title: "Drag & Drop Components", desc: "Wire LEDs, buttons, servos on the virtual breadboard." },
 ];
 
+const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
+const easeInOutCubic = (value) => {
+  const t = clamp01(value);
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+};
+
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [scrollY, setScrollY] = useState(0);
+  const [smoothScrollY, setSmoothScrollY] = useState(0);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [visibleCards, setVisibleCards] = useState(new Set());
   const pageRef = useRef(null);
   const videoRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
-  // Scroll tracking
+  // Smooth scroll tracking with requestAnimationFrame
   useEffect(() => {
     const container = pageRef.current;
     if (!container) return;
-    const handleScroll = () => setScrollY(container.scrollTop);
+    
+    let targetScrollY = 0;
+    
+    const handleScroll = () => {
+      targetScrollY = container.scrollTop;
+    };
+    
+    const updateSmoothScroll = () => {
+      setSmoothScrollY(prev => {
+        const diff = targetScrollY - prev;
+        if (Math.abs(diff) < 0.5) return targetScrollY;
+        return prev + diff * 0.12;
+      });
+      animationFrameRef.current = requestAnimationFrame(updateSmoothScroll);
+    };
+    
     container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
+    animationFrameRef.current = requestAnimationFrame(updateSmoothScroll);
+    
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, []);
 
-  // Sync video playback to scroll position
+  // Sync video playback to smooth scroll position
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.duration) return;
-    // Map scroll 0→2000px to video 0→duration
     const scrollRange = 2000;
-    const progress = Math.min(scrollY / scrollRange, 1);
+    const progress = Math.min(smoothScrollY / scrollRange, 1);
     video.currentTime = progress * video.duration;
-  }, [scrollY]);
+  }, [smoothScrollY]);
 
   // Video metadata load — pause autoplay so we control manually
   const handleVideoLoad = () => {
@@ -99,9 +127,11 @@ export default function LandingPage() {
   }, []);
 
   // Phase calculation: 0 = top, 1 = fully deconstructed
-  const deconstructPhase = Math.min(scrollY / 2000, 1);
-  const videoOpacity = deconstructPhase < 0.85 ? 1 : 1 - (deconstructPhase - 0.85) / 0.15;
-  const contentReveal = Math.max(0, (deconstructPhase - 0.75) / 0.25); // 0→1 as phase goes 0.75→1.0
+  const deconstructPhase = Math.min(smoothScrollY / 2000, 1);
+  const videoFade = easeInOutCubic((deconstructPhase - 0.86) / 0.12);
+  const videoOpacity = Math.max(1 - 0.75 * videoFade, 0.32);
+  const contentReveal = easeInOutCubic((deconstructPhase - 0.62) / 0.28);
+  const transitionBridge = easeInOutCubic((deconstructPhase - 0.55) / 0.35);
 
   return (
     <div ref={pageRef} style={styles.page}>
@@ -119,8 +149,10 @@ export default function LandingPage() {
           onLoadedMetadata={handleVideoLoad}
           style={styles.chipVideo}
         />
+        {/* Enhanced video with quality filters */}
+        <div style={styles.videoQualityLayer} />
         {/* Dark overlay that increases as we scroll */}
-        <div style={{ ...styles.videoOverlay, opacity: 0.2 + deconstructPhase * 0.4 }} />
+        <div style={{ ...styles.videoOverlay, opacity: 0.1 + deconstructPhase * 0.25 }} />
 
         {/* Title overlay — fades out as scroll begins */}
         <div style={{ ...styles.titleOverlay, opacity: Math.max(0, 1 - deconstructPhase * 3) }}>
@@ -199,7 +231,18 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════
           CONTENT SECTIONS — appear AFTER full deconstruction
           ════════════════════════════════════════════════════════ */}
-      <div style={{ ...styles.contentWrapper, opacity: contentReveal > 0.1 ? 1 : 0 }}>
+      {/* Seamless transition bridge */}
+      <div style={{
+        ...styles.transitionBridge,
+        opacity: transitionBridge,
+        transform: `translateY(${(1 - transitionBridge) * 60}px)`,
+      }} />
+
+      <div style={{
+        ...styles.contentWrapper,
+        opacity: contentReveal > 0 ? contentReveal : 0,
+        transform: `translateY(${(1 - contentReveal) * 60}px)`,
+      }}>
 
         {/* NAV BAR — sticky after video phase */}
         <nav style={{
@@ -330,9 +373,9 @@ const styles = {
     height: "100vh",
     overflowY: "auto",
     overflowX: "hidden",
-    background: "#000",
+    background: "#0d0d0d",
     color: "#fff",
-    fontFamily: "'Inter', system-ui, sans-serif",
+    fontFamily: "'Times New Roman', Times, serif",
     position: "relative",
   },
 
@@ -355,11 +398,20 @@ const styles = {
     minWidth: "100%",
     minHeight: "100%",
     objectFit: "cover",
+    willChange: "transform",
+    backfaceVisibility: "hidden",
+  },
+  videoQualityLayer: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)",
+    pointerEvents: "none",
+    mixBlendMode: "overlay",
   },
   videoOverlay: {
     position: "absolute",
     top: 0, left: 0, right: 0, bottom: 0,
-    background: "linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.8) 100%)",
+    background: "linear-gradient(180deg, rgba(13,13,13,0.4) 0%, rgba(13,13,13,0.7) 100%)",
     pointerEvents: "none",
   },
 
@@ -373,7 +425,7 @@ const styles = {
     alignItems: "center",
     textAlign: "center",
     zIndex: 5,
-    transition: "opacity 0.1s linear",
+    transition: "opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   heroBadge: {
     display: "inline-flex",
@@ -396,7 +448,8 @@ const styles = {
     animation: "pulse 2s infinite",
   },
   heroTitle: {
-    fontSize: "60px",
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "62px",
     fontWeight: 800,
     lineHeight: 1.05,
     letterSpacing: "-2.5px",
@@ -462,6 +515,7 @@ const styles = {
     transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   infoTitle: {
+    fontFamily: "'Times New Roman', Times, serif",
     fontSize: "14px",
     fontWeight: 700,
     color: "#00ffcc",
@@ -478,19 +532,36 @@ const styles = {
     position: "absolute",
     top: "50%", left: "50%",
     transform: "translate(-50%, -50%)",
-    background: "radial-gradient(circle, rgba(0,255,204,0.08) 0%, transparent 70%)",
+    background: "radial-gradient(circle, rgba(0,255,204,0.12) 0%, transparent 70%)",
     borderRadius: "50%",
     pointerEvents: "none",
     zIndex: 2,
-    transition: "all 0.1s linear",
+    transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+  },
+
+  /* TRANSITION BRIDGE - Seamless gradient between video and content */
+  transitionBridge: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100vh",
+    zIndex: 1,
+    background: "linear-gradient(180deg, rgba(13,13,13,0.0) 0%, rgba(13,13,13,0.35) 25%, rgba(13,13,13,0.65) 55%, rgba(13,13,13,0.9) 100%)",
+    pointerEvents: "none",
+    transition: "opacity 0.1s linear, transform 0.1s linear",
   },
 
   /* CONTENT WRAPPER (everything after video) */
   contentWrapper: {
     position: "relative",
     zIndex: 2,
-    background: "#000",
-    transition: "opacity 0.3s",
+    background: "linear-gradient(180deg, rgba(13,13,13,0.25) 0%, rgba(13,13,13,0.45) 20%, rgba(13,13,13,0.7) 55%, rgba(13,13,13,0.92) 100%)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    transition: "opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+    marginTop: "-100vh",
+    paddingTop: "100vh",
   },
 
   /* NAV */
@@ -503,15 +574,20 @@ const styles = {
     alignItems: "center",
     padding: "0 40px",
     zIndex: 100,
-    background: "rgba(0,0,0,0.7)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
-    transition: "all 0.4s",
+    background: "rgba(13,13,13,0.78)",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    borderBottom: "1px solid rgba(255,255,255,0.04)",
+    transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
-  navBrand: { display: "flex", alignItems: "center", gap: "10px" },
+  navBrand: { display: "flex", alignItems: "center", gap: "10px", fontFamily: "'Times New Roman', Times, serif" },
   navLogo: { color: "#00ffcc", fontSize: "24px" },
-  navTitle: { fontSize: "16px", fontWeight: 700, letterSpacing: "-0.3px" },
+  navTitle: {
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "16px",
+    fontWeight: 700,
+    letterSpacing: "-0.3px",
+  },
   navAccent: { color: "#00ffcc" },
   navLinks: { display: "flex", alignItems: "center", gap: "24px" },
   navLink: { color: "#888", fontSize: "14px", textDecoration: "none", fontWeight: 500 },
@@ -530,8 +606,11 @@ const styles = {
     margin: "0 auto",
   },
   sectionHeading: {
-    fontSize: "40px", fontWeight: 800,
-    textAlign: "center", letterSpacing: "-1px",
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "42px",
+    fontWeight: 800,
+    textAlign: "center",
+    letterSpacing: "-1px",
     margin: "0 0 12px 0",
   },
   summaryText: {
@@ -551,7 +630,7 @@ const styles = {
   },
   chipStatVal: {
     fontSize: "24px", fontWeight: 800, color: "#fff",
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: "'Times New Roman', Times, serif",
   },
   chipStatLabel: {
     fontSize: "11px", color: "#555", fontWeight: 500,
@@ -597,7 +676,13 @@ const styles = {
     textAlign: "center",
   },
   featureIcon: { fontSize: "36px", marginBottom: "16px" },
-  featureTitle: { fontSize: "16px", fontWeight: 700, margin: "0 0 8px 0" },
+  featureTitle: {
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "22px",
+    fontWeight: 700,
+    margin: "0 0 10px 0",
+    letterSpacing: "-0.03em",
+  },
   featureDesc: { fontSize: "13px", color: "#888", lineHeight: 1.6, margin: 0 },
 
   /* EXPERIMENTS */
@@ -620,7 +705,7 @@ const styles = {
     display: "flex", flexDirection: "column", gap: "8px",
   },
   expCardTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  expNum: { fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "#333", fontWeight: 700 },
+  expNum: { fontFamily: "'Times New Roman', Times, serif", fontSize: "12px", color: "#333", fontWeight: 700 },
   expBadge: {
     fontSize: "10px", padding: "3px 10px",
     borderRadius: "20px", fontWeight: 700,
@@ -628,7 +713,14 @@ const styles = {
     border: "1px solid",
   },
   expIcon: { fontSize: "32px", margin: "4px 0" },
-  expTitle: { fontSize: "17px", fontWeight: 700, margin: 0, color: "#eee" },
+  expTitle: {
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "22px",
+    fontWeight: 700,
+    margin: 0,
+    color: "#eee",
+    letterSpacing: "-0.025em",
+  },
   expAim: { fontSize: "13px", color: "#666", lineHeight: 1.5, margin: 0, flex: 1 },
   expArrow: { fontSize: "13px", fontWeight: 700, marginTop: "8px" },
 
@@ -645,7 +737,13 @@ const styles = {
     transform: "translate(-50%, -50%)",
     pointerEvents: "none",
   },
-  ctaTitle: { fontSize: "44px", fontWeight: 800, letterSpacing: "-1px", margin: "0 0 14px 0" },
+  ctaTitle: {
+    fontFamily: "'Times New Roman', Times, serif",
+    fontSize: "48px",
+    fontWeight: 800,
+    letterSpacing: "-1px",
+    margin: "0 0 14px 0",
+  },
   ctaSub: { fontSize: "17px", color: "#666", margin: "0 0 32px 0" },
   ctaBtn: {
     background: "linear-gradient(135deg, #00ffcc, #00cc99)",

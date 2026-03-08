@@ -1,6 +1,5 @@
 :root {
-  font-family:
-    "Inter", "Segoe UI", system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Times New Roman", Times, serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
@@ -21,7 +20,7 @@
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --text-muted: #555;
-  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --mono: "Times New Roman", Times, serif;
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -29,6 +28,7 @@
 
 * {
   box-sizing: border-box;
+  font-family: "Times New Roman", Times, serif !important;
 }
 
 body {
@@ -37,6 +37,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--surface-0);
+  font-family: "Times New Roman", Times, serif;
 }
 
 #root {
@@ -146,6 +147,29 @@ code, pre {
 .glass {
   background: rgba(17, 24, 39, 0.6);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  -webkit-backdropFilter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Hide video watermark/controls branding */
+video::-webkit-media-controls {
+  display: none !important;
+}
+video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+/* Hide embedded video watermarks */
+video + div[style*="position"] {
+  display: none !important;
+}
+
+/* Generic watermark hiding for common video platforms */
+video ~ .watermark,
+video ~ div > .watermark,
+video ~ div > div > .watermark,
+[class*="watermark"],
+[class*="logo"],
+[class*="brand"] {
+  display: none !important;
 }
