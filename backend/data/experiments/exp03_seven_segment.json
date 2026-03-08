@@ -1,0 +1,41 @@
+{
+  "id": "exp03_seven_segment",
+  "title": "Level 3: Driving a 7-Segment Display",
+  "difficulty": "Beginner",
+  "aim": "To write a program to display the digits 0-9 sequentially on a common-cathode 7-segment display.",
+  "objective": "Understand how to map digital outputs using a lookup table (array) and drive multiple GPIO pins in parallel using PORT registers.",
+  "theory": "<h3>What is a 7-Segment Display?</h3><p>A 7-segment display is an array of 7 individual LEDs (segments a, b, c, d, e, f, g) housed in a single package. By illuminating a specific combination of these LEDs, you can display any decimal digit from 0 to 9.</p><h3>Pins and Parallel Outputs</h3><p>Rather than turning on each segment individually in code (which is tedious and slow), we configure an entire 8-bit PORT (like <b>PORTD</b>) as an output with <code>DDRD = 0xFF;</code>. Then, by assigning an 8-bit hex or binary value directly to PORTD, we can change all 8 pins at exactly the same time. The order in which we wire the microcontroller to the 7-segment display must match the binary mapping we use in our software.</p><h3>Lookup Tables</h3><p>A lookup table is a powerful and very fast technique in C. We simply define an array (e.g., <code>const uint8_t digits[10] = {0x3F, 0x06...};</code>). The index of the array directly maps to the digit we want to display, making sequential counters incredibly simple to write with a <code>for</code> loop.</p>",
+  "pretest": [
+    {
+      "question": "What is the primary advantage of writing an 8-bit value directly to a PORT register rather than shifting bits one-by-one?",
+      "options": ["It reduces power consumption", "It allows using floating-point math", "It updates all pins simultaneously in a single instruction cycle", "It increases flash memory usage"],
+      "correct_answer_index": 2,
+      "explanation": "Direct port access executes extremely fast and avoids 'glitches' by applying all output states in parallel."
+    },
+    {
+      "question": "If 'a' is bit 0, 'b' is bit 1, and so on... what binary value represents a '1' on a 7-segment display (segments b and c on)?",
+      "options": ["00000101", "00000110", "10000000", "01100000"],
+      "correct_answer_index": 1,
+      "explanation": "Binary 00000110 (or 0x06 in hex) sets bits 1 and 2 high, which turns on segments b and c."
+    }
+  ],
+  "procedure": [
+    "Connect a 7-Segment Display to the breadboard.",
+    "Wire the 7 segments (A through G) sequentially to PORTD pins PD0 to PD6.",
+    "Ensure the common cathode pin is connected to Ground (GND).",
+    "In your code, create an array of 10 hexadecimal values representing digits 0-9.",
+    "Configure all pins of PORTD as outputs using DDRD.",
+    "Inside an infinite loop, write a secondary loop to iterate from 0 to 9.",
+    "Set PORTD to the value from the lookup table for the current index.",
+    "Delay for 1000ms before moving to the next digit."
+  ],
+  "posttest": [
+    {
+      "question": "In a common-anode 7-segment display, how would your software logic change?",
+      "options": ["We would need twice as many delays", "We would output LOW (0) to turn a segment ON", "We would output logic HIGH (1) to turn a segment ON", "Look-up tables would no longer work"],
+      "correct_answer_index": 1,
+      "explanation": "Since the common pin is connected to 5V (VCC), logic LOW (0V) creates the potential difference needed to light the LED segment."
+    }
+  ],
+  "feedback": "Excellent work! Now you know how to leverage look-up tables and 8-bit port manipulation to efficiently drive complex external modules like 7-Segment displays."
+}

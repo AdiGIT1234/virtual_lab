@@ -1,0 +1,41 @@
+{
+  "id": "exp04_external_interrupts",
+  "title": "Level 4: External Interrupts (INT0 & INT1)",
+  "difficulty": "Intermediate",
+  "aim": "To use external hardware interrupts on the ATmega328P to pause the main program and execute an Interrupt Service Routine (ISR).",
+  "objective": "Understand how interrupt vectors function in C (using ISR macros and AVR/interrupt.h), configure EICRA and EIMSK, and debounce interrupts in software.",
+  "theory": "<h3>What is an Interrupt?</h3><p>An interrupt is an emergency signal from hardware that tells the CPU to immediately stop what it's doing (the main loop) and jump to a specific piece of code called an Interrupt Service Routine (ISR).</p><h3>Configuring Interrupts</h3><p>In the ATmega328P, INT0 (Pin 2) and INT1 (Pin 3) are the primary external interrupt pins.</p><ol><li><b>EICRA (External Interrupt Control Register A):</b> Configures exactly <i>what</i> triggers the interrupt (e.g., rising edge, falling edge, low level, or any logic change).</li><li><b>EIMSK (External Interrupt Mask Register):</b> Actually enables the specific interrupt pin you want to use (INT0 or INT1).</li><li><b>sei():</b> The global interrupt enable macro. Even if you turn on the INT0 pin, nothing will happen until you execute <code>sei();</code> to tell the CPU to accept all interrupts.</li></ol><h3>The Global Variable gotcha</h3><p>Whenever a variable is written in an ISR and read in the main loop, it MUST be declared with the <code>volatile</code> keyword (e.g., <code>volatile uint8_t flag = 0;</code>). This tells the C compiler that the value can change without warning, preventing it from optimizing the variable out of existence.</p>",
+  "pretest": [
+    {
+      "question": "Which macro MUST be executed to enable global interrupts?",
+      "options": ["cli()", "EICRA = 1", "sei()", "ISR()"],
+      "correct_answer_index": 2,
+      "explanation": "sei() (Set Enable Interrupts) turns on the master switch for all interrupts in the ATmega."
+    },
+    {
+      "question": "What is the correct syntax to declare an Interrupt Service Routine for the pin INT0?",
+      "options": ["void interrupt_int0()", "ISR(INT0_vect)", "int0_interrupt()", "ISR(PCINT0_vect)"],
+      "correct_answer_index": 1,
+      "explanation": "The avr/interrupt.h library uses the ISR() macro passing the hardcoded vector name (INT0_vect)."
+    }
+  ],
+  "procedure": [
+    "Include the <avr/interrupt.h> header at the top of your code.",
+    "Declare a volatile integer counter variable.",
+    "Wire a push button to Pin 2 (PD2 / INT0) and connect the other end to GND. Enable its internal pull-up in DDRD/PORTD.",
+    "Configure INT0 to trigger on a FALLING edge by writing to EICRA.",
+    "Enable the INT0 interrupt by setting bit 0 in EIMSK.",
+    "Enable global interrupts by calling sei();.",
+    "Write the ISR(INT0_vect) routine to increment the counter every time the button is pressed.",
+    "In the main loop, map the counter's value to LEDs on PORTB to visualize it (a binary counter)."
+  ],
+  "posttest": [
+    {
+      "question": "Why shouldn't you place a delay(_delay_ms) inside an ISR?",
+      "options": ["Delays are not accurate in ISRs", "It halts the entire system, preventing other code and interrupts from running", "The compiler will throw an error", "It uses too much current"],
+      "correct_answer_index": 1,
+      "explanation": "ISRs must execute as quickly as possible. During an ISR, global interrupts are disabled, so a long delay will freeze the microcontroller."
+    }
+  ],
+  "feedback": "Outstanding! You have successfully stepped out of single-threaded polling and learned event-driven microcontroller programming using hardware interrupts."
+}

@@ -5,26 +5,24 @@ const EXPERIMENTS_PLACEHOLDER = [
   { id: "exp01_led_blinking", title: "LED Blinking", difficulty: "Beginner", aim: "Blink an LED using GPIO and delay loops.", icon: "💡", color: "#00ff88" },
   { id: "exp02_push_button", title: "Push Button & Debouncing", difficulty: "Beginner", aim: "Read a button with internal pull-ups and debounce logic.", icon: "🔘", color: "#00ccff" },
   { id: "exp03_seven_segment", title: "7-Segment Display", difficulty: "Beginner", aim: "Drive a 7-segment display using look-up tables.", icon: "🔢", color: "#ff9900" },
-  { id: "exp04_external_interrupts", title: "External Interrupts", difficulty: "Intermediate", aim: "Use INT0/INT1 to handle hardware events without polling.", icon: "⚡", color: "#ff3366" },
-  { id: "exp05_hardware_timers", title: "Hardware Timers", difficulty: "Intermediate", aim: "Use Timer0/Timer1 in CTC mode for non-blocking delays.", icon: "⏱️", color: "#cc66ff" },
-  { id: "exp06_pwm", title: "PWM & LED Fading", difficulty: "Intermediate", aim: "Generate PWM signals to smoothly fade an LED.", icon: "🌗", color: "#ffcc00" },
-  { id: "exp07_adc_potentiometer", title: "ADC (Potentiometer)", difficulty: "Upper Intermediate", aim: "Read analog voltages via the ADC and display as LED bar.", icon: "🎛️", color: "#33cccc" },
-  { id: "exp08_temperature_sensor", title: "Temperature Sensor", difficulty: "Upper Intermediate", aim: "Read LM35 ADC values and trigger alarm thresholds.", icon: "🌡️", color: "#ff6633" },
-  { id: "exp09_tone_generation", title: "Tone Generation", difficulty: "Upper Intermediate", aim: "Create square waves on a piezo buzzer using timers.", icon: "🔊", color: "#66ff99" },
-  { id: "exp10_uart_serial", title: "UART Serial Communication", difficulty: "Advanced", aim: "Configure USART baud rates and echo serial data.", icon: "📡", color: "#3399ff" },
-  { id: "exp11_spi_shift_register", title: "SPI & Shift Registers", difficulty: "Advanced", aim: "Use SPI to drive 8 LEDs from 3 pins via 74HC595.", icon: "🔗", color: "#ff66cc" },
-  { id: "exp12_i2c_twi", title: "I2C / TWI Protocol", difficulty: "Advanced", aim: "Master the 2-wire interface to communicate with peripherals.", icon: "🔌", color: "#99cc33" },
-  { id: "exp13_dc_motor", title: "DC Motor Control", difficulty: "Expert", aim: "Use H-Bridge logic and PWM for motor direction + speed.", icon: "⚙️", color: "#ff4444" },
-  { id: "exp14_stepper_motor", title: "Stepper Motor Sequencing", difficulty: "Expert", aim: "Write bit-sequence state machines for stepper control.", icon: "🔄", color: "#44aaff" },
-  { id: "exp15_pid_control", title: "PID Closed-Loop Control", difficulty: "Expert", aim: "Implement a PID controller to maintain target values.", icon: "📈", color: "#ffaa00" },
+  { id: "exp04_external_interrupts", title: "External Interrupts (INT0 & INT1)", difficulty: "Intermediate", aim: "Use INT0/INT1 to handle hardware events via ISRs.", icon: "⚡", color: "#ff3366" },
+  { id: "exp05_timer0_normal", title: "Timer0 Normal Mode", difficulty: "Intermediate", aim: "Use Timer0 overflow interrupts for non-blocking LED blink.", icon: "⏱️", color: "#cc66ff" },
+  { id: "exp06_timer1_ctc", title: "Timer1 CTC Mode", difficulty: "Intermediate", aim: "Generate precise 1Hz signals using CTC and OCR1A.", icon: "🎯", color: "#ffcc00" },
+  { id: "exp07_pwm_fast", title: "Fast PWM & LED Fading", difficulty: "Intermediate", aim: "Fade an LED smoothly using Timer0 Fast PWM mode.", icon: "🌗", color: "#33cccc" },
+  { id: "exp08_pwm_phase_correct", title: "Phase Correct PWM", difficulty: "Intermediate", aim: "Drive servo motors with symmetric Phase Correct PWM.", icon: "🔄", color: "#ff6633" },
+  { id: "exp09_adc_polling", title: "ADC (Analog-to-Digital)", difficulty: "Intermediate", aim: "Read analog voltages from a potentiometer using the ADC.", icon: "🎛️", color: "#66ff99" },
+  { id: "exp10_uart_tx", title: "UART Serial Transmit", difficulty: "Intermediate", aim: "Configure USART and transmit 'Hello World' over serial.", icon: "📡", color: "#3399ff" },
+  { id: "exp11_uart_rx_interrupts", title: "UART Receive Interrupts", difficulty: "Intermediate", aim: "Build an interrupt-driven UART receiver with echo.", icon: "📥", color: "#ff66cc" },
+  { id: "exp12_spi_master", title: "SPI Master Communication", difficulty: "Advanced", aim: "Execute high-speed SPI data exchange as bus master.", icon: "🔗", color: "#99cc33" },
+  { id: "exp13_i2c_master", title: "I2C / TWI Master", difficulty: "Advanced", aim: "Address I2C slave devices using TWI registers.", icon: "🔌", color: "#ff4444" },
+  { id: "exp14_eeprom_rw", title: "EEPROM Read/Write", difficulty: "Advanced", aim: "Store and retrieve persistent data through power cycles.", icon: "💾", color: "#44aaff" },
+  { id: "exp15_watchdog_timer", title: "Watchdog Timer", difficulty: "Advanced", aim: "Auto-reset a crashed microcontroller using the WDT.", icon: "🐕", color: "#ffaa00" },
 ];
 
 const difficultyColors = {
   "Beginner": "#00ff88",
   "Intermediate": "#ffcc00",
-  "Upper Intermediate": "#ff9900",
   "Advanced": "#ff3366",
-  "Expert": "#ff4444"
 };
 
 // Pin labels for the chip halves

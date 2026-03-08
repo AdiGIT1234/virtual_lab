@@ -1,0 +1,41 @@
+{
+  "id": "exp06_timer1_ctc",
+  "title": "Level 6: Timers (Timer1 CTC Mode)",
+  "difficulty": "Intermediate",
+  "aim": "To use Timer 1 in Clear Timer on Compare Match (CTC) mode to generate precise, hardware-driven signal timings.",
+  "objective": "Understand how 16-bit timers operate using TCCR1A, TCCR1B, OCR1A, and TIMSK1. Calculate the exact Match values for OCR1A to trigger a 1Hz interrupt.",
+  "theory": "<h3>CTC Mode: Auto-Resetting Timers</h3><p>In Normal mode, the timer counts up to its maximum value (255 or 65535) and overflows. What if we want it to reset earlier to get an exact 1-second delay instead of ~16ms? CTC mode solves this! The timer continually compares its count (<b>TCNT1</b>) against our requested value in <b>OCR1A</b>. If they match, the timer automatically zeroes itself and triggers an interrupt.</p><h3>Timer1 at 16-bits</h3><p>Timer1 is composed of two 8-bit registers (High and Low) that merge to count to 65,535. This allows for massive, incredibly slow counting. At a 16MHz clock with a 1024 prescaler, it ticks at 15,625 Hz.</p><h3>Finding the OCR1A Value</h3><p>To get a 1-second interval, we need 15,625 ticks. Since the timer starts at 0, our count needs to be 15,625 - 1 = 15,624. So, we simply set <code>OCR1A = 15624;</code>.</p>",
+  "pretest": [
+    {
+      "question": "Which of these registers is used to set the top value (the comparison value) when Timer1 is in CTC Mode 4?",
+      "options": ["TCNT1", "OCR1A", "ICR1", "OCR1B"],
+      "correct_answer_index": 1,
+      "explanation": "OCR1A (Output Compare Register 1 A) is explicitly used as the TOP bound for CTC mode configuration 4."
+    },
+    {
+      "question": "What is the primary benefit of CTC mode over Normal overflow mode?",
+      "options": ["It uses fewer interrupts", "It counts backwards", "You can set exact frequencies without tracking manual counters in software", "CTC Mode generates higher voltages"],
+      "correct_answer_index": 2,
+      "explanation": "Comparing the count to OCR1A allows generating precise, custom-duration timer cycles in pure hardware."
+    }
+  ],
+  "procedure": [
+    "Load the standard headers: <avr/io.h> and <avr/interrupt.h>.",
+    "Set the DDR of an LED (e.g., PB5) to Output.",
+    "Configure TCCR1B to set the Waveform Generation Mode bit (WGM12) to 1. This enables CTC mode.",
+    "Configure TCCR1B to set the Prescaler to 1024 (CS12 = 1, CS10 = 1).",
+    "Calculate OCR1A for a 1 second delay at 16MHz/1024, and assign 15624 to OCR1A.",
+    "Enable the specific Compare Match A Interrupt by setting the OCIE1A bit in TIMSK1.",
+    "Initialize global interrupts via sei();.",
+    "Create the ISR(TIMER1_COMPA_vect) and toggle the LED directly inside it; no counters needed."
+  ],
+  "posttest": [
+    {
+      "question": "If you wanted a 0.5 second interval instead, what value would you store in OCR1A?",
+      "options": ["7812", "15624", "31250", "1024"],
+      "correct_answer_index": 0,
+      "explanation": "Since 1 second requires 15,625 ticks, half a second requires 15,625 / 2 = 7812.5 ticks."
+    }
+  ],
+  "feedback": "Flawless configuration! Output Compare operations are the bedrock of sound generation, motor control, and precise communication protocols."
+}

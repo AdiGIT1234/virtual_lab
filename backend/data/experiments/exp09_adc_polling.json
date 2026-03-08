@@ -1,0 +1,34 @@
+{
+  "id": "exp09_adc_polling",
+  "title": "Level 9: Analog-to-Digital Conversion",
+  "difficulty": "Intermediate",
+  "aim": "To understand how the Analog-to-Digital Converter (ADC) built into the ATmega328P transforms continuous physical voltages into discrete numeric values.",
+  "objective": "Understand the ADC Multiplexer Selection register (ADMUX), the ADC Control/Status register (ADCSRA), and how to read the 10-bit result in ADCH/ADCL via software polling.",
+  "theory": "<h3>The Real World is Analog</h3><p>Light levels, temperatures, and audio signals don't exist merely as 0V or 5V (digital); they are continuous voltages anywhere in between. Microcontrollers only understand digital code. The Analog-to-Digital Converter (ADC) bridge is this gap.</p><h3>10-Bit Resolution</h3><p>The ATmega328P's ADC has 10 bits of resolution. It slices the 0V to 5V input range into 1024 unique steps (2^10). At 5V reference, each step is roughly 4.88mV. An input of 0V reads as 0, 2.5V reads as 511, and 5V reads as 1023.</p><h3>Connecting to the ADC Multiplexer</h3><p>The ATmega328P has only ONE physical ADC circuit, but it can read from multiple pins (A0-A5) using an internal switch called a Multiplexer (MUX). We configure the <b>ADMUX</b> register to tell the ADC which pin to connect to. We also configure the <b>ADCSRA</b> register to turn the ADC on (ADEN) and set the ADC clock speed using its dedicated prescaler (ADPS0-2).</p><h3>Triggering a Conversion</h3><p>Once configured, writing a 1 to the ADSC (Start Conversion) bit in ADCSRA asks the ADC to take a reading. Converting takes time (13-260 microseconds). We use a <code>while</code> loop to wait (poll) until the hardware clears the ADSC bit to 0, which means the conversion finished and the result is waiting in the ADC data registers (ADCL and ADCH).</p>",
+  "pretest": [
+    {
+      "question": "What is the primary function of the multiplexer (MUX) within the ATmega328P's ADC architecture?",
+      "options": ["To amplify the input voltage", "To route 5V power to the analog pins", "To allow sequentially connecting one single ADC circuit to multiple input pins (A0 to A5)", "To convert analog voltage into a digital number"],
+      "correct_answer_index": 2,
+      "explanation": "To save space and power, there is only one physical ADC that rapidly 'switches' (multiplexes) between the different analog input pins when requested."
+    }
+  ],
+  "procedure": [
+    "Connect a Potentiometer to VCC (5V), GND (0V), and its center wipe to Analog Pin A0 (PC0).",
+    "Configure ADMUX to select the AVCC voltage reference (REFS0=1) and channel 0 (MUX0-3=0).",
+    "Configure ADCSRA to enable the ADC (ADEN=1) and set a prescaler of 128 (ADPS0=1, ADPS1=1, ADPS2=1) so the ADC clock is 125kHz.",
+    "Inside the infinite while(1) loop, set the ADSC bit in ADCSRA to start a conversion.",
+    "Stall the MCU safely by waiting for the ADSC bit to clear: while(ADCSRA & (1<<ADSC)); .",
+    "When the while loop terminates, read the 16-bit combined result straight from the special `ADC` macro provided by <avr/io.h>.",
+    "Map the ADC value (0-1023) to an 8-bit output on PORTD (0-255) to visually observe the reading change on an array of 8 LEDs."
+  ],
+  "posttest": [
+    {
+      "question": "If you apply exactly 2.5V to the analog pin while using a 5V reference, what digital value roughly will the 10-bit ADC produce?",
+      "options": ["0", "511", "1023", "250"],
+      "correct_answer_index": 1,
+      "explanation": "2.5V is half of 5V. Half of the 10-bit maximum (1023) is approximately 511."
+    }
+  ],
+  "feedback": "Perfect reading of the physical world! The ADC is the absolute heart of environmental sensor programming."
+}

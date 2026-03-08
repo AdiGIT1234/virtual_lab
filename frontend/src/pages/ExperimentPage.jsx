@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import ChatbotWidget from "../components/ChatbotWidget";
 
 export default function ExperimentPage() {
   const { experimentId } = useParams();
@@ -272,6 +273,9 @@ export default function ExperimentPage() {
           </div>
         )}
       </div>
+
+      {/* RAG Chatbot Integration */}
+      <ChatbotWidget context="theory" />
     </div>
   );
 }

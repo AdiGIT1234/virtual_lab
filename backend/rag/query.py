@@ -11,8 +11,13 @@ Usage:
 """
 
 import os
-import chromadb
-import google.generativeai as genai
+import json
+import time as _time
+import re
+from typing import Any, Optional
+
+import chromadb  # type: ignore
+import google.generativeai as genai  # type: ignore
 
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chromadb_store")
 COLLECTION_NAME = "atmega328p_docs"
@@ -21,7 +26,7 @@ COLLECTION_NAME = "atmega328p_docs"
 class RAGEngine:
     """Retrieval-Augmented Generation engine for ATmega328P queries."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ValueError(
@@ -42,7 +47,7 @@ class RAGEngine:
             self.has_documents = False
         
         # Initialize Gemini model for generation
-        self.model = genai.GenerativeModel("gemini-2.0-flash-lite")
+        self.model = genai.GenerativeModel("gemini-2.0-flash")
         
         if not self.has_documents:
             print("⚠️  No documents in vector DB. Run ingestion first: python -m rag.ingest")
@@ -56,7 +61,7 @@ class RAGEngine:
         )
         return result["embedding"]
     
-    def _retrieve(self, query: str, n_results: int = 5) -> list[dict]:
+    def _retrieve(self, query: str, n_results: int = 5) -> list[dict[str, Any]]:
         """Search ChromaDB for the most relevant chunks."""
         if not self.has_documents or not self.collection:
             return []
@@ -69,18 +74,22 @@ class RAGEngine:
         )
         
         # Format results
-        retrieved = []
-        for i in range(len(results["documents"][0])):
+        retrieved: list[dict[str, Any]] = []
+        docs = results.get("documents") or [[]]
+        metas = results.get("metadatas") or [[]]
+        dists = results.get("distances") or [[]]
+        
+        for i in range(len(docs[0])):  # type: ignore
             retrieved.append({
-                "text": results["documents"][0][i],
-                "source": results["metadatas"][0][i].get("source", "unknown"),
-                "page": results["metadatas"][0][i].get("page", 0),
-                "distance": results["distances"][0][i] if results.get("distances") else None
+                "text": docs[0][i],  # type: ignore
+                "source": metas[0][i].get("source", "unknown") if metas[0] else "unknown",  # type: ignore
+                "page": metas[0][i].get("page", 0) if metas[0] else 0,  # type: ignore
+                "distance": dists[0][i] if dists and dists[0] else None  # type: ignore
             })
         
         return retrieved
     
-    def ask(self, question: str, context_mode: str = "chatbot") -> dict:
+    def ask(self, question: str, context_mode: str = "chatbot") -> dict[str, Any]:
         """
         Answer a question using RAG (retrieval + generation).
         
@@ -152,7 +161,9 @@ If you're not sure about specific register details, say so.
             "has_context": has_context
         }
     
-    def generate_experiment_content(self, experiment_topic: str, experiment_details: dict) -> dict:
+    def generate_experiment_content(
+        self, experiment_topic: str, experiment_details: dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
         """
         Generate full experiment content (aim, theory, pretest, procedure, posttest, feedback)
         using RAG to ground the content in the actual datasheet.
@@ -162,7 +173,7 @@ If you're not sure about specific register details, say so.
             experiment_details: dict with keys like 'difficulty', 'pins_used', 'registers'
         
         Returns:
-            Complete experiment JSON structure
+            Complete experiment JSON structure, or None on failure
         """
         # Retrieve relevant datasheet sections
         retrieved = self._retrieve(experiment_topic, n_results=8)
@@ -243,10 +254,6 @@ Generate a COMPLETE experiment in the following JSON structure. Return ONLY vali
   "feedback": "<Congratulatory feedback summarizing what was learned>"
 }}"""
         
-        import json
-        import time as _time
-        import re
-        
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -276,3 +283,5 @@ Generate a COMPLETE experiment in the following JSON structure. Return ONLY vali
                 
                 print(f"❌ Error generating experiment content: {e}")
                 return None
+        
+        return None

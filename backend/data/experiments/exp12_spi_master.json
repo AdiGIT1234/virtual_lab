@@ -1,0 +1,34 @@
+{
+  "id": "exp12_spi_master",
+  "title": "Level 12: SPI Comm (Master Mode)",
+  "difficulty": "Advanced",
+  "aim": "To execute high-speed bidirectional communication by configuring the ATmega328P as an SPI Master.",
+  "objective": "Understand the Serial Peripheral Interface (SPI) pins (MOSI, MISO, SCK, SS), configure SPCR (Control Register), and transmit data using SPSR and SPDR.",
+  "theory": "<h3>SPI Architecture</h3><p>SPI (Serial Peripheral Interface) is a synchronous, full-duplex protocol. It is vastly faster than UART (up to 8 Megabits per second). It uses 4 dedicated hardware pins:<br><b>MOSI:</b> Master Out Slave In.<br><b>MISO:</b> Master In Slave Out.<br><b>SCK:</b> Serial Clock generated ONLY by the Master.<br><b>SS:</b> Slave Select, driven LOW by the Master to tell a specific component on the bus to listen.</p><h3>Full Duplex Exchanging</h3><p>In SPI, reading and writing happen simultaneously. As the master shifts an 8-bit command bit-by-bit out of MOSI, the slave device shifts an 8-bit response bit-by-bit into MISO via shift registers. To read a byte from a slave, you MUST transmit a dummy byte (like 0xFF) just to generate the 8 clock pulses on SCK to suck the answer in.</p><h3>Configuring the SPCR</h3><p>The Master MUST explicitly set the MOSI, SCK, and SS pins as OUTPUTs in DDRB. The MISO pin must be an INPUT. The SPI Control Register (<b>SPCR</b>) enables SPI (SPE=1) and explicitly asserts Master mode (MSTR=1).</p>",
+  "pretest": [
+    {
+      "question": "Why must the ATmega328P (as Master) explicitly set the SS (Slave Select) pin to OUTPUT and keep it HIGH if it’s not communicating, even if it uses another pin to select the slave?",
+      "options": ["To boost power output", "If SS is an input and pulled LOW externally, the hardware violently forces the ATmega328P into Slave Mode, destroying Master operations", "To tell the UART hardware to turn off", "Because the SPCR register requires it for SPI clock division"],
+      "correct_answer_index": 1,
+      "explanation": "This is a critical hardware feature. If the physical SS pin (PB2) is configured as input and drops to LOW, it is an over-ride that disables the MSTR bit in SPCR."
+    }
+  ],
+  "procedure": [
+    "Configure DDRB explicitly. Set MOSI (PB3), SCK (PB5), and SS (PB2) as outputs. Keep MISO (PB4) as an input.",
+    "Drive SS High (PORTB |= (1<<2)) so no slaves are falsely selected yet.",
+    "Initialize the SPI Control Register (SPCR). Enable SPI (SPE=1), Master (MSTR=1), and optionally set the clock rate to fosc/16 (SPR0=1).",
+    "To transmit, pull the target slave's chip select pin LOW.",
+    "Load data into the SPI Data Register: `SPDR = data;`",
+    "Wait for the SPI Interrupt Flag (SPIF) in the SPSR register to be set to 1.",
+    "The received answer from the slave is now living inside `SPDR`. Read it, then pull the chip select pin HIGH to end the transaction."
+  ],
+  "posttest": [
+    {
+      "question": "When loading data into SPDR, what action generates the serial clock pulses (SCK) to move the bits?",
+      "options": ["A separate clock generation function", "The act of writing to SPDR physically triggers the 8-pulse clock hardware sequence", "Continuously polling the SPSR register", "The Slave pulling MISO low"],
+      "correct_answer_index": 1,
+      "explanation": "Writing an 8-bit value directly into SPDR immediately and automatically kicks off the 8 hardware SCK pulses required to execute the transaction."
+    }
+  ],
+  "feedback": "You've mastered synchronous protocols. SPI is extensively used for addressing high-speed hardware: SD Cards, TFT Screens, and Flash Memory chips."
+}

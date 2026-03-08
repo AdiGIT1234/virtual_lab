@@ -1,0 +1,35 @@
+{
+  "id": "exp11_uart_rx_interrupts",
+  "title": "Level 11: Serial Comm (UART Receive Interrupts)",
+  "difficulty": "Intermediate",
+  "aim": "To construct an interrupt-driven UART receiver that automatically catches characters arriving via Serial without polling.",
+  "objective": "Understand the RXCIE0 interrupt, safely buffer incoming characters inside the ISR(USART_RX_vect), and securely pass them to the main loop.",
+  "theory": "<h3>The Problem with Polling Rx</h3><p>Unlike transmitting (Tx), where you decide when to send, receiving (Rx) is totally unpredictable. A user could type a character at any microsecond. If you use a blocking `while(!(UCSR0A & (1<<RXC0)));` loop to wait for a character, your main program halts and does absolutely nothing else.</p><h3>The RX Complete Interrupt</h3><p>By enabling the Receiver Interrupt Enable (<b>RXCIE0</b>) bit in <b>UCSR0B</b>, the UART hardware will automatically trigger an interrupt the instant a new byte completely finishes shifting into the ATmega328P. You write an ISR(USART_RX_vect) that reads the UDR0 register and saves the character to a `volatile` buffer (like an array or ring buffer).</p><h3>Interrupt Handlers</h3><p>When the ISR fires, global interrupts are momentarily disabled. You must read UDR0 inside the ISR immediately, or the next incoming character might overwrite it before your main loop processes it.</p>",
+  "pretest": [
+    {
+      "question": "Which interrupt vector is responsible for firing when a new character arrives on the UART Rx pin?",
+      "options": ["TIMER0_OVF_vect", "USART_TX_vect", "USART_RX_vect", "INT0_vect"],
+      "correct_answer_index": 2,
+      "explanation": "USART_RX_vect triggers when a full 8-bit frame has successfully been assembled in the UDR0 hardware buffer."
+    }
+  ],
+  "procedure": [
+    "Configure UBRR0 for your serial baud rate (e.g., 9600).",
+    "Enable BOTH the Receiver (RXEN0) and the Transceiver (TXEN0) in UCSR0B.",
+    "Enable the Receiver Interrupt (RXCIE0) in UCSR0B.",
+    "Declare a `volatile unsigned char last_rx_char;` and a `volatile uint8_t char_ready;` flag globally.",
+    "Call sei(); to allow global interrupts to fire.",
+    "Write ISR(USART_RX_vect). Inside, read the incoming byte from UDR0 into `last_rx_char`, and set `char_ready = 1;`.",
+    "In your main loop, continuously check if `char_ready` is 1.",
+    "When `char_ready` is 1, clear it to 0, and transmit the received character back out so you can see it on the monitor (this is called Echoing)."
+  ],
+  "posttest": [
+    {
+      "question": "What happens if you never read UDR0 inside an enabled Receive Interrupt ISR?",
+      "options": ["The ATmega328P resets", "The ISR re-triggers instantly and endlessly, freezing the system", "The memory overflows", "It sends the character back to the computer automatically"],
+      "correct_answer_index": 1,
+      "explanation": "The hardware keeps the RXC0 flag high until UDR0 is read. If the ISR exits without reading it, the interrupt mechanism instantly fires the ISR again."
+    }
+  ],
+  "feedback": "Outstanding asynchronous code. This non-blocking reception technique is the core behind Bluetooth, GPS, and Wi-Fi modules communicating with arduinos."
+}

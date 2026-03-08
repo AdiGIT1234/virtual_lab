@@ -1,0 +1,42 @@
+{
+  "id": "exp05_timer0_normal",
+  "title": "Level 5: Timers (Timer0 Normal Mode)",
+  "difficulty": "Intermediate",
+  "aim": "To use Timer 0 in Normal Mode and the Overflow Interrupt on the ATmega328P to blink an LED without blocking the main program.",
+  "objective": "Understand how 8-bit timer registers (TCCR0B, TIMSK0) work, calculate prescaler and timer overflows, and use ISR(TIMER0_OVF_vect) for precise timing.",
+  "theory": "<h3>Hardware Timers</h3><p>Instead of software delay loops (like <code>_delay_ms</code>), the ATmega328P contains dedicated hardware counters called <b>Timers</b>. Timer0 is an 8-bit timer, meaning it repeatedly counts from 0 up to 255. Once it hits 255 and tries to go to 256, it overflows back to 0.</p><h3>The Prescaler</h3><p>Running at 16 MHz, a timer would overflow in just 16 microseconds! A <b>Prescaler</b> slows down the clock feeding the timer by dividing it. If we set a prescaler of 1024 (using the <b>TCCR0B</b> register), the timer ticks at 16,000,000 / 1024 = 15,625 Hz. One overflow then takes roughly 16.38 milliseconds.</p><h3>Timer Interrupts</h3><p>When the timer overflows, it sets a flag (TOV0). By configuring the <b>TIMSK0</b> (Timer Interrupt Mask Register) to enable the Timer Overflow Interrupt, the CPU immediately calls the Overflow ISR (Interrupt Service Routine). This frees up your main loop to handle things like reading buttons simultaneously, because the blinking is handled asynchronously in the background.</p>",
+  "pretest": [
+    {
+      "question": "Which of these registers controls the prescaler for Timer0?",
+      "options": ["TCCR0B", "TIMSK0", "TCNT0", "OCR0A"],
+      "correct_answer_index": 0,
+      "explanation": "TCCR0B (Timer/Counter Control Register 0 B) handles setting the prescaler and starting the timer clock."
+    },
+    {
+      "question": "If Timer0 is an 8-bit counter, at what value does it naturally overflow when running in Normal Mode?",
+      "options": ["FF (255)", "FFFF (65535)", "A", "Depends on OCR0A"],
+      "correct_answer_index": 0,
+      "explanation": "The counter holds 8 bits (0-255). It overflows when trying to step past 255."
+    }
+  ],
+  "procedure": [
+    "Include <avr/io.h> and <avr/interrupt.h>.",
+    "Set the DDR for an LED pin (e.g., PB5) connected to Pin 13 to act as an output.",
+    "Configure TCCR0B to set the prescaler for Timer0 to 1024 by setting CS02 and CS00 to 1.",
+    "Enable the Timer0 Overflow Interrupt by setting TOIE0 to 1 in the TIMSK0 register.",
+    "Turn on global interrupts using sei();.",
+    "Write the ISR(TIMER0_OVF_vect) routine.",
+    "Inside the ISR, setup a static counter variable. Increment it every overflow.",
+    "Since one overflow is ~16ms, toggle the LED state when the static counter reaches 61 (1000ms / 16.38ms). Reset the counter to 0.",
+    "Leave the main loop (while(1)) completely empty. The background hardware handles everything!"
+  ],
+  "posttest": [
+    {
+      "question": "If we leave the main while(1) loop completely empty, what is the CPU doing?",
+      "options": ["Nothing, it goes to sleep automatically", "Executing other code from flash", "Endlessly spinning in the while loop until the background interrupt disrupts it", "It halts execution entirely"],
+      "correct_answer_index": 2,
+      "explanation": "The CPU endlessly spins in the empty loop, continuously checking if an interrupt has been flagged by the hardware module."
+    }
+  ],
+  "feedback": "Perfect! You successfully broke free from blocking delays by harnessing autonomous hardware timers. This is crucial for real-time operating systems."
+}

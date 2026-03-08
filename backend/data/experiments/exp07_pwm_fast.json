@@ -1,0 +1,33 @@
+{
+  "id": "exp07_pwm_fast",
+  "title": "Level 7: Pulse Width Modulation (Fast PWM)",
+  "difficulty": "Intermediate",
+  "aim": "To use Timer 0 in Fast PWM mode on the ATmega328P to fade an LED in and out (analog-like output).",
+  "objective": "Understand how to configure TCCR0A and TCCR0B to enable Fast PWM on OC0A (Pin 6/PD6), altering the duty cycle via OCR0A.",
+  "theory": "<h3>What is PWM?</h3><p>Pulse Width Modulation (PWM) is a technique for getting analog results with digital means. Digital control is used to create a square wave, a signal switched between on and off. By rapidly turning the output on and off, the average voltage delivered to a component (like an LED) changes, giving the illusion of fading.</p><h3>Duty Cycle</h3><p>The duty cycle is the percentage of time a digital signal is ON over an interval or period of time. A 50% duty cycle means the signal is HIGH 50% of the time and LOW 50% of the time, resulting in an average voltage of 2.5V (half of 5V).</p><h3>Configuring Fast PWM</h3><p>We use the dedicated hardware output compare pins (e.g., OC0A on PD6) driven by Timer0. We configure the Waveform Generation Mode bits in TCCR0A/B to Fast PWM mode. In this mode, the timer counts from 0 to 255 repeatedly. When TCNT0 matches OCR0A, the OC0A pin resets to LOW. When TCNT0 overflows back to 0, the OC0A pin sets HIGH. Changing OCR0A changes when the pin drops LOW, modifying the duty cycle.</p>",
+  "pretest": [
+    {
+      "question": "What is the primary purpose of Pulse Width Modulation (PWM)?",
+      "options": ["To amplify the power to 10V", "To simulate analog variation using rapid digital switching", "To measure external analog voltages", "To slow down the main clock oscillator"],
+      "correct_answer_index": 1,
+      "explanation": "Rapid digital pulsing changes the average power delivered, looking like a smooth analog shift to external components."
+    }
+  ],
+  "procedure": [
+    "Configure PD6 (OC0A) as an output by setting the corresponding bit in DDRD.",
+    "Set the Waveform Generation Mode bits in TCCR0A and TCCR0B for Fast PWM (WGM00 = 1, WGM01 = 1, WGM02 = 0).",
+    "Set COM0A1 = 1 in TCCR0A to Clear OC0A on Compare Match, set OC0A at BOTTOM (non-inverting mode).",
+    "Set the clock select bits in TCCR0B to start the timer (e.g., prescaler 64).",
+    "In your main loop, slowly increase the value of OCR0A from 0 to 255 using a loop and a short delay.",
+    "Once it reaches 255, slowly decrease OCR0A from 255 down to 0."
+  ],
+  "posttest": [
+    {
+      "question": "If OCR0A is set to 127 in Fast PWM mode (non-inverting), what is the approximate duty cycle on pin OC0A?",
+      "options": ["10%", "25%", "50%", "100%"],
+      "correct_answer_index": 2,
+      "explanation": "Since Timer0 counts to 255, matching at 127 means the pin is high for exactly half the period."
+    }
+  ],
+  "feedback": "Brilliant job. You are now controlling the intensity of power delivery, an absolute necessity for LEDs, servo motors, and heaters."
+}

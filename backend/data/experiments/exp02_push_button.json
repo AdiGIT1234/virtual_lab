@@ -1,0 +1,40 @@
+{
+  "id": "exp02_push_button",
+  "title": "Level 2: Reading Inputs (Push Button)",
+  "difficulty": "Beginner",
+  "aim": "To write an Embedded C program to read the state of a push button and control an LED accordingly on the ATmega328P.",
+  "objective": "Understand GPIO input configuration using DDRx, PORTx, and PINx registers, including internal pull-up resistors and debouncing techniques.",
+  "theory": "<h3>Configuring Inputs</h3><p>When you want to read a digital signal on a GPIO pin, you configure it as an INPUT. In the ATmega328P, setting a bit in the <b>DDRx</b> register to <code>0</code> configures the corresponding pin as an input.</p><h3>The PINx Register</h3><p>To actually read the voltage state on an input pin (whether it is 5V or 0V), you must read the <b>PINx</b> (Port Input Pins) register. For example, if PD2 is set as an input, reading <code>PIND & (1 << 2)</code> will tell you if the pin is HIGH or LOW.</p><h3>Internal Pull-up Resistors</h3><p>A bare push button connected between a pin and Ground causes a problem when the button is NOT pressed: the pin is 'floating', and its voltage is unpredictable. To fix this, you enable the microcontroller's internal pull-up resistor. When the pin is an INPUT (DDRx is 0), writing a <code>1</code> to the corresponding bit in the <b>PORTx</b> register connects an internal 20k-50kΩ resistor to 5V (VCC). The pin will naturally read HIGH when unpressed, and LOW when pressed (connected to Ground).</p><h3>Debouncing</h3><p>Mechanical switches 'bounce' when pressed, meaning the metal contacts hit each other multiple times before settling. In software, this looks like multiple rapid button presses. A simple wait (delay) after the first state change helps ignore these bounces (software debouncing).</p>",
+  "pretest": [
+    {
+      "question": "Which register is used to READ the current logical state of an input pin on the ATmega328P?",
+      "options": ["PORTB", "PINB", "DDRB", "ADC"],
+      "correct_answer_index": 1,
+      "explanation": "The PINx register contains the actual physical logic levels present on the pins."
+    },
+    {
+      "question": "How do you enable the internal pull-up resistor on pin PD2?",
+      "options": ["Set DDRD bit 2 to 0, then clear PORTD bit 2 to 0", "Set DDRD bit 2 to 1, then set PORTD bit 2 to 1", "Set DDRD bit 2 to 0, then set PORTD bit 2 to 1", "Set DDRD bit 2 to 1, then clear PORTD bit 2 to 0"],
+      "correct_answer_index": 2,
+      "explanation": "To enable the pull-up, set the direction to input (DDR bit = 0) and the port value to high (PORT bit = 1)."
+    }
+  ],
+  "procedure": [
+    "Connect an LED with a 330Ω resistor to Pin 13 (PB5) and configure it as an OUTPUT.",
+    "Connect a Push Button between Pin 2 (PD2) and Ground (GND).",
+    "Configure PD2 as an INPUT by clearing bit 2 in the DDRD register (DDRD &= ~(1<<PD2)).",
+    "Enable the internal pull-up resistor on PD2 by setting bit 2 in the PORTD register (PORTD |= (1<<PD2)).",
+    "In your main loop, read the PIND register to check the state of PD2.",
+    "If the bit is 0 (button pressed), turn the LED ON.",
+    "If the bit is 1 (button unpressed), turn the LED OFF."
+  ],
+  "posttest": [
+    {
+      "question": "When using an internal pull-up with a button connected to Ground, what does the PIN register read when the button is PRESSED?",
+      "options": ["HIGH (1)", "LOW (0)", "High Impedance (Z)", "Floating"],
+      "correct_answer_index": 1,
+      "explanation": "Pressing the button connects the pin directly to Ground, forcing the voltage to 0V (LOW)."
+    }
+  ],
+  "feedback": "Great job! You learned how to read inputs, use bitwise operators to check specific bits within PIN registers, and enable internal pull-up resistors to stabilize inputs."
+}

@@ -11,9 +11,10 @@ Usage:
 
 import os
 import glob
-import chromadb
-from pypdf import PdfReader
-import google.generativeai as genai
+import chromadb  # type: ignore
+from pypdf import PdfReader  # type: ignore
+import google.generativeai as genai  # type: ignore
+from typing import Any, List, Dict, Tuple
 
 # ---------------------------
 # Configuration
@@ -21,13 +22,13 @@ import google.generativeai as genai
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "datasheets")
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chromadb_store")
 COLLECTION_NAME = "atmega328p_docs"
-CHUNK_SIZE = 800       # characters per chunk
-CHUNK_OVERLAP = 150    # overlap between chunks for context continuity
+CHUNK_SIZE: int = 800       # characters per chunk
+CHUNK_OVERLAP: int = 150    # overlap between chunks for context continuity
 
 
-def load_pdfs(data_dir: str) -> list[dict]:
+def load_pdfs(data_dir: str) -> List[Dict[str, Any]]:
     """Reads all PDFs in data_dir and returns a list of {filename, page, text}."""
-    documents = []
+    documents: List[Dict[str, Any]] = []
     pdf_files = glob.glob(os.path.join(data_dir, "*.pdf"))
     
     if not pdf_files:
@@ -42,7 +43,8 @@ def load_pdfs(data_dir: str) -> list[dict]:
         try:
             reader = PdfReader(pdf_path)
             for page_num, page in enumerate(reader.pages):
-                text = page.extract_text()
+                extracted = page.extract_text()
+                text = str(extracted) if extracted else ""
                 if text and len(text.strip()) > 50:  # skip near-empty pages
                     documents.append({
                         "filename": filename,
@@ -56,43 +58,45 @@ def load_pdfs(data_dir: str) -> list[dict]:
     return documents
 
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> List[str]:
     """Split text into overlapping chunks for better retrieval."""
-    chunks = []
-    start = 0
+    chunks: List[str] = []
+    start: int = 0
+    end: int = 0
     while start < len(text):
         end = start + chunk_size
-        chunk = text[start:end]
+        chunk = text[start:end]  # type: ignore
         if len(chunk.strip()) > 30:  # skip tiny fragments
             chunks.append(chunk.strip())
         start = end - overlap
     return chunks
 
 
-def create_chunks(documents: list[dict]) -> tuple[list[str], list[dict], list[str]]:
+def create_chunks(documents: List[Dict[str, Any]]) -> Tuple[List[str], List[Dict[str, Any]], List[str]]:
     """Convert page-level documents into overlapping chunks with metadata."""
-    all_chunks = []
-    all_metadatas = []
-    all_ids = []
+    all_chunks: List[str] = []
+    all_metadatas: List[Dict[str, Any]] = []
+    all_ids: List[str] = []
     
-    chunk_counter = 0
+    chunk_counter: int = 0
     for doc in documents:
-        chunks = chunk_text(doc["text"])
+        text = str(doc.get("text", ""))
+        chunks = chunk_text(text)
         for i, chunk in enumerate(chunks):
             all_chunks.append(chunk)
             all_metadatas.append({
-                "source": doc["filename"],
-                "page": doc["page"],
+                "source": str(doc.get("filename", "")),
+                "page": int(doc.get("page", 0)),
                 "chunk_index": i
             })
             all_ids.append(f"chunk_{chunk_counter}")
-            chunk_counter += 1
+            chunk_counter = chunk_counter + 1  # type: ignore
     
     print(f"✅ Created {len(all_chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
     return all_chunks, all_metadatas, all_ids
 
 
-def embed_and_store(chunks: list[str], metadatas: list[dict], ids: list[str]):
+def embed_and_store(chunks: List[str], metadatas: List[Dict[str, Any]], ids: List[str]) -> None:
     """Generate Gemini embeddings and store in ChromaDB."""
     
     # Initialize ChromaDB
@@ -111,13 +115,13 @@ def embed_and_store(chunks: list[str], metadatas: list[dict], ids: list[str]):
     )
     
     # Generate embeddings in batches (Gemini has limits)
-    BATCH_SIZE = 50
+    BATCH_SIZE: int = 50
     total = len(chunks)
     
     for i in range(0, total, BATCH_SIZE):
-        batch_chunks = chunks[i:i + BATCH_SIZE]
-        batch_metas = metadatas[i:i + BATCH_SIZE]
-        batch_ids = ids[i:i + BATCH_SIZE]
+        batch_chunks = chunks[i:i + BATCH_SIZE]  # type: ignore
+        batch_metas = metadatas[i:i + BATCH_SIZE]  # type: ignore
+        batch_ids = ids[i:i + BATCH_SIZE]  # type: ignore
         
         print(f"   Embedding batch {i // BATCH_SIZE + 1}/{(total + BATCH_SIZE - 1) // BATCH_SIZE}...")
         
@@ -142,7 +146,7 @@ def embed_and_store(chunks: list[str], metadatas: list[dict], ids: list[str]):
     print(f"✅ Stored {total} chunks in ChromaDB at {os.path.abspath(CHROMA_DIR)}")
 
 
-def run_ingestion():
+def run_ingestion() -> bool:
     """Main ingestion pipeline."""
     # Verify API key is set
     api_key = os.environ.get("GEMINI_API_KEY")

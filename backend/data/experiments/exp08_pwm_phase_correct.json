@@ -1,0 +1,34 @@
+{
+  "id": "exp08_pwm_phase_correct",
+  "title": "Level 8: PWM (Phase Correct)",
+  "difficulty": "Intermediate",
+  "aim": "To use Timer 1 in Phase Correct PWM mode to generate symmetric, noise-free pulses suitable for motor control and servos.",
+  "objective": "Understand how dual-slope Phase Correct PWM differs from Fast PWM, and configure ICR1 or OCR1A to define custom PWM frequencies.",
+  "theory": "<h3>Dual-Slope Counting</h3><p>Unlike Fast PWM which counts up to TOP and immediately restarts at 0 (single-slope), Phase Correct PWM counts up from 0 to TOP, and then counts back down from TOP to 0 (dual-slope). This creates a symmetrical pulse centered exactly half-way through the PWM cycle, which is vastly preferred in motor control to avoid sudden phase shifts and current spikes.</p><h3>Defining Custom TOP with ICR1</h3><p>Normally a 16-bit timer counts to 65535, giving a very slow PWM frequency. By using Phase Correct PWM mode with <b>ICR1</b> (Input Capture Register) defining the TOP value, we can create custom-frequency PWM! For example, standard RC Servo motors expect a 50Hz signal (a 20ms period). We calculate what ICR1 needs to be so the timer reaches TOP in exactly 10ms (half the 20ms dual-slope cycle).</p><h3>Controlling Servos</h3><p>A servo expects a 50Hz signal where the HIGH pulse lasts between 1.0ms (0 degrees) and 2.0ms (180 degrees). We use <b>OCR1A</b> to define how long the pulse stays high within that 20ms window.</p>",
+  "pretest": [
+    {
+      "question": "What happens differently when a timer operates in Phase Correct PWM mode instead of Fast PWM?",
+      "options": ["The timer stops entirely at the top", "The timer counts up to TOP and then counts backwards to 0", "The timer automatically disables the prescaler", "The timer counts twice as fast"],
+      "correct_answer_index": 1,
+      "explanation": "Counting up and then down generates a symmetric 'dual slope' waveform."
+    }
+  ],
+  "procedure": [
+    "Connect the Control signal of a Servo Motor to Pin 9 (PB1 / OC1A).",
+    "Configure DDRB to make PB1 an output.",
+    "Set the TCCR1A and TCCR1B registers for Phase Correct PWM using ICR1 as the TOP value (Mode 10).",
+    "Set the TCCR1A COM1A1 bit to clear OC1A on up-counting compare match, and set OC1A on down-counting compare match.",
+    "Calculate the TOP value for 50Hz based on a chosen prescaler (e.g. 8). Calculate: fPWM = fclk / (2 * N * TOP). For fPWM=50Hz, TOP (ICR1) = 20000.",
+    "In the main loop, map servo positions to OCR1A delays. A 1ms pulse (1000 ticks) is 0°, and a 2ms pulse (2000 ticks) is 180°.",
+    "Write code to sweep OCR1A between 1000 and 2000."
+  ],
+  "posttest": [
+    {
+      "question": "If ICR1 defines the full wavelength frequency (50Hz), what register controls the exact width of the pulse (duty cycle) sent to the servo?",
+      "options": ["TCCR1B", "TCNT1", "OCR1A", "ICR1"],
+      "correct_answer_index": 2,
+      "explanation": "OCR1A determines the compare-match threshold, which sets exactly when the pin transitions from high to low inside the cycle."
+    }
+  ],
+  "feedback": "Outstanding work defining custom hardware frequencies! You can now effectively drive RC robotics servos."
+}

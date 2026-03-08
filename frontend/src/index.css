@@ -10,6 +10,21 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Design tokens */
+  --accent: #00ffcc;
+  --accent-glow: rgba(0, 255, 204, 0.15);
+  --surface-0: #000;
+  --surface-1: #0a0a0a;
+  --surface-2: #111;
+  --border: #1a1a1a;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #555;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 }
 
 * {
@@ -21,7 +36,7 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #000;
+  background: var(--surface-0);
 }
 
 #root {
@@ -32,19 +47,33 @@ body {
 
 a {
   font-weight: 500;
-  color: #00ffcc;
+  color: var(--accent);
   text-decoration: none;
+  transition: color 0.2s;
 }
 a:hover {
   color: #00ff88;
 }
 
+/* Selection highlight */
+::selection {
+  background: rgba(0, 255, 204, 0.2);
+  color: #fff;
+}
+
+/* Focus styling for accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: var(--surface-1);
 }
 ::-webkit-scrollbar-thumb {
   background: #222;
@@ -54,14 +83,20 @@ a:hover {
   background: #333;
 }
 
+/* Button reset */
+button {
+  font-family: inherit;
+}
+
+/* Code blocks */
+code, pre {
+  font-family: var(--mono);
+}
+
 /* Animations */
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
@@ -78,4 +113,39 @@ a:hover {
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(8px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Utility classes */
+.glass {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }

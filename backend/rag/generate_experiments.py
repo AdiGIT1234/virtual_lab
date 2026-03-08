@@ -12,12 +12,12 @@ Usage:
 import os
 import json
 import time
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Load .env from the backend directory
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from rag.query import RAGEngine
+from rag.query import RAGEngine  # type: ignore
 
 EXPERIMENTS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "experiments")
 

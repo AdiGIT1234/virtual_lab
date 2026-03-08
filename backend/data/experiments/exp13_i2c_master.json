@@ -1,0 +1,35 @@
+{
+  "id": "exp13_i2c_master",
+  "title": "Level 13: I2C Comm (TWI Master)",
+  "difficulty": "Advanced",
+  "aim": "To address multiple devices over the I2C (Two-Wire Interface - TWI) bus using only two synchronous pins: SCL and SDA.",
+  "objective": "Understand the TWI Control mechanisms: TWCR, TWSR, and TWBR, generate a START/STOP condition, and address unique 7-bit slave devices.",
+  "theory": "<h3>The I2C Bus Architecture</h3><p>Unlike UART (point-to-point) or SPI (multi-CS), I2C uses Open-Drain circuitry and unique addressing. Only <b>SDA</b> (Serial Data) and <b>SCL</b> (Serial Clock) are needed to connect up to 127 unique devices to the ATmega328P. Both lines must be pulled up to VCC with external resistors.</p><h3>Master Control: TWCR</h3><p>The TWI Control Register (<b>TWCR</b>) manages every single bus action. A transaction is initiated by generating a START condition: writing `(1<<TWINT) | (1<<TWSTA) | (1<<TWEN)` to TWCR. TWINT (Interrupt Flag) must be cleared by writing a 1 to it to initiate the action, and then polled in software to confirm when the TWI hardware finishes the action.</p><h3>Addressing Slaves</h3><p>After a successful START, the master transmits the 7-bit Slave Address appended with a Read/Write bit (0 for Write, 1 for Read) out of <b>TWDR</b>. The designated slave responds by pulling SDA Low during the 9th clock cycle, known as the Acknowledge (ACK).</p>",
+  "pretest": [
+    {
+      "question": "What happens if you never write a 1 to the TWINT bit in the TWCR register?",
+      "options": ["The transaction starts, but the flag isn't cleared", "The I2C hardware remains stalled permanently, waiting to be cleared", "An interrupt forces the bit to 0 automatically", "SCL locks at 5V permanently"],
+      "correct_answer_index": 1,
+      "explanation": "Clearing the TWINT flag literally un-stalls the hardware state machine allowing the next action (like sending data) to legally execute."
+    }
+  ],
+  "procedure": [
+    "Initialize the bus speed (SCL Frequency) using the TWI Bit Rate Register (TWBR).",
+    "Enable the TWI hardware explicitly (TWEN = 1) in TWCR.",
+    "Formally generate a START condition on the bus. (TWCR = (1<<TWINT)|(1<<TWSTA)|(1<<TWEN)).",
+    "Wait for the hardware to confirm it successfully grabbed the bus by checking when the TWINT bit sets to 1: `while (!(TWCR & (1<<TWINT)));`.",
+    "Load the Slave Address (e.g., 0x27) shifted left by 1 into TWDR. Set the LSB to 0 to WRITE.",
+    "Clear TWINT and enable TWI again to send the address: `TWCR = (1<<TWINT) | (1<<TWEN);`.",
+    "Wait again. After ACK, load real data into TWDR. Clear TWINT again.",
+    "After all data is sent, generate a STOP condition: `TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWSTO);`."
+  ],
+  "posttest": [
+    {
+      "question": "Why does I2C use 'Open Drain' configuration for its communication lines?",
+      "options": ["To boost signal strength", "Devices never drive the lines logic HIGH; they only pull them LOW, avoiding short-circuits if two devices talk simultaneously", "It operates better through internal voltage regulators", "It prevents floating pins"],
+      "correct_answer_index": 1,
+      "explanation": "Any device on the bus can safely yank the line to Ground (0V). The pull-up resistors handle pulling it back to 5V."
+    }
+  ],
+  "feedback": "Flawless bus manipulation. Welcome to I2C—the standard backbone for Sensors, OLED displays, and EEPROM modules."
+}

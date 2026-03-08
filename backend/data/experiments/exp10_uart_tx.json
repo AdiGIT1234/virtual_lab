@@ -1,0 +1,34 @@
+{
+  "id": "exp10_uart_tx",
+  "title": "Level 10: Serial Comm (UART Transmit)",
+  "difficulty": "Intermediate",
+  "aim": "To configure the hardware Universal Synchronous/Asynchronous Receiver/Transmitter (USART) to transmit plain text serial data over a USB-Serial connection.",
+  "objective": "Understand asynchronous communication basics like baud rate (UBRR0), framing format (UCSR0C), and how to check the Data Register Empty flag (UDRE0) before transmitting raw chars.",
+  "theory": "<h3>Serial vs Parallel</h3><p>Instead of using 8 wires to send a byte (like writing to PORTD), serial communication sends bits down a single wire one after another. UART (Universal Asynchronous Receiver-Transmitter) is standard for this. It is termed 'Asynchronous' because there is no clock wire shared between the two devices; they must both independently agree beforehand on exactly how fast the bits will arrive.</p><h3>The Baud Rate</h3><p>This agreed-upon speed is the baud rate. Common speeds are 9600 or 115200 bits per second. The ATmega328P uses the 16-bit <b>UBRR0</b> register to divide its 16MHz clock down into the baud rate. The formula is: <code>UBRR0 = (F_CPU / (16 * Baud)) - 1</code>. For 9600 baud at 16MHz, UBRR0 is 103.</p><h3>Framing and UDR0</h3><p>When you place an 8-bit character into the <b>UDR0</b> (USART Data Register), the hardware UART takes over. It adds a START bit, outputs the 8 data bits sequentially over the TX pin (PD1), and adds a STOP bit (the Frame). Because this takes time, you CANNOT write a second character to UDR0 immediately. You must wait (poll) the <b>UDRE0</b> (USART Data Register Empty) flag in UCSR0A. Only when it is 1 is the register empty and ready for the next character.</p>",
+  "pretest": [
+    {
+      "question": "What happens if the transmitting UART is configured for 9600 baud, but the receiving computer is configured for 115200 baud?",
+      "options": ["The connection is refused electronically", "Characters will be received normally but slower", "The receiver interprets the slow pulses as completely different data, showing random 'garbage' characters", "The ATmega328P crashes"],
+      "correct_answer_index": 2,
+      "explanation": "Because there is no hardware clock to sync them, mismatched baud rates lead to incorrect framing logic and data corruption."
+    }
+  ],
+  "procedure": [
+    "Configure UBRR0 for 9600 baud. (UBRR0H = (103>>8); UBRR0L = 103;).",
+    "Enable the Transmitter by setting the TXEN0 bit in the UCSR0B register.",
+    "Configure the frame format to 8 data bits, 1 stop bit by writing to UCSR0C (default on ATmega328P).",
+    "Create a function `void UART_Transmit(unsigned char data)`.",
+    "Inside this function, write a while loop that waits until the UDRE0 bit in UCSR0A is set (1).",
+    "Once the loop unblocks, write the `data` byte into the UDR0 register.",
+    "In the main loop, call UART_Transmit repeatedly to send \"Hello, World!\\n\", delaying 1000ms in between strings."
+  ],
+  "posttest": [
+    {
+      "question": "Why is it mandatory to check the UDRE0 flag before writing to UDR0?",
+      "options": ["To avoid overwriting the previous character while it is still in the middle of being transmitted", "To clear the UART memory", "To boost the TX voltage to 5V", "To signal the computer that we are ready"],
+      "correct_answer_index": 0,
+      "explanation": "If UDR0 is overwritten before the hardware finishes sending the last byte into the shift register, the byte is permanently lost."
+    }
+  ],
+  "feedback": "Hello, World! You can now output debug data perfectly over standard RS-232 serial logic."
+}

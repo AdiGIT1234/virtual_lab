@@ -1,0 +1,37 @@
+{
+  "id": "exp15_watchdog_timer",
+  "title": "Level 15: System Stability (Watchdog Timer)",
+  "difficulty": "Advanced",
+  "aim": "To use the Watchdog Timer (WDT) to automatically reset a crashed or deadlocked microcontroller.",
+  "objective": "Understand how the separate on-chip Watchdog oscillator functions, configure WDTCSR for various timeout lengths, and execute the wdt_reset() macro.",
+  "theory": "<h3>What is a Watchdog Timer?</h3><p>In the real world, software can crash. A robot driving a car will crash if an infinite loop holds up the main processing. A Watchdog Timer (WDT) is a completely separate hardware timer (running on its own internal 128kHz oscillator) whose sole purpose is to count up. If it ever reaches its specified timeout value, it violently forces a hard reset on the entire ATmega328P.</p><h3>Feeding the Dog</h3><p>The only way to prevent a reset is for the main software to routinely 'feed' or 'kick' the dog by sending it a reset signal. In C, we do this by calling the <code>wdt_reset()</code> function inside our main loop. If our main loop freezes unexpectedly, <code>wdt_reset()</code> is never called. The watchdog keeps ticking, eventually hitting its timeout and generating a System Reset.</p><h3>Watchdog Reset Flag (WDRF)</h3><p>When the system restarts, you might want to know WHY it restarted. The MCUSR (MCU Status Register) contains a WDRF flag. If WDRF is 1 immediately after booting, you know a watchdog reset occurred!</p>",
+  "pretest": [
+    {
+      "question": "What is the consequence of entering an infinite `while(1)` loop that does NOT contain `wdt_reset()` when the Watchdog Timer is enabled?",
+      "options": ["The ATmega328P crashes permanently", "The CPU ignores the Watchdog", "The Watchdog Timer resets the microcontroller completely when the timeout period elapses", "The CPU runs at double the clock speed"],
+      "correct_answer_index": 2,
+      "explanation": "The Watchdog cannot be stopped by software bugs. If it is not 'fed', it will inevitably force a hardware reset."
+    }
+  ],
+  "procedure": [
+    "Include <avr/wdt.h> at the top of the program.",
+    "Wire an LED to Pin 13 to serve as an indicator.",
+    "In setup, blink the LED rapidly 5 times to prove the ATmega328P has booted up.",
+    "Enable the Watchdog Timer with a 2-second timeout using <code>wdt_enable(WDTO_2S);</code>.",
+    "In the main infinite loop, turn the LED ON.",
+    "Delay for 1000ms using <code>_delay_ms()</code>.",
+    "Feed the watchdog using <code>wdt_reset();</code>.",
+    "Delay for another 1000ms.",
+    "Now intentionally freeze the program with an empty infinite loop: <code>while(1);</code>.",
+    "Observe the LED. 2 seconds after the empty loop begins, the chip will forcefully reset, and you will see the 5 rapid boot-up blinks again."
+  ],
+  "posttest": [
+    {
+      "question": "Where does the Watchdog Timer get its clock signal?",
+      "options": ["From the 16MHz external crystal oscillator", "From the USB bus", "From its own dedicated on-chip 128kHz oscillator", "From Timer1"],
+      "correct_answer_index": 2,
+      "explanation": "The Watchdog relies on an independent internal RC oscillator so that it continues to function even if the main CPU crystal dramatically fails."
+    }
+  ],
+  "feedback": "Flawless emergency protocol! Watchdog timers are crucial to long-running, remote embedded devices where a human isn't present to push the reset button."
+}

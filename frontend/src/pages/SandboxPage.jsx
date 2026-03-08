@@ -16,6 +16,7 @@ import SevenSegment from "../components/SevenSegment";
 import DraggableWrapper from "../components/DraggableWrapper";
 import WiringCanvas from "../components/WiringCanvas";
 import HardwareConfigPanel from "../components/HardwareConfigPanel";
+import ChatbotWidget from "../components/ChatbotWidget";
 import { useAVR } from "../engine/useAVR";
 
 export default function SandboxPage() {
@@ -454,6 +455,7 @@ void loop() {
           )}
         </div>
       </div>
+      <ChatbotWidget />
     </div>
   );
 }
