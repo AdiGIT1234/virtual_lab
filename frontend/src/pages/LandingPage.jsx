@@ -6,21 +6,21 @@ import { useNavigate } from "react-router-dom";
    Future: This will become dynamic per-chip (ESP32, STM32, etc.)
    ═══════════════════════════════════════════════════════════ */
 const LEFT_INFO = [
-  { phase: 0.15, title: "8-Bit RISC Architecture", desc: "131 powerful instructions, most executing in a single clock cycle." },
-  { phase: 0.25, title: "32KB Flash Memory", desc: "Non-volatile program storage with 10,000 write/erase cycle endurance." },
-  { phase: 0.35, title: "2KB SRAM", desc: "High-speed volatile memory for runtime variables and stack." },
-  { phase: 0.45, title: "1KB EEPROM", desc: "Byte-addressable persistent storage for user settings and calibration data." },
-  { phase: 0.55, title: "23 GPIO Pins", desc: "Across 3 ports (B/C/D) — every pin is individually configurable." },
-  { phase: 0.65, title: "6-Channel 10-bit ADC", desc: "Convert analog signals to digital with 15kSPS throughput." },
+  { phase: 0.15, title: "8-bit AVR RISC Core", desc: "131 documented instructions, most completing in a single clock." },
+  { phase: 0.25, title: "32 kB Flash Memory", desc: "Non-volatile program storage with a 10,000-cycle endurance rating." },
+  { phase: 0.35, title: "2 kB SRAM", desc: "High-speed volatile memory for the stack and working registers." },
+  { phase: 0.45, title: "1 kB EEPROM", desc: "Byte-addressable non-volatile data for calibration and user settings." },
+  { phase: 0.55, title: "23 GPIO Pins", desc: "Ports B, C, and D expose configurable digital I/O for every pin." },
+  { phase: 0.65, title: "6-channel 10-bit ADC", desc: "Analog inputs (ADC0–ADC5) with up to 15 kSPS throughput." },
 ];
 
 const RIGHT_INFO = [
-  { phase: 0.15, title: "Up to 20MHz Clock", desc: "16MHz on Arduino UNO — 16 million instructions per second." },
-  { phase: 0.25, title: "3 Timer/Counters", desc: "Two 8-bit (Timer0, Timer2) and one 16-bit (Timer1) with PWM." },
-  { phase: 0.35, title: "USART, SPI, TWI", desc: "Full serial communication stack: RS-232, SPI Master/Slave, I²C." },
-  { phase: 0.45, title: "External & Pin-Change IRQs", desc: "INT0, INT1 + 23 pin-change interrupts for event-driven programming." },
-  { phase: 0.55, title: "Watchdog Timer", desc: "Independent 128kHz oscillator for automatic crash recovery." },
-  { phase: 0.65, title: "Power Management", desc: "6 sleep modes — from Idle to full Power-Down at <1µA." },
+  { phase: 0.15, title: "Up to 20 MHz Clock", desc: "Runs at 16 MHz on Arduino Uno boards with optional 20 MHz crystal support." },
+  { phase: 0.25, title: "3 Timer/Counters", desc: "Two 8-bit timers (0, 2) plus a 16-bit Timer1 with PWM outputs." },
+  { phase: 0.35, title: "USART, SPI, TWI", desc: "Hardware UART, SPI master/slave, and I²C-compatible TWI peripherals." },
+  { phase: 0.45, title: "External & Pin-change IRQs", desc: "INT0/INT1 plus 23 pin-change interrupts for responsive firmware." },
+  { phase: 0.55, title: "Watchdog Timer", desc: "Dedicated 128 kHz oscillator supervises and recovers stalled firmware." },
+  { phase: 0.65, title: "Power Management", desc: "Six sleep modes; power-down current is typically under 1 µA." },
 ];
 
 const EXPERIMENTS = [
@@ -263,15 +263,17 @@ export default function LandingPage() {
 
         {/* CHIP SUMMARY */}
         <section style={styles.summarySection}>
-          <h2 style={styles.sectionHeading}>ATmega328P-PU</h2>
+          <h2 style={{ ...styles.sectionHeading, ...styles.heatHeading }}>
+            ATMEGA<span style={styles.heatDigits}>328</span>P-PU
+          </h2>
           <p style={styles.summaryText}>
             The heart of the Arduino UNO. A 28-pin, 8-bit AVR RISC microcontroller by Microchip Technology
             — running 131 instructions at up to 20 MHz with 32KB Flash, 2KB SRAM, and 1KB EEPROM.
           </p>
           <div style={styles.chipStatsRow}>
             {[
-              { v: "32KB", l: "Flash" }, { v: "2KB", l: "SRAM" }, { v: "1KB", l: "EEPROM" },
-              { v: "23", l: "GPIO Pins" }, { v: "16MHz", l: "Clock" }, { v: "6ch", l: "ADC" },
+              { v: "32 kB", l: "Flash" }, { v: "2 kB", l: "SRAM" }, { v: "1 kB", l: "EEPROM" },
+              { v: "23", l: "GPIO", unit: "pins" }, { v: "16 MHz", l: "System clock" }, { v: "6", l: "ADC channels" },
             ].map((s, i) => (
               <div key={i} style={styles.chipStat}>
                 <span style={styles.chipStatVal}>{s.v}</span>
@@ -287,7 +289,7 @@ export default function LandingPage() {
 
         {/* FEATURES */}
         <section id="features" style={styles.featuresSection}>
-          <h2 style={styles.sectionHeading}>Why Virtual Lab?</h2>
+          <h2 style={{ ...styles.sectionHeading, ...styles.heatHeading }}>Why Virtual Lab?</h2>
           <p style={styles.sectionSub}>Everything you need to learn embedded systems — zero hardware required.</p>
           <div style={styles.featuresGrid}>
             {FEATURES.map((f, i) => (
@@ -302,7 +304,9 @@ export default function LandingPage() {
 
         {/* EXPERIMENTS GRID */}
         <section id="experiments" style={styles.experimentsSection}>
-          <h2 style={styles.sectionHeading}>15 Progressive Experiments</h2>
+          <h2 style={{ ...styles.sectionHeading, ...styles.heatHeading }}>
+            <span style={styles.heatDigits}>15</span> Progressive Experiments
+          </h2>
           <p style={styles.sectionSub}>From first blink to watchdog reset — each builds on the last.</p>
           <div style={styles.grid}>
             {EXPERIMENTS.map((exp, idx) => {
@@ -448,11 +452,13 @@ const styles = {
     animation: "pulse 2s infinite",
   },
   heroTitle: {
-    fontFamily: "'Times New Roman', Times, serif",
-    fontSize: "62px",
+    fontFamily: "'Heat Robox', 'Times New Roman', Times, serif",
+    fontSize: "54px",
     fontWeight: 800,
     lineHeight: 1.05,
-    letterSpacing: "-2.5px",
+    letterSpacing: "-1.8px",
+    fontFeatureSettings: "'liga' 0, 'dlig' 0",
+    fontVariantLigatures: "none",
     margin: "0 0 20px 0",
     textShadow: "0 4px 30px rgba(0,0,0,0.6)",
   },
@@ -613,6 +619,20 @@ const styles = {
     letterSpacing: "-1px",
     margin: "0 0 12px 0",
   },
+  heatHeading: {
+    fontFamily: "'Heat Robox', 'Times New Roman', Times, serif",
+    letterSpacing: "-0.4px",
+    fontFeatureSettings: "'liga' 0, 'dlig' 0",
+    fontVariantLigatures: "none",
+    fontSize: "36px",
+  },
+  heatDigits: {
+    fontFamily: "'Cyber Alert Numbers', 'Heat Robox', 'Times New Roman', Times, serif",
+    letterSpacing: "-0.2px",
+    fontFeatureSettings: "'liga' 0, 'dlig' 0",
+    fontVariantLigatures: "none",
+    display: "inline-block",
+  },
   summaryText: {
     fontSize: "17px", color: "#888",
     lineHeight: 1.7, margin: "0 0 40px 0",
@@ -738,10 +758,12 @@ const styles = {
     pointerEvents: "none",
   },
   ctaTitle: {
-    fontFamily: "'Times New Roman', Times, serif",
-    fontSize: "48px",
+    fontFamily: "'Heat Robox', 'Times New Roman', Times, serif",
+    fontSize: "42px",
     fontWeight: 800,
     letterSpacing: "-1px",
+    fontFeatureSettings: "'liga' 0, 'dlig' 0",
+    fontVariantLigatures: "none",
     margin: "0 0 14px 0",
   },
   ctaSub: { fontSize: "17px", color: "#666", margin: "0 0 32px 0" },

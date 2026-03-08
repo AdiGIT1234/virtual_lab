@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ExternalLED = ({ color = "red", state = false, label = "LED" }) => {
+const ExternalLED = ({ color = "red", state = false, label = "LED", intensity = 1 }) => {
   // ... existing code
   const colors = {
     red: { off: "#5a0000", on: "#ff0000", glow: "rgba(255, 0, 0, 0.6)", highlight: "#ff8888" },
@@ -11,7 +11,10 @@ const ExternalLED = ({ color = "red", state = false, label = "LED" }) => {
 
   const theme = colors[color] || colors.red;
   const currentFill = state ? theme.on : theme.off;
-  const currentGlow = state ? `drop-shadow(0px 0px 15px ${theme.glow}) drop-shadow(0px 0px 30px ${theme.glow})` : "none";
+  const glowStrength = Math.min(1, Math.max(0.1, intensity));
+  const currentGlow = state
+    ? `drop-shadow(0px 0px ${15 * glowStrength}px ${theme.glow}) drop-shadow(0px 0px ${30 * glowStrength}px ${theme.glow})`
+    : "none";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>

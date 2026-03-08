@@ -11,7 +11,7 @@ const WIRE_COLORS = [
   { name: "White", value: "#cccccc" },
 ];
 
-const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange }) => {
+const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange, onWireDelete }) => {
   const [lines, setLines] = useState([]);
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -37,7 +37,7 @@ const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange })
               let px = pinRect.left;
               if (pinRect.left > window.innerWidth / 2) px = pinRect.right;
 
-              const wireId = `${item.id}-${termId}`;
+               const wireId = `${item.id}::${termId}`;
               // Use custom color if set, otherwise default based on type
               const defaultColor = termId === 'r' ? '#ff3333' : termId === 'g' ? '#33ff33' : termId === 'b' ? '#3333ff' : item.type.includes('LED') ? '#ff4040' : '#4dabf7';
               
@@ -210,6 +210,15 @@ const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange })
               }}
             />
           ))}
+          <button
+            style={{ gridColumn: "1 / -1", marginTop: "6px", padding: "6px 10px", borderRadius: "6px", border: "1px solid #ff4444", background: "rgba(50,0,0,0.6)", color: "#fff", cursor: "pointer", fontSize: "11px" }}
+            onClick={() => {
+              if (onWireDelete) onWireDelete(contextMenu.wireId);
+              setContextMenu(null);
+            }}
+          >
+            Remove Wire
+          </button>
         </div>
       )}
     </>

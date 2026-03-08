@@ -26,9 +26,26 @@
   --radius-lg: 16px;
 }
 
+@font-face {
+  font-family: "Heat Robox";
+  src: url("/fonts/Heat-Robox.otf") format("opentype");
+  font-display: swap;
+  font-weight: 400 900;
+  font-style: normal;
+  unicode-range: U+0020, U+0026, U+0027, U+002D, U+003F, U+0041-005A, U+0061-007A;
+}
+
+@font-face {
+  font-family: "Cyber Alert Numbers";
+  src: url("/fonts/Cyber-Alert.otf") format("opentype");
+  font-display: swap;
+  font-weight: 400 900;
+  font-style: normal;
+  unicode-range: U+0030-0039, U+002C, U+002E, U+002F, U+003A;
+}
+
 * {
   box-sizing: border-box;
-  font-family: "Times New Roman", Times, serif !important;
 }
 
 body {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, terminals, children }) => {
+const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, terminals, configPanel, children }) => {
   const wrapperRef = useRef(null);
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
@@ -102,7 +102,15 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
         boxShadow: '0 4px 12px rgba(0,0,0,0.8)',
         alignItems: 'center',
         zIndex: 50
-      }}>
+      }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+      >
+        {configPanel && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {configPanel}
+          </div>
+        )}
         <button 
           onClick={() => onDelete && onDelete(id)}
           style={{ 

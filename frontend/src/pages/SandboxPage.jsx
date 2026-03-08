@@ -18,6 +18,8 @@ import WiringCanvas from "../components/WiringCanvas";
 import HardwareConfigPanel from "../components/HardwareConfigPanel";
 import ChatbotWidget from "../components/ChatbotWidget";
 import GpioView from "../components/GpioView";
+import GroundNode from "../components/GroundNode";
+import VccNode from "../components/VccNode";
 import { useAVR } from "../engine/useAVR";
 
 export default function SandboxPage() {
@@ -59,6 +61,16 @@ void loop() {
   const [workspaceItems, setWorkspaceItems] = useState([
     { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 300 }
   ]);
+
+  const resistorMap = useMemo(() => {
+    const map = {};
+    workspaceItems.forEach(item => {
+      if (item.type === "RESISTOR" && item.pins?.main != null) {
+        map[item.pins.main] = item.resistance || 330;
+      }
+    });
+    return map;
+  }, [workspaceItems]);
 
   // Inputs (buttons, dials mapping dynamically to components)
   const [inputs, setInputs] = useState({});
@@ -120,34 +132,77 @@ void loop() {
     let pins = { main: "" };
     if (type === "RGB_LED") pins = { r: "", g: "", b: "" };
     if (type === "SEVEN_SEG") pins = { a: "", b: "", c: "", d: "", e: "", f: "", g: "" };
+    if (type === "RESISTOR") pins = { main: "" };
     
     const newItem = {
       id: `${type.toLowerCase()}-${Date.now()}`,
       type,
       pins,
       x: 300,
-      y: 300
+      y: 300,
+      ...(type === "RESISTOR" ? { resistance: 330 } : {})
     };
     setWorkspaceItems([...workspaceItems, newItem]);
+  };
+
+  const updateComponentSettings = (id, updates) => {
+    setWorkspaceItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
+  const handleComponentPinEffect = (item, prevPin, nextPin) => {
+    if (!item) return;
+    if (item.type === "GROUND_NODE" || item.type === "VCC_NODE") {
+      setInputs(prev => {
+        const updated = { ...prev };
+        if (prevPin != null) {
+          delete updated[prevPin];
+        }
+        if (nextPin != null) {
+          updated[nextPin] = item.type === "GROUND_NODE" ? 0 : 1;
+        }
+        return updated;
+      });
+    }
   };
 
   const updateComponentPin = (id, terminalId, newPin) => {
     setWorkspaceItems(prev => prev.map(item => {
       if (item.id === id) {
-        const pinInt = parseInt(newPin, 10);
-        const newPins = { ...(item.pins || { main: item.pin }), [terminalId]: pinInt };
-        return { ...item, pins: newPins, pin: terminalId === 'main' ? pinInt : item.pin };
+        const pinInt = newPin == null || newPin === "" ? null : parseInt(newPin, 10);
+        const prevPinValue = (item.pins && item.pins[terminalId]) ?? item.pin ?? null;
+        const newPins = { ...(item.pins || { main: item.pin }) };
+        newPins[terminalId] = pinInt;
+        const updatedItem = { ...item, pins: newPins, pin: terminalId === 'main' ? pinInt : item.pin };
+        handleComponentPinEffect(updatedItem, prevPinValue, pinInt);
+        return updatedItem;
       }
       return item;
     }));
   };
 
-  const deleteComponent = (id) => {
-    setWorkspaceItems(prev => prev.filter(item => item.id !== id));
+  const clearComponentTerminal = (id, terminalId) => {
+    updateComponentPin(id, terminalId, null);
   };
 
-  const startWire = (sourceId, startX, startY) => {
-    const newWire = { sourceId, startX, startY, currentX: startX, currentY: startY };
+  const deleteComponent = (id) => {
+    setWorkspaceItems(prev => {
+      const target = prev.find(item => item.id === id);
+      if (target && (target.type === "GROUND_NODE" || target.type === "VCC_NODE")) {
+        const existingPin = (target.pins && target.pins.main) ?? target.pin;
+        if (existingPin != null) {
+          setInputs(prevInputs => {
+            const updated = { ...prevInputs };
+            delete updated[existingPin];
+            return updated;
+          });
+        }
+      }
+      return prev.filter(item => item.id !== id);
+    });
+  };
+
+  const startWire = (sourceId, termId, startX, startY) => {
+    const newWire = { sourceId, termId, startX, startY, currentX: startX, currentY: startY };
     setActiveWire(newWire);
     activeWireRef.current = newWire;
   };
@@ -216,6 +271,18 @@ void loop() {
     }));
   };
 
+  const handleWireDelete = (wireId) => {
+    if (!wireId) return;
+    const [componentId, terminalId] = wireId.split("::");
+    if (!componentId || !terminalId) return;
+    clearComponentTerminal(componentId, terminalId);
+    setWireColors(prev => {
+      const updated = { ...prev };
+      delete updated[wireId];
+      return updated;
+    });
+  };
+
   const handleToggleBit = (regName, bitIndex) => {
     if (timeline && timeline.length > 0) return;
 
@@ -249,7 +316,17 @@ void loop() {
 
   const getPinAnalog = (p) => {
     if (p === "" || isNaN(p) || p == null) return 0;
-    return currentRegisters?.PWM?.[p] || (getPinLogic(p) ? 255 : 0);
+    const base = currentRegisters?.PWM?.[p] || (getPinLogic(p) ? 255 : 0);
+    const factor = getResistorFactor(p);
+    return Math.floor(base * factor);
+  };
+
+  const getResistorFactor = (pin) => {
+    if (pin == null) return 1;
+    const ohms = resistorMap[pin];
+    if (!ohms) return 1;
+    const ratio = 330 / Math.max(ohms, 1);
+    return Math.min(1, Math.max(0.1, ratio));
   };
 
   return (
@@ -280,6 +357,8 @@ void loop() {
             <option value="RGB_LED">RGB LED</option>
             <option value="SERVO">Micro Servo</option>
             <option value="SEVEN_SEG">7-Segment Display</option>
+            <option value="GROUND_NODE">Ground Node</option>
+            <option value="VCC_NODE">VCC Node</option>
           </select>
         </div>
         
@@ -340,6 +419,7 @@ void loop() {
               const itemPins = item.pins || { main: item.pin };
               const configState = getPinLogic(itemPins.main);
               const analogState = getPinAnalog(itemPins.main);
+              const resistorFactor = getResistorFactor(itemPins.main);
 
               let terminals = [{ id: "main", label: "PIN" }];
               if (item.type === "RGB_LED") {
@@ -360,7 +440,26 @@ void loop() {
                   ];
               } else if (item.type === "SERVO") {
                   terminals = [{ id: "main", label: "SIG", color: "#ff6600"}];
+              } else if (item.type === "GROUND_NODE") {
+                  terminals = [{ id: "main", label: "GND", color: "#00ffcc" }];
+              } else if (item.type === "VCC_NODE") {
+                  terminals = [{ id: "main", label: "+5V", color: "#ffcf33" }];
               }
+
+              const configPanel = item.type === "RESISTOR" ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#aaa' }}>{item.resistance || 330}Ω</span>
+                  <input
+                    type="range"
+                    min="100"
+                    max="2000"
+                    step="10"
+                    value={item.resistance || 330}
+                    onChange={(e) => updateComponentSettings(item.id, { resistance: parseInt(e.target.value, 10) })}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+              ) : null;
 
               return (
                 <DraggableWrapper 
@@ -371,11 +470,12 @@ void loop() {
                   terminals={terminals}
                   onStartWire={startWire}
                   onDelete={deleteComponent}
+                  configPanel={configPanel}
                 >
-                  {item.type === "LED_RED" && <ExternalLED color="red" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />}
-                  {item.type === "LED_GREEN" && <ExternalLED color="green" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />}
-                  {item.type === "LED_YELLOW" && <ExternalLED color="yellow" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />}
-                  {item.type === "RESISTOR" && <Resistor />}
+                  {item.type === "LED_RED" && <ExternalLED color="red" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />}
+                  {item.type === "LED_GREEN" && <ExternalLED color="green" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />}
+                  {item.type === "LED_YELLOW" && <ExternalLED color="yellow" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />}
+                  {item.type === "RESISTOR" && <Resistor resistance={item.resistance || 330} />}
                   {item.type === "BUTTON" && (
                     <div onMouseDown={() => toggleInput(item.pin)}>
                       <PushButton state={inputs[item.pin] === 1} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />
@@ -417,13 +517,15 @@ void loop() {
                       g={getPinLogic(itemPins.g)} 
                     />
                   )}
+                  {item.type === "GROUND_NODE" && <GroundNode />}
+                  {item.type === "VCC_NODE" && <VccNode />}
                 </DraggableWrapper>
               );
             })}
           </div>
         </div>
           
-        <WiringCanvas items={workspaceItems} activeWire={activeWire} wireColors={wireColors} onWireColorChange={handleWireColorChange} />
+        <WiringCanvas items={workspaceItems} activeWire={activeWire} wireColors={wireColors} onWireColorChange={handleWireColorChange} onWireDelete={handleWireDelete} />
 
         {/* RIGHT: Analysis Panel */}
         <div style={{...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : "-450px"}}>

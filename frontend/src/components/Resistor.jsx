@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Resistor = ({ ohms = "220" }) => {
+const Resistor = ({ resistance = 220 }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ 
@@ -12,7 +12,7 @@ const Resistor = ({ ohms = "220" }) => {
         padding: '2px 6px', 
         borderRadius: '4px' 
       }}>
-        {ohms}Ω Resistor
+        {resistance}Ω Resistor
       </div>
       <svg width="100" height="30" viewBox="0 0 100 30" style={{ filter: "drop-shadow(0px 4px 5px rgba(0,0,0,0.5))" }}>
         
