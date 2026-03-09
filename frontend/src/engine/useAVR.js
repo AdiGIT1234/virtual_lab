@@ -34,16 +34,23 @@ const toBits = (val) => {
   ];
 };
 
-export function useAVR() {
-  const [cpuRegisters, setCpuRegisters] = useState(null);
+const SUPPORTED_MCUS = new Set(["atmega328p"]);
+
+export function useAVR(activeMcuId = "atmega328p") {
+  const [cpuState, setCpuState] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [liveTimeline, setLiveTimeline] = useState([]);
-  
+  const [speedMultiplier, setSpeedMultiplierState] = useState(1);
+  const [activeBreakpoints, setActiveBreakpoints] = useState([]);
+
   const cpuRef = useRef(null);
   const requestRef = useRef(null);
   const lastTimeRef = useRef(0);
   const timelineBufferRef = useRef([]);
   const snapshotTimerRef = useRef(0);
+  const speedRef = useRef(1);
+  const breakpointsRef = useRef(new Set());
+  const breakpointHandlerRef = useRef(() => {});
 
   const runExecutionLoop = useCallback(function tick(time) {
     if (!cpuRef.current) return;
@@ -53,7 +60,7 @@ export function useAVR() {
     const delta = Math.min(time - lastTimeRef.current, 100); 
     lastTimeRef.current = time;
     
-    const cyclesToRun = Math.floor(16000000 * (delta / 1000));
+    const cyclesToRun = Math.floor(16000000 * (delta / 1000) * speedRef.current);
     const targetCycle = cpu.cycles + cyclesToRun;
 
     try {
@@ -93,29 +100,38 @@ export function useAVR() {
         PWM: pwmMap
       };
 
-      setCpuRegisters(currentRegState);
+      const memorySnapshot = Array.from(cpu.data.slice(0, 256));
+      setCpuState({
+        registers: currentRegState,
+        pc: cpu.pc,
+        cycles: cpu.cycles,
+        memory: memorySnapshot,
+        sp: cpu.data[0x5d] || 0,
+      });
 
       // Save to logic analyzer timeline roughly every 16ms (60 FPS) for smooth UI. Buffer handles SVG limit.
       snapshotTimerRef.current += delta;
       
       // If there's serial output, inject it now!
       if (cpuRef.current.serialBuffer) {
-         timelineBufferRef.current.push({
-           time: cpu.cycles,
-           registers: currentRegState,
-           type: "SERIAL_PRINT",
-           message: cpuRef.current.serialBuffer
-         });
-         cpuRef.current.serialBuffer = "";
+          timelineBufferRef.current.push({
+            time: cpu.cycles,
+            registers: currentRegState,
+            type: "SERIAL_PRINT",
+            message: cpuRef.current.serialBuffer,
+            pc: cpu.pc,
+          });
+          cpuRef.current.serialBuffer = "";
       }
 
       if (snapshotTimerRef.current >= 16) {
         snapshotTimerRef.current = 0;
-        
+
         // Push a standard logic analyzer snapshot
         timelineBufferRef.current.push({
           time: cpu.cycles,
-          registers: currentRegState
+          registers: currentRegState,
+          pc: cpu.pc,
         });
 
         // Throttle memory array length strictly to prevent SVG DOM explosion
@@ -124,9 +140,19 @@ export function useAVR() {
           // For now, simple shift is fine to keep browser running smoothly.
           timelineBufferRef.current.shift();
         }
-        
+
         // Push buffer to state for React rendering
         setLiveTimeline([...timelineBufferRef.current]);
+      }
+
+      if (breakpointsRef.current.has(cpu.pc)) {
+        setIsRunning(false);
+        if (requestRef.current) {
+          cancelAnimationFrame(requestRef.current);
+          requestRef.current = null;
+        }
+        breakpointHandlerRef.current(cpu.pc);
+        return;
       }
 
       // Keep Looping
@@ -139,6 +165,10 @@ export function useAVR() {
   }, []);
 
   const startSimulation = useCallback((hexString) => {
+    if (!SUPPORTED_MCUS.has(activeMcuId)) {
+      throw new Error("Simulator support coming soon for this MCU.");
+    }
+
     console.log("Starting simulation with HEX size:", hexString.length);
     // 0. Terminate any previously running simulation ghost loops
     if (requestRef.current) {
@@ -175,16 +205,17 @@ export function useAVR() {
       time: 0,
       registers: null,
       type: "SERIAL_BEGIN",
-      baud: 9600 // We default to 9600 in our generic display
+      baud: 9600, // We default to 9600 in our generic display
+      pc: 0,
     }];
-    
+
     setLiveTimeline([...timelineBufferRef.current]);
-    setCpuRegisters(null);
+    setCpuState(null);
     setIsRunning(true);
     
     lastTimeRef.current = performance.now();
     requestRef.current = requestAnimationFrame(runExecutionLoop);
-  }, [runExecutionLoop]);
+  }, [runExecutionLoop, activeMcuId]);
 
   const stopSimulation = useCallback(() => {
     setIsRunning(false);
@@ -194,11 +225,30 @@ export function useAVR() {
     cpuRef.current = null;
   }, []);
 
+  const updateSpeedMultiplier = useCallback((value) => {
+    speedRef.current = value;
+    setSpeedMultiplierState(value);
+  }, []);
+
+  const updateBreakpoints = useCallback((list) => {
+    setActiveBreakpoints(list);
+    breakpointsRef.current = new Set(list);
+  }, []);
+
+  const setBreakpointHandler = useCallback((handler) => {
+    breakpointHandlerRef.current = handler || (() => {});
+  }, []);
+
   return {
     startSimulation,
     stopSimulation,
     isRunning,
-    cpuRegisters,
-    liveTimeline
+    cpuState,
+    liveTimeline,
+    speedMultiplier,
+    setSpeedMultiplier: updateSpeedMultiplier,
+    activeBreakpoints,
+    setBreakpoints: updateBreakpoints,
+    setBreakpointHandler,
   };
 }

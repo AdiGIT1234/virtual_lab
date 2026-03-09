@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 
 /* ═══════════════════════════════════════════════════════════
    CHIP INFO - Data that appears alongside the chip as it opens
@@ -56,6 +57,7 @@ const easeInOutCubic = (value) => {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [smoothScrollY, setSmoothScrollY] = useState(0);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [visibleCards, setVisibleCards] = useState(new Set());
@@ -258,6 +260,9 @@ export default function LandingPage() {
             <a href="#experiments" style={styles.navLink}>Experiments</a>
             <a href="#features" style={styles.navLink}>Features</a>
             <button style={styles.navBtn} onClick={() => navigate("/sandbox")}>Open Sandbox →</button>
+            <button style={styles.themeToggle} onClick={toggleTheme}>
+              {theme === "dark" ? "🌙" : "☀️"}
+            </button>
           </div>
         </nav>
 
@@ -377,8 +382,8 @@ const styles = {
     height: "100vh",
     overflowY: "auto",
     overflowX: "hidden",
-    background: "#0d0d0d",
-    color: "#fff",
+    background: "var(--surface-0)",
+    color: "var(--text-primary)",
     fontFamily: "'Times New Roman', Times, serif",
     position: "relative",
   },
@@ -580,7 +585,7 @@ const styles = {
     alignItems: "center",
     padding: "0 40px",
     zIndex: 100,
-    background: "rgba(13,13,13,0.78)",
+    background: "rgba(0, 0, 0, 0.55)",
     backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
     borderBottom: "1px solid rgba(255,255,255,0.04)",
@@ -596,12 +601,21 @@ const styles = {
   },
   navAccent: { color: "#00ffcc" },
   navLinks: { display: "flex", alignItems: "center", gap: "24px" },
-  navLink: { color: "#888", fontSize: "14px", textDecoration: "none", fontWeight: 500 },
+  navLink: { color: "var(--text-secondary)", fontSize: "14px", textDecoration: "none", fontWeight: 500 },
   navBtn: {
     background: "linear-gradient(135deg, #00ffcc, #00cc99)",
     color: "#000", border: "none",
     padding: "8px 20px", borderRadius: "8px",
     fontWeight: 700, fontSize: "13px", cursor: "pointer",
+  },
+  themeToggle: {
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: "50%",
+    width: 36,
+    height: 36,
+    cursor: "pointer",
+    color: "var(--text-secondary)",
   },
 
   /* SUMMARY */

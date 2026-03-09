@@ -1,9 +1,11 @@
 import Pin from "./Pin";
 import { PIN_LAYOUT } from "../constants/pinLayout";
 
-function Chip({ registers, toggleInput }) {
-  const leftPins = PIN_LAYOUT.slice(0, 14);
-  const rightPins = PIN_LAYOUT.slice(14).reverse();
+function Chip({ registers, toggleInput, mcu }) {
+  const layout = mcu?.pinLayout || PIN_LAYOUT;
+  const half = Math.floor(layout.length / 2);
+  const leftPins = layout.slice(0, half);
+  const rightPins = layout.slice(half).reverse();
 
   const getPinState = (arduinoPin) => {
     if (!registers || arduinoPin == null) return false;
@@ -19,13 +21,21 @@ function Chip({ registers, toggleInput }) {
     registers &&
     (registers.PORTB || registers.PORTC || registers.PORTD);
 
+  if (!layout || layout.length === 0) {
+    return (
+      <div style={styles.unsupported}>
+        <p>Pin visualization coming soon for {mcu?.name || "this MCU"}.</p>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.wrapper}>
       <div style={styles.fullWidthContainer}>
         <div id="atmega-chip" style={styles.chip}>
           <div style={styles.notch} />
-          <div style={styles.engravedMain}>ATMEGA328P-PU</div>
-          <div style={styles.engravedSub}>Microchip Technology</div>
+          <div style={styles.engravedMain}>{mcu?.name || "ATMEGA328P-PU"}</div>
+          <div style={styles.engravedSub}>{mcu?.package || "Microchip Technology"}</div>
 
           {isPowered && <div style={styles.powerLed} />}
           {getPinState(13) && <div style={styles.d13Led} />}
@@ -38,6 +48,7 @@ function Chip({ registers, toggleInput }) {
               side="left"
               getPinState={getPinState}
               toggleInput={toggleInput}
+              portColors={mcu?.portColors}
             />
           ))}
 
@@ -49,6 +60,7 @@ function Chip({ registers, toggleInput }) {
               side="right"
               getPinState={getPinState}
               toggleInput={toggleInput}
+              portColors={mcu?.portColors}
             />
           ))}
         </div>
@@ -58,6 +70,17 @@ function Chip({ registers, toggleInput }) {
 }
 
 const styles = {
+  unsupported: {
+    width: "100%",
+    minHeight: 300,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "monospace",
+    border: "1px dashed var(--border)",
+    borderRadius: 12,
+    color: "var(--text-secondary)",
+  },
   wrapper: {
     width: "100%",
     display: "flex",

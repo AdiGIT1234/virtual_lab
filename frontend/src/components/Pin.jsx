@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function Pin({ pin, index, side, getPinState, toggleInput }) {
+function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
   const [hovered, setHovered] = useState(false);
 
   const PIN_SPACING = 32;
@@ -10,6 +10,7 @@ function Pin({ pin, index, side, getPinState, toggleInput }) {
   const active = getPinState(pin.arduino);
 
   const getPortColor = (port) => {
+    if (port && portColors[port]) return portColors[port];
     if (port === "B") return "#4da6ff";
     if (port === "C") return "#66ff99";
     if (port === "D") return "#ff6666";

@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, terminals, configPanel, children }) => {
+const DraggableWrapper = ({
+  id,
+  initialX,
+  initialY,
+  onStartWire,
+  onDelete,
+  terminals,
+  configPanel,
+  children,
+  workspaceRef,
+  viewScale = 1,
+  onPositionChange,
+}) => {
   const wrapperRef = useRef(null);
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
@@ -15,18 +27,24 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
       return;
     }
     setIsDragging(true);
+    const rect = workspaceRef?.current?.getBoundingClientRect();
+    const offsetX = rect ? (e.clientX - rect.left) / viewScale : e.clientX;
+    const offsetY = rect ? (e.clientY - rect.top) / viewScale : e.clientY;
     setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
+      x: offsetX - position.x,
+      y: offsetY - position.y
     });
   };
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isDragging) {
+        const rect = workspaceRef?.current?.getBoundingClientRect();
+        const pointerX = rect ? (e.clientX - rect.left) / viewScale : e.clientX;
+        const pointerY = rect ? (e.clientY - rect.top) / viewScale : e.clientY;
         setPosition({
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y
+          x: pointerX - dragOffset.x,
+          y: pointerY - dragOffset.y
         });
       }
     };
@@ -50,14 +68,23 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
             // Push component out to the left or right whichever is closer
             const distLeft = compRect.right - chipRect.left;
             const distRight = chipRect.right - compRect.left;
+            let finalPos = position;
             
             if (distLeft < distRight) {
-               setPosition(prev => ({ ...prev, x: chipRect.left - compRect.width - 20 }));
+               const adjust = (distLeft + 20) / viewScale;
+               finalPos = { ...position, x: position.x - adjust };
+               setPosition(finalPos);
             } else {
-               setPosition(prev => ({ ...prev, x: chipRect.right + 20 }));
+               const adjust = (distRight + 20) / viewScale;
+               finalPos = { ...position, x: position.x + adjust };
+               setPosition(finalPos);
             }
+
+            onPositionChange?.(id, finalPos);
+            return;
           }
         }
+        onPositionChange?.(id, position);
       }
     };
 
@@ -75,7 +102,7 @@ const DraggableWrapper = ({ id, initialX, initialY, onStartWire, onDelete, termi
     <div
       ref={wrapperRef}
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: position.x,
         top: position.y,
         cursor: isDragging ? 'grabbing' : 'grab',

@@ -1,0 +1,225 @@
+Phase 1 — Core Simulator (Current Stage)
+
+Goal: Functional ATmega328P visual simulator
+
+Frontend UI
+
+ Code editor panel (Arduino-style code input)
+
+ Run Simulation button
+
+ ATmega328P chip visual (DIP-28)
+
+ All 28 pins rendered correctly
+
+ Pin labels visible and color-coded
+
+PORTB → Blue
+
+PORTC → Green
+
+PORTD → Red
+
+ Pins glow when HIGH
+
+ Hover effect on pins
+
+ Chip notch + engraving
+
+ Power indicator LED
+
+ Built-in D13 LED indicator
+
+Backend Communication
+
+ Send code to backend API
+
+ Backend parses code
+
+ Backend updates register state
+
+ Registers returned to frontend
+
+ Frontend updates pin states
+
+Register Visualization
+
+ Display PORTB register
+
+ Display PORTC register
+
+ Display PORTD register
+
+ Bit visualization (0/1 boxes)
+
+ Real-time updates after simulation
+
+Phase 2 — GPIO Interaction System
+
+Goal: Interactive hardware behavior
+
+ Clickable pins for input simulation
+
+ Toggle HIGH / LOW inputs
+
+ Reflect input changes in simulation
+
+ Highlight input pins
+
+ GPIO view panel
+
+ Visual pin state indicators
+
+Phase 3 — External Components
+
+Goal: Simulate actual circuits
+
+Components
+
+ External LED component
+
+ Push button component
+
+ Resistor component
+
+ Ground node
+
+ VCC node
+
+Wiring System
+
+ Drag wire from pin
+
+ Connect wire to component
+
+ Visual wires
+
+ Multiple connections
+
+ Delete wires
+
+Circuit Behavior
+
+ LED lights when connected to HIGH
+
+ Button toggles input pin
+
+ Resistor affects current (basic simulation)
+
+Phase 4 — Code Execution Engine
+
+Goal: Realistic MCU behavior
+
+ Step-by-step execution
+
+ Instruction pointer visualization
+
+ Pause / Resume execution
+
+ Breakpoints
+
+ Execution speed control
+
+Phase 5 — Advanced Simulation
+
+Goal: Real microcontroller logic
+
+ Timer simulation
+
+ Interrupt simulation
+
+ PWM visualization
+
+ Analog input simulation
+
+ ADC behavior
+
+Phase 6 — Developer Tools
+
+Goal: Debugging and learning tools
+
+ Serial monitor
+
+ Register inspector
+
+ Memory viewer
+
+ Execution trace
+
+ Logic analyzer panel
+
+ Oscilloscope visualization
+
+Phase 7 — Workspace System
+
+Goal: True lab environment
+
+ Drag-and-drop components
+
+ Workspace canvas
+
+ Zoom / pan
+
+ Save circuit
+
+ Load circuit
+
+ Export projects
+
+Phase 8 — Multi-MCU Support
+
+Goal: Scalable simulator platform
+
+ MCU abstraction layer
+
+ ATmega328P model
+
+ ATmega2560 model
+
+ ESP32 model (future)
+
+ MCU switching system
+
+Phase 9 — Polishing
+
+Goal: Production-level tool
+
+ Responsive UI
+
+ Dark / light theme
+
+ Performance optimization
+
+ State management cleanup
+
+ Remove inline styles
+
+ Error handling
+
+ Logging
+
+Phase 10 — Deployment
+
+Goal: Public platform
+
+ Host frontend
+
+ Deploy backend API
+
+ Database for saved circuits
+
+ User login
+
+ Shareable experiments
+
+🧠 Ultimate Goal
+
+A browser-based tool similar to:
+
+Proteus
+
+Tinkercad Circuits
+
+Wokwi
+
+But open, educational, and extensible.
