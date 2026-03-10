@@ -1,0 +1,32 @@
+Hello, guys. This is Lanso from our Arcade team.
+Now, I'm going to explain the student dashboard in our application.
+Here, we have the courses and tailored to the students,
+and here we can browse the courses available to those students
+that is developed based on the understanding level from the initial quiz.
+Here comes the lab where we can perform and create
+various accents on these microcontrollers.
+We have included various microcontrollers, including Arduino Uno, Mega, and Nano.
+We can use various modules and create various circuits depending on our needs.
+By doing this, we cannot make mistakes during the real world
+because we have already tried during this,
+and here is the Arduino Mega and Arduino Nano.
+Next, we are going to see how AR and VR experience works.
+We can see the basic impression of an Arduino Uno and a breadboard, and light, and a switch.
+We can see that the plane is rotatable by us,
+and if we connect the respective prints,
+we can see the circuit works.
+This is still in development stage,
+so everything will be in basic.
+We can see that the circuit works,
+and next, we can see the teacher's dashboard.
+Here, the teacher should enter his credentials and enter the dashboard.
+Here, we can see how many students present and classes present and average progress,
+and here are the classes that are given by the teacher.
+Here, the teacher can see the student's status and his grade
+and how many classes he has enrolled,
+and next, here comes the submission.
+Here, how many students submitted their assignments will be displayed,
+and next comes the analytics,
+where we can see the performance of our class students
+and how they are doing in all those courses.
+Thank you.

@@ -27,6 +27,7 @@ import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { useTheme } from "../context/ThemeContext";
 import useMediaQuery from "../hooks/useMediaQuery";
+import { useCircuitStore } from "../state/useCircuitStore";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
@@ -70,16 +71,66 @@ void loop() {
   const activeWireRef = useRef(null);
 
   const [wireColors, setWireColors] = useState({});
-  const [workspaceItems, setWorkspaceItems] = useState([
-    { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 260 },
-  ]);
+  const storedWorkspaceItems = useCircuitStore((state) => state.workspaceItems);
+  const workspaceVersion = useCircuitStore((state) => state.workspaceVersion);
+  const lastUpdatedBy = useCircuitStore((state) => state.lastUpdatedBy);
+  const syncFromWorkspace = useCircuitStore((state) => state.syncFromWorkspace);
+  const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
+  const storeInputs = useCircuitStore((state) => state.inputs);
+  const inputsVersion = useCircuitStore((state) => state.inputsVersion);
+  const inputsSource = useCircuitStore((state) => state.lastInputsSource);
+  const syncInputs = useCircuitStore((state) => state.syncInputs);
+
+  const defaultWorkspace = useMemo(
+    () => [
+      { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 260 },
+    ],
+    [],
+  );
+
+  const [workspaceItems, internalSetWorkspaceItems] = useState(() =>
+    storedWorkspaceItems && storedWorkspaceItems.length > 0 ? storedWorkspaceItems : defaultWorkspace,
+  );
+
+  const setWorkspaceItems = (updater, source = "sandbox") => {
+    internalSetWorkspaceItems((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      syncFromWorkspace(next, source);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (lastUpdatedBy && lastUpdatedBy !== "sandbox" && storedWorkspaceItems) {
+      internalSetWorkspaceItems(storedWorkspaceItems);
+    }
+  }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
+
+  useEffect(() => {
+    if (inputsSource && inputsSource !== "sandbox") {
+      setInputsState(storeInputs || {});
+    }
+  }, [inputsVersion, inputsSource, storeInputs]);
+
+  useEffect(() => {
+    const registersSource = currentRegisters || manualRegisters;
+    if (!registersSource) return;
+    setOutputsFromRegisters(registersSource);
+  }, [currentRegisters, manualRegisters, setOutputsFromRegisters]);
   const workspaceRef = useRef(null);
   const [viewScale, setViewScale] = useState(1);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
 
-  const [inputs, setInputs] = useState({});
+  const [inputs, setInputsState] = useState(storeInputs || {});
+  const setInputs = (updater, source = "sandbox") => {
+    setInputsState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      syncInputs(next, source);
+      return next;
+    });
+  };
   const [manualRegisters, setManualRegisters] = useState({
     DDRB: Array(8).fill(0),
     DDRC: Array(8).fill(0),
@@ -487,6 +538,9 @@ void loop() {
           <button style={styles.runButton} onClick={runCode} disabled={!isMcuSupported}>
             ▶ Run
           </button>
+          <button style={styles.xrButton} onClick={() => navigate("/arlab?preset=blink")}>
+            3D Lab Preview
+          </button>
         </div>
       </div>
 
@@ -803,6 +857,15 @@ function getStyles(theme, isCompact) {
       border: "none",
       borderRadius: 10,
       fontWeight: 700,
+      cursor: "pointer",
+    },
+    xrButton: {
+      padding: "9px 18px",
+      background: "transparent",
+      border: "1px solid var(--accent)",
+      color: "var(--accent)",
+      borderRadius: 10,
+      fontWeight: 600,
       cursor: "pointer",
     },
     toolbar: {

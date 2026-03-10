@@ -206,9 +206,12 @@ export default function ExperimentPage() {
               <p style={styles.bodyText}>
                 The interactive ATmega328P simulator will be embedded here.
               </p>
-              <button style={styles.heroBtn} onClick={() => navigate("/sandbox")}>
-                Open Sandbox Simulator →
-              </button>
+              <div style={styles.simCtas}>
+                <button style={styles.heroBtn} onClick={() => navigate("/sandbox")}>
+                  Open Sandbox Simulator →
+                </button>
+                <button style={styles.secondaryBtn} onClick={() => navigate("/arlab?preset=blink")}>View 3D Lab Preview →</button>
+              </div>
             </div>
             <button style={styles.nextBtn} onClick={() => setActiveTab("posttest")}>
               Continue to Post-Test →
@@ -528,6 +531,14 @@ const styles = {
     textAlign: "center",
     marginBottom: "20px",
   },
+  simCtas: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    width: "100%",
+    maxWidth: "320px",
+    margin: "0 auto",
+  },
 
   /* FEEDBACK */
   feedbackBox: {
@@ -568,5 +579,15 @@ const styles = {
     fontWeight: "700",
     cursor: "pointer",
     boxShadow: "0 0 25px rgba(0,255,136,0.3)",
+  },
+  secondaryBtn: {
+    padding: "12px 20px",
+    borderRadius: "12px",
+    border: "1px solid #00ffcc55",
+    background: "transparent",
+    color: "#00ffcc",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
   },
 };
