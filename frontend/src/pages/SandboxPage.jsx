@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import EditorPanel from "../components/EditorPanel";
 import Chip from "../components/Chip";
@@ -25,7 +25,7 @@ import MemoryViewer from "../components/MemoryViewer";
 import ExecutionTrace from "../components/ExecutionTrace";
 import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 import useMediaQuery from "../hooks/useMediaQuery";
 import { useCircuitStore } from "../state/useCircuitStore";
 
@@ -92,13 +92,13 @@ void loop() {
     storedWorkspaceItems && storedWorkspaceItems.length > 0 ? storedWorkspaceItems : defaultWorkspace,
   );
 
-  const setWorkspaceItems = (updater, source = "sandbox") => {
+  const setWorkspaceItems = useCallback((updater, source = "sandbox") => {
     internalSetWorkspaceItems((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       syncFromWorkspace(next, source);
       return next;
     });
-  };
+  }, [syncFromWorkspace]);
 
   useEffect(() => {
     if (lastUpdatedBy && lastUpdatedBy !== "sandbox" && storedWorkspaceItems) {
@@ -106,17 +106,6 @@ void loop() {
     }
   }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
 
-  useEffect(() => {
-    if (inputsSource && inputsSource !== "sandbox") {
-      setInputsState(storeInputs || {});
-    }
-  }, [inputsVersion, inputsSource, storeInputs]);
-
-  useEffect(() => {
-    const registersSource = currentRegisters || manualRegisters;
-    if (!registersSource) return;
-    setOutputsFromRegisters(registersSource);
-  }, [currentRegisters, manualRegisters, setOutputsFromRegisters]);
   const workspaceRef = useRef(null);
   const [viewScale, setViewScale] = useState(1);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
@@ -124,13 +113,19 @@ void loop() {
   const panSessionRef = useRef(null);
 
   const [inputs, setInputsState] = useState(storeInputs || {});
-  const setInputs = (updater, source = "sandbox") => {
+  const setInputs = useCallback((updater, source = "sandbox") => {
     setInputsState((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       syncInputs(next, source);
       return next;
     });
-  };
+  }, [syncInputs]);
+
+  useEffect(() => {
+    if (inputsSource && inputsSource !== "sandbox") {
+      setInputsState(storeInputs || {});
+    }
+  }, [inputsVersion, inputsSource, storeInputs]);
   const [manualRegisters, setManualRegisters] = useState({
     DDRB: Array(8).fill(0),
     DDRC: Array(8).fill(0),
@@ -176,6 +171,12 @@ void loop() {
   const currentMemory = cpuState?.memory || manualMemoryRef.current;
 
   const liveMode = isRunning && liveTimeline.length > 0;
+
+  useEffect(() => {
+    const registersSource = currentRegisters || manualRegisters;
+    if (!registersSource) return;
+    setOutputsFromRegisters(registersSource);
+  }, [currentRegisters, manualRegisters, setOutputsFromRegisters]);
 
   useEffect(() => {
     syncBreakpoints(breakpoints);
@@ -247,7 +248,7 @@ void loop() {
     setWorkspaceItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   };
 
-  const handleComponentPinEffect = (item, prevPin, nextPin) => {
+  const handleComponentPinEffect = useCallback((item, prevPin, nextPin) => {
     if (!item) return;
     if (item.type === "GROUND_NODE" || item.type === "VCC_NODE") {
       setInputs((prev) => {
@@ -257,9 +258,9 @@ void loop() {
         return updated;
       });
     }
-  };
+  }, [setInputs]);
 
-  const updateComponentPin = (id, terminalId, newPin) => {
+  const updateComponentPin = useCallback((id, terminalId, newPin) => {
     setWorkspaceItems((prev) => prev.map((item) => {
       if (item.id !== id) return item;
       const pinInt = newPin == null || newPin === "" ? null : parseInt(newPin, 10);
@@ -270,7 +271,7 @@ void loop() {
       handleComponentPinEffect(updatedItem, prevPinValue, pinInt);
       return updatedItem;
     }));
-  };
+  }, [handleComponentPinEffect, setWorkspaceItems]);
 
   const clearComponentTerminal = (id, terminalId) => updateComponentPin(id, terminalId, null);
 
@@ -339,7 +340,7 @@ void loop() {
       window.removeEventListener("mouseup", handleGlobalMouseUp);
       window.removeEventListener("mousemove", handleGlobalMouseMove);
     };
-  }, []);
+  }, [updateComponentPin]);
 
   const toggleInput = (pin) => {
     if (pin == null) return;
@@ -465,14 +466,7 @@ void loop() {
     setViewOffset({ x: 0, y: 0 });
   };
 
-  const handlePanStart = (e) => {
-    if (!panMode) return;
-    panSessionRef.current = { x: e.clientX, y: e.clientY, offset: { ...viewOffset } };
-    window.addEventListener("mousemove", handlePanMove);
-    window.addEventListener("mouseup", handlePanEnd);
-  };
-
-  const handlePanMove = (e) => {
+  const handlePanMove = useCallback((e) => {
     if (!panSessionRef.current) return;
     const dx = e.clientX - panSessionRef.current.x;
     const dy = e.clientY - panSessionRef.current.y;
@@ -480,20 +474,27 @@ void loop() {
       x: panSessionRef.current.offset.x + dx,
       y: panSessionRef.current.offset.y + dy,
     });
-  };
+  }, []);
 
-  const handlePanEnd = () => {
+  const handlePanEnd = useCallback(function handlePanEndCallback() {
     panSessionRef.current = null;
     window.removeEventListener("mousemove", handlePanMove);
-    window.removeEventListener("mouseup", handlePanEnd);
-  };
+    window.removeEventListener("mouseup", handlePanEndCallback);
+  }, [handlePanMove]);
+
+  const handlePanStart = useCallback((e) => {
+    if (!panMode) return;
+    panSessionRef.current = { x: e.clientX, y: e.clientY, offset: { ...viewOffset } };
+    window.addEventListener("mousemove", handlePanMove);
+    window.addEventListener("mouseup", handlePanEnd);
+  }, [panMode, viewOffset, handlePanMove, handlePanEnd]);
 
   useEffect(() => {
     return () => {
       window.removeEventListener("mousemove", handlePanMove);
       window.removeEventListener("mouseup", handlePanEnd);
     };
-  }, []);
+  }, [handlePanMove, handlePanEnd]);
 
   const handleAddBreakpoint = (address) => {
     setBreakpoints((prev) => (prev.includes(address) ? prev : [...prev, address]));

@@ -1,31 +1,51 @@
-import { auto } from 'avr8js'; // Wait, auto doesn't exist
-// Let's import CPU
-import { CPU, AVRIOPort, portBConfig, AVRTimer, timer0Config } from 'avr8js';
-import fs from 'fs';
+import { CPU, AVRIOPort, AVRTimer, portBConfig, timer0Config } from "avr8js";
+import fs from "fs";
+
+const PROGRAM_WORDS = 16384;
+const HEX_PATH = new URL("../backend/out.hex", import.meta.url);
 
 function loadHex(source, target) {
-  for (const line of source.split('\n')) {
-    if (line[0] === ':' && line.substr(7, 2) === '00') {
+  for (const line of source.split("\n")) {
+    if (line[0] === ":" && line.substr(7, 2) === "00") {
       const bytes = parseInt(line.substr(1, 2), 16);
       const addr = parseInt(line.substr(3, 4), 16);
-      for (let i = 0; i < bytes; i++) {
+      for (let i = 0; i < bytes; i += 1) {
         target[addr + i] = parseInt(line.substr(9 + i * 2, 2), 16);
       }
     }
   }
 }
 
-const hex = fs.readFileSync('../backend/out.hex', 'utf8');
-const cpu = new CPU(new Uint16Array(16384));
-loadHex(hex, new Uint8Array(cpu.progBytes.buffer));
-const portB = new AVRIOPort(cpu, portBConfig);
-const timer0 = new AVRTimer(cpu, timer0Config); // Timer will listen to CPU ticks
-
-let ticks = 0;
-for(let i=0; i<3000000; i++) {
-  // avrInstruction just executes instructions
-  // Let's see if cpu.tick() works! Wait, cpu.tick doesn't exist? Earlier output: `[ ... ] function undefined undefined`
-  // Ah! `console.log(Object.keys(cpu), typeof cpu.tick, typeof cpu.step, typeof cpu.execute)` -> `typeof cpu.tick` was `undefined`.
-  // Wait, let's just log it.
+function bootstrapCpu(source) {
+  const cpu = new CPU(new Uint16Array(PROGRAM_WORDS));
+  loadHex(source, new Uint8Array(cpu.progBytes.buffer));
+  return cpu;
 }
-console.log(typeof cpu.tick, typeof cpu.step, typeof cpu.execute, typeof cpu.tick);
+
+function runTicks(cpu, cycles = 1000) {
+  let executed = 0;
+  while (executed < cycles) {
+    cpu.tick();
+    executed += 1;
+  }
+  return executed;
+}
+
+export function main() {
+  let hexSource = "";
+  try {
+    hexSource = fs.readFileSync(HEX_PATH, "utf8");
+  } catch (error) {
+    console.warn("No compiled HEX found at", HEX_PATH.pathname, error.message);
+    return;
+  }
+
+  const cpu = bootstrapCpu(hexSource);
+  const portB = new AVRIOPort(cpu, portBConfig);
+  new AVRTimer(cpu, timer0Config);
+
+  const ticks = runTicks(cpu, 5000);
+  console.log(`Executed ${ticks} cycles. PORTB pins:`, Array.from(portB.pinState));
+}
+
+main();

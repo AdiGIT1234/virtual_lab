@@ -44,7 +44,7 @@ const deriveComponents = (workspaceItems = []) => {
 const defaultPreset = CIRCUIT_PRESETS.blink;
 const defaultWorkspace = cloneWorkspace(defaultPreset.workspace || []);
 
-export const useCircuitStore = create((set, get) => ({
+export const useCircuitStore = create((set) => ({
   presetId: defaultPreset.id,
   presetMeta: { name: defaultPreset.name, description: defaultPreset.description },
   workspaceItems: defaultWorkspace,

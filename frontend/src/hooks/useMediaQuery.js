@@ -1,31 +1,35 @@
-import { useEffect, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
+
+function createMediaQueryStore(query) {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return {
+      subscribe: () => () => {},
+      getSnapshot: () => false,
+    };
+  }
+
+  const mediaQueryList = window.matchMedia(query);
+  return {
+    subscribe: (notify) => {
+      const listener = () => notify();
+      if (mediaQueryList.addEventListener) {
+        mediaQueryList.addEventListener("change", listener);
+      } else {
+        mediaQueryList.addListener(listener);
+      }
+      return () => {
+        if (mediaQueryList.removeEventListener) {
+          mediaQueryList.removeEventListener("change", listener);
+        } else {
+          mediaQueryList.removeListener(listener);
+        }
+      };
+    },
+    getSnapshot: () => mediaQueryList.matches,
+  };
+}
 
 export default function useMediaQuery(query) {
-  const getMatch = () => {
-    if (typeof window === "undefined" || !window.matchMedia) return false;
-    return window.matchMedia(query).matches;
-  };
-
-  const [matches, setMatches] = useState(getMatch);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const mql = window.matchMedia(query);
-    const handler = (event) => setMatches(event.matches);
-    if (mql.addEventListener) {
-      mql.addEventListener("change", handler);
-    } else {
-      mql.addListener(handler);
-    }
-    setMatches(mql.matches);
-    return () => {
-      if (mql.removeEventListener) {
-        mql.removeEventListener("change", handler);
-      } else {
-        mql.removeListener(handler);
-      }
-    };
-  }, [query]);
-
-  return matches;
+  const store = useMemo(() => createMediaQueryStore(query), [query]);
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, () => false);
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 
 /* ═══════════════════════════════════════════════════════════
    CHIP INFO - Data that appears alongside the chip as it opens

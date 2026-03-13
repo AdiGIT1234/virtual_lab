@@ -96,7 +96,7 @@ const DraggableWrapper = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragOffset]);
+  }, [isDragging, dragOffset, workspaceRef, viewScale, position, id, onPositionChange]);
 
   return (
     <div

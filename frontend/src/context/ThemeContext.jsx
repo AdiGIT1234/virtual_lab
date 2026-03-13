@@ -1,9 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-
-const ThemeContext = createContext({
-  theme: "dark",
-  toggleTheme: () => {},
-});
+import { useEffect, useMemo, useState } from "react";
+import { ThemeContext } from "./ThemeContextBase";
 
 export function ThemeProvider({ children }) {
   const prefersDark = typeof window !== "undefined" && window.matchMedia
@@ -28,8 +24,4 @@ export function ThemeProvider({ children }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }
