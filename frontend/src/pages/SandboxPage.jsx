@@ -64,6 +64,8 @@ void loop() {
   const [hexOutput, setHexOutput] = useState("");
   const [hexError, setHexError] = useState("");
 
+  const [wires, setWires] = useState([]);
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(true);
 
@@ -81,21 +83,16 @@ void loop() {
   const inputsSource = useCircuitStore((state) => state.lastInputsSource);
   const syncInputs = useCircuitStore((state) => state.syncInputs);
 
-  const defaultWorkspace = useMemo(
-    () => [
-      { id: "led-1", type: "LED_RED", pin: 13, x: 200, y: 260 },
-    ],
-    [],
-  );
+  const defaultWorkspace = useMemo(() => [], []);
 
-  const [workspaceItems, internalSetWorkspaceItems] = useState(() =>
-    storedWorkspaceItems && storedWorkspaceItems.length > 0 ? storedWorkspaceItems : defaultWorkspace,
-  );
+  const [workspaceItems, internalSetWorkspaceItems] = useState(() => defaultWorkspace);
 
   const setWorkspaceItems = useCallback((updater, source = "sandbox") => {
     internalSetWorkspaceItems((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      syncFromWorkspace(next, source);
+      queueMicrotask(() => {
+        syncFromWorkspace(next, source);
+      });
       return next;
     });
   }, [syncFromWorkspace]);
@@ -106,7 +103,6 @@ void loop() {
     }
   }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
 
-  const workspaceRef = useRef(null);
   const [viewScale, setViewScale] = useState(1);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
@@ -116,7 +112,9 @@ void loop() {
   const setInputs = useCallback((updater, source = "sandbox") => {
     setInputsState((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      syncInputs(next, source);
+      queueMicrotask(() => {
+        syncInputs(next, source);
+      });
       return next;
     });
   }, [syncInputs]);
@@ -142,16 +140,6 @@ void loop() {
 
   const [breakpoints, setBreakpoints] = useState([]);
   const [breakpointHit, setBreakpointHit] = useState(null);
-
-  const resistorMap = useMemo(() => {
-    const map = {};
-    workspaceItems.forEach((item) => {
-      if (item.type === "RESISTOR" && item.pins?.main != null) {
-        map[item.pins.main] = item.resistance || 330;
-      }
-    });
-    return map;
-  }, [workspaceItems]);
 
   const currentRegisters = useMemo(() => {
     if (isRunning && cpuState?.registers) {
@@ -231,14 +219,16 @@ void loop() {
     let pins = { main: "" };
     if (type === "RGB_LED") pins = { r: "", g: "", b: "" };
     if (type === "SEVEN_SEG") pins = { a: "", b: "", c: "", d: "", e: "", f: "", g: "" };
-    if (type === "RESISTOR") pins = { main: "" };
+    if (type === "RESISTOR") pins = { t1: "", t2: "" };
+    if (type === "WIRE_NODE") pins = { main: "" };
 
     const newItem = {
       id: `${type.toLowerCase()}-${Date.now()}`,
       type,
       pins,
-      x: 300,
-      y: 360,
+      x: 80 + Math.random() * 50,
+      y: 150 + Math.random() * 100,
+      scale: 1,
       ...(type === "RESISTOR" ? { resistance: 330 } : {}),
     };
     setWorkspaceItems((prev) => [...prev, newItem]);
@@ -253,8 +243,12 @@ void loop() {
     if (item.type === "GROUND_NODE" || item.type === "VCC_NODE") {
       setInputs((prev) => {
         const updated = { ...prev };
-        if (prevPin != null) delete updated[prevPin];
-        if (nextPin != null) updated[nextPin] = item.type === "GROUND_NODE" ? 0 : 1;
+        // Clean up previous MCU pin if it was direct
+        if (prevPin != null && !String(prevPin).includes("::")) delete updated[prevPin];
+        // Set new MCU pin if it's direct
+        if (nextPin != null && !String(nextPin).includes("::")) {
+           updated[nextPin] = item.type === "GROUND_NODE" ? 0 : 1;
+        }
         return updated;
       });
     }
@@ -268,25 +262,26 @@ void loop() {
       const newPins = { ...(item.pins || { main: item.pin }) };
       newPins[terminalId] = pinInt;
       const updatedItem = { ...item, pins: newPins, pin: terminalId === "main" ? pinInt : item.pin };
-      handleComponentPinEffect(updatedItem, prevPinValue, pinInt);
+      
+      queueMicrotask(() => {
+         handleComponentPinEffect(updatedItem, prevPinValue, pinInt);
+      });
       return updatedItem;
     }));
   }, [handleComponentPinEffect, setWorkspaceItems]);
 
-  const clearComponentTerminal = (id, terminalId) => updateComponentPin(id, terminalId, null);
-
   const deleteComponent = (id) => {
     setWorkspaceItems((prev) => {
+      // Remove all wires touching this component
+      setWires(currentWires => currentWires.filter(w => !w.source.startsWith(`${id}::`) && !w.target?.startsWith(`${id}::`)));
+
       const target = prev.find((item) => item.id === id);
       if (target && (target.type === "GROUND_NODE" || target.type === "VCC_NODE")) {
-        const existingPin = (target.pins && target.pins.main) ?? target.pin;
-        if (existingPin != null) {
-          setInputs((prevInputs) => {
-            const updated = { ...prevInputs };
-            delete updated[existingPin];
-            return updated;
-          });
-        }
+        // Evaluate if cleanup needed for mcu direct hooks, largely obsolete under new wire arrays but safe keeping
+        setInputs((prevInputs) => {
+          const updated = { ...prevInputs };
+          return updated;
+        });
       }
       return prev.filter((item) => item.id !== id);
     });
@@ -296,28 +291,79 @@ void loop() {
     setWorkspaceItems((prev) => prev.map((item) => (item.id === id ? { ...item, x: pos.x, y: pos.y } : item)));
   };
 
+  const handleItemScaleChange = (id, newScale) => {
+    setWorkspaceItems((prev) => prev.map((item) => (item.id === id ? { ...item, scale: newScale } : item)));
+  };
+  // ------ WIRING SYSTEM ------
   const startWire = (sourceId, termId, startX, startY) => {
-    const newWire = { sourceId, termId, startX, startY, currentX: startX, currentY: startY };
+    const sourceStr = termId ? `${sourceId}::${termId}` : sourceId;
+    const newWire = { source: sourceStr, bends: [], startX, startY, currentX: startX, currentY: startY };
     setActiveWire(newWire);
     activeWireRef.current = newWire;
   };
 
   useEffect(() => {
+    window.onStartWire = startWire;
+    window.getActiveWire = () => activeWireRef.current;
     window.onCompleteWire = (pin) => {
       if (activeWireRef.current && pin != null) {
-        updateComponentPin(activeWireRef.current.sourceId, activeWireRef.current.termId || "main", pin);
+        completeActiveWire(`mcu::${pin}`);
       }
-      setActiveWire(null);
-      activeWireRef.current = null;
+    };
+    window.onCompleteComponentWire = (targetId, targetTermId) => {
+      if (activeWireRef.current) {
+        const targetStr = `${targetId}::${targetTermId}`;
+        completeActiveWire(targetStr);
+      }
+    };
+    return () => {
+      delete window.onStartWire;
+      delete window.getActiveWire;
+      delete window.onCompleteWire;
+      delete window.onCompleteComponentWire;
+    };
+  }, []);
+
+  const completeActiveWire = (targetStr) => {
+     if (!activeWireRef.current) return;
+     if (activeWireRef.current.source === targetStr) {
+        // If clicking on the same pin, keep drawing
+        return;
+     }
+     const newWire = { 
+        id: `wire-${Date.now()}-${Math.random()}`,
+        source: activeWireRef.current.source,
+        target: targetStr,
+        bends: activeWireRef.current.bends || [],
+        color: activeWireRef.current.color || "#4dabf7"
+     };
+     setWires(prev => [...prev.filter(w => !(w.source === newWire.source && w.target === newWire.target)), newWire]);
+     setActiveWire(null);
+     activeWireRef.current = null;
+  };
+
+
+
+  useEffect(() => {
+    window.onAutoConnectWire = (sourceId, termId, targetPinId) => {
+      // Prevents overwriting if they explicitly don't want to
+      updateComponentPin(sourceId, termId, targetPinId);
     };
 
     const handleGlobalMouseUp = () => {
-      setTimeout(() => {
-        if (activeWireRef.current) {
-          setActiveWire(null);
-          activeWireRef.current = null;
-        }
-      }, 10);
+       setTimeout(() => {
+         if (activeWireRef.current) {
+           setActiveWire(null);
+           activeWireRef.current = null;
+         }
+       }, 50);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && activeWireRef.current) {
+        setActiveWire(null);
+        activeWireRef.current = null;
+      }
     };
 
     const handleGlobalMouseMove = (e) => {
@@ -334,11 +380,12 @@ void loop() {
 
     window.addEventListener("mouseup", handleGlobalMouseUp);
     window.addEventListener("mousemove", handleGlobalMouseMove);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.onCompleteWire = null;
       window.removeEventListener("mouseup", handleGlobalMouseUp);
       window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [updateComponentPin]);
 
@@ -372,14 +419,34 @@ void loop() {
 
   const handleWireDelete = (wireId) => {
     if (!wireId) return;
-    const [componentId, terminalId] = wireId.split("::");
-    if (!componentId || !terminalId) return;
-    clearComponentTerminal(componentId, terminalId);
+    setWires(prev => prev.filter(w => w.id !== wireId));
     setWireColors((prev) => {
       const updated = { ...prev };
       delete updated[wireId];
       return updated;
     });
+  };
+
+  const handleWireDetach = (wireId, endType) => {
+    if (!wireId) return;
+    const wire = wires.find(w => w.id === wireId);
+    if (!wire) return;
+    
+    // Remove wire from fixed arrays
+    setWires(prev => prev.filter(w => w.id !== wireId));
+
+    let newActive;
+    if (endType === "target") {
+       // Started from Source, we are detaching Target
+       newActive = { source: wire.source, bends: wire.bends, startX: 0, startY: 0, currentX: 0, currentY: 0, color: wire.color || "#4dabf7" };
+    } else {
+       // Detaching source, so new active wire starts from old Target, going backwards
+       // Bend points reverse
+       newActive = { source: wire.target, bends: [...wire.bends].reverse(), startX: 0, startY: 0, currentX: 0, currentY: 0, color: wire.color || "#4dabf7" };
+    }
+
+    setActiveWire(newActive);
+    activeWireRef.current = newActive;
   };
 
   const handleToggleBit = (regName, bitIndex) => {
@@ -410,41 +477,105 @@ void loop() {
     return false;
   };
 
-  const getPinAnalog = (p) => {
+  const getPinAnalog = (p, totalRes = 0) => {
     if (p === "" || isNaN(p) || p == null) return 0;
     const base = currentRegisters?.PWM?.[p] || (getPinLogic(p) ? 255 : 0);
-    const factor = getResistorFactor(p);
+    if (totalRes === 0) return base;
+    const ratio = 330 / Math.max(totalRes, 1);
+    const factor = Math.min(1, Math.max(0.1, ratio));
     return Math.floor(base * factor);
   };
 
-  const getResistorFactor = (pin) => {
-    if (pin == null) return 1;
-    const ohms = resistorMap[pin];
-    if (!ohms) return 1;
-    const ratio = 330 / Math.max(ohms, 1);
+  const getResistorFactor = (totalRes) => {
+    if (totalRes === 0) return 1;
+    const ratio = 330 / Math.max(totalRes, 1);
     return Math.min(1, Math.max(0.1, ratio));
   };
 
+  const resolveConnection = useCallback((compId, termId, visited = new Set(), currentResistance = 0) => {
+    const key = `${compId}::${termId}`;
+    if (visited.has(key)) return { pin: null, resistance: currentResistance };
+    visited.add(key);
+
+    const item = workspaceItems.find(i => i.id === compId);
+    if (!item) return { pin: null, resistance: currentResistance };
+
+    // 1. Traverse all wires touching this pin
+    const touchingWires = wires.filter(w => w.source === key || w.target === key);
+    
+    for (const wire of touchingWires) {
+       const otherEnd = wire.source === key ? wire.target : wire.source;
+       if (!otherEnd) continue;
+
+       if (otherEnd.startsWith("mcu::")) {
+         return { pin: parseInt(otherEnd.split("::")[1], 10), resistance: currentResistance };
+       }
+
+       const [oComp, oTerm] = otherEnd.split("::");
+       const result = resolveConnection(oComp, oTerm, visited, currentResistance);
+       if (result.pin != null) return result;
+    }
+
+    // 2. Across the component?
+    if (item.type === "RESISTOR") {
+      const otherTerm = termId === "t1" ? "t2" : "t1";
+      const hopResistance = currentResistance + (item.type === "RESISTOR" ? (item.resistance || 330) : 0);
+      const result = resolveConnection(compId, otherTerm, visited, hopResistance);
+      if (result.pin != null) return result;
+    }
+
+    return { pin: null, resistance: currentResistance };
+  }, [workspaceItems, wires]);
+
   const handleSaveWorkspace = () => {
-    const payload = { items: workspaceItems, inputs, wireColors };
+    const payload = { items: workspaceItems, inputs, wireColors, wires };
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(payload));
+    alert("Workspace saved to local storage!");
   };
 
   const handleLoadWorkspace = () => {
     const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      alert("No saved workspace found.");
+      return;
+    }
     try {
       const parsed = JSON.parse(raw);
+      // Load Workspace
       setWorkspaceItems(parsed.items || []);
       setInputs(parsed.inputs || {});
       setWireColors(parsed.wireColors || {});
-    } catch (error) {
-      console.error("Failed to load workspace", error);
+      
+      let loadedWires = parsed.wires;
+      if (!loadedWires && parsed.items) {
+          // Migration from old inferred pins format
+          loadedWires = [];
+          parsed.items.forEach(item => {
+             if (item.pins) {
+                Object.entries(item.pins).forEach(([termId, targetStr]) => {
+                   if (targetStr != null && targetStr !== "") {
+                      loadedWires.push({
+                         id: `wire-${Date.now()}-${Math.random()}`,
+                         source: `${item.id}::${termId}`,
+                         target: typeof targetStr === "string" && targetStr.includes("::") ? targetStr : `mcu::${targetStr}`,
+                         bends: [],
+                         color: parsed.wireColors?.[`${item.id}::${termId}`] || "#4dabf7"
+                      });
+                   }
+                });
+             }
+          });
+      }
+      setWires(loadedWires || []);
+      alert("Workspace loaded successfully!");
+    } catch (e) {
+      console.warn("Failed to parse workspace JSON", e);
+      alert("Failed to load workspace.");
     }
   };
 
   const handleExportWorkspace = () => {
-    const data = JSON.stringify({ items: workspaceItems, inputs, wireColors }, null, 2);
+    const data = JSON.stringify({ items: workspaceItems, inputs, wireColors, wires }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -483,11 +614,29 @@ void loop() {
   }, [handlePanMove]);
 
   const handlePanStart = useCallback((e) => {
-    if (!panMode) return;
-    panSessionRef.current = { x: e.clientX, y: e.clientY, offset: { ...viewOffset } };
-    window.addEventListener("mousemove", handlePanMove);
-    window.addEventListener("mouseup", handlePanEnd);
-  }, [panMode, viewOffset, handlePanMove, handlePanEnd]);
+    if (panMode) {
+      panSessionRef.current = { x: e.clientX, y: e.clientY, offset: { ...viewOffset } };
+      window.addEventListener("mousemove", handlePanMove);
+      window.addEventListener("mouseup", handlePanEnd);
+      return;
+    }
+    
+    // Not panning: if a wire is currently active, we drop a point.
+    if (activeWireRef.current) {
+      const workspaceNode = document.getElementById("workplane-container");
+      if (!workspaceNode) return;
+      const workspaceRect = workspaceNode.getBoundingClientRect();
+      const rx = (e.clientX - workspaceRect.left) / viewScale;
+      const ry = (e.clientY - workspaceRect.top) / viewScale;
+      
+      setActiveWire((prev) => {
+         if (!prev) return null;
+         const newWire = { ...prev, bends: [...prev.bends, { x: rx, y: ry }] };
+         activeWireRef.current = newWire;
+         return newWire;
+      });
+    }
+  }, [panMode, viewOffset, handlePanMove, handlePanEnd, viewScale]);
 
   useEffect(() => {
     return () => {
@@ -566,6 +715,7 @@ void loop() {
           <option value="RGB_LED">RGB LED</option>
           <option value="SERVO">Micro Servo</option>
           <option value="SEVEN_SEG">7-Segment Display</option>
+          <option value="WIRE_NODE">Wire Routing Node</option>
           <option value="GROUND_NODE">Ground Node</option>
           <option value="VCC_NODE">VCC Node</option>
         </select>
@@ -617,7 +767,7 @@ void loop() {
 
         <div style={styles.chipColumn}>
           <div
-            ref={workspaceRef}
+            id="workplane-container"
             style={{
               ...styles.workplane,
               transform: `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${viewScale})`,
@@ -628,10 +778,14 @@ void loop() {
               <Chip registers={currentRegisters} toggleInput={toggleInput} mcu={selectedMcu} />
             </div>
             {workspaceItems.map((item) => {
-              const itemPins = item.pins || { main: item.pin };
-              const configState = getPinLogic(itemPins.main);
-              const analogState = getPinAnalog(itemPins.main);
-              const resistorFactor = getResistorFactor(itemPins.main);
+              
+              // Resolve multi-pin endpoints properly based on component
+              // For most items (LED, BUTTON) we care about "main". 
+              // For RGB LED, we care about "r", "g", "b".
+              const resolvedMain = resolveConnection(item.id, "main");
+              const configState = getPinLogic(resolvedMain.pin);
+              const analogState = getPinAnalog(resolvedMain.pin, resolvedMain.resistance);
+              const resistorFactor = getResistorFactor(resolvedMain.resistance);
 
               let terminals = [{ id: "main", label: "PIN" }];
               if (item.type === "RGB_LED") {
@@ -652,10 +806,17 @@ void loop() {
                 ];
               } else if (item.type === "SERVO") {
                 terminals = [{ id: "main", label: "SIG", color: "#ff6600" }];
+              } else if (item.type === "RESISTOR") {
+                terminals = [
+                  { id: "t1", label: "Left Lead", color: "#999" },
+                  { id: "t2", label: "Right Lead", color: "#999" }
+                ];
               } else if (item.type === "GROUND_NODE") {
                 terminals = [{ id: "main", label: "GND", color: "#00ffcc" }];
               } else if (item.type === "VCC_NODE") {
                 terminals = [{ id: "main", label: "+5V", color: "#ffcf33" }];
+              } else if (item.type === "WIRE_NODE") {
+                terminals = [{ id: "main", label: "Tie Point", color: "#4dabf7" }];
               }
 
               const configPanel = item.type === "RESISTOR" ? (
@@ -679,65 +840,77 @@ void loop() {
                   id={item.id}
                   initialX={item.x}
                   initialY={item.y}
+                  scale={item.scale || 1}
                   terminals={terminals}
                   onStartWire={startWire}
                   onDelete={deleteComponent}
                   configPanel={configPanel}
-                  workspaceRef={workspaceRef}
+                  workspaceId="workplane-container"
                   viewScale={viewScale}
                   onPositionChange={handleItemPositionChange}
+                  onScaleChange={handleItemScaleChange}
                 >
                   {item.type === "LED_RED" && (
-                    <ExternalLED color="red" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />
+                    <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
                   )}
                   {item.type === "LED_GREEN" && (
-                    <ExternalLED color="green" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />
+                    <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
                   )}
                   {item.type === "LED_YELLOW" && (
-                    <ExternalLED color="yellow" state={configState} label={item.pin ? `Pin ${item.pin}` : "Unwired"} intensity={resistorFactor} />
+                    <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
                   )}
                   {item.type === "RESISTOR" && <Resistor resistance={item.resistance || 330} />}
                   {item.type === "BUTTON" && (
-                    <div onMouseDown={() => toggleInput(item.pin)}>
-                      <PushButton state={inputs[item.pin] === 1} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />
+                    <div onMouseDown={() => toggleInput(resolvedMain.pin)}>
+                      <PushButton state={inputs[resolvedMain.pin] === 1} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
                     </div>
                   )}
                   {item.type === "DIAL" && (
-                    <Dial value={inputs[item.pin] || 0} onChange={(val) => setAnalogInput(item.pin, val)} label={item.pin ? `Pin ${item.pin}` : "Unwired"} />
+                    <Dial value={inputs[resolvedMain.pin] || 0} onChange={(val) => setAnalogInput(resolvedMain.pin, val)} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
                   )}
                   {item.type === "MULTIMETER" && (
-                    <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={item.pin ? `Pin ${item.pin} Reading` : "Unwired"} />
+                    <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin} Rdg` : "Unwired"} />
                   )}
                   {item.type === "RGB_LED" && (
-                    <RGB_LED rState={getPinLogic(itemPins.r)} gState={getPinLogic(itemPins.g)} bState={getPinLogic(itemPins.b)} />
+                    <RGB_LED 
+                      rState={getPinLogic(resolveConnection(item.id, "r").pin)} 
+                      gState={getPinLogic(resolveConnection(item.id, "g").pin)} 
+                      bState={getPinLogic(resolveConnection(item.id, "b").pin)} 
+                    />
                   )}
                   {item.type === "SERVO" && <Servo angle={analogState > 0 ? (analogState / 255) * 180 : 0} />}
                   {item.type === "SEVEN_SEG" && (
                     <SevenSegment
-                      a={getPinLogic(itemPins.a)}
-                      b={getPinLogic(itemPins.b)}
-                      c={getPinLogic(itemPins.c)}
-                      d={getPinLogic(itemPins.d)}
-                      e={getPinLogic(itemPins.e)}
-                      f={getPinLogic(itemPins.f)}
-                      g={getPinLogic(itemPins.g)}
+                      a={getPinLogic(resolveConnection(item.id, "a").pin)}
+                      b={getPinLogic(resolveConnection(item.id, "b").pin)}
+                      c={getPinLogic(resolveConnection(item.id, "c").pin)}
+                      d={getPinLogic(resolveConnection(item.id, "d").pin)}
+                      e={getPinLogic(resolveConnection(item.id, "e").pin)}
+                      f={getPinLogic(resolveConnection(item.id, "f").pin)}
+                      g={getPinLogic(resolveConnection(item.id, "g").pin)}
                     />
                   )}
                   {item.type === "GROUND_NODE" && <GroundNode />}
                   {item.type === "VCC_NODE" && <VccNode />}
+                  {item.type === "WIRE_NODE" && <div style={{width: 12, height: 12, borderRadius: 6, background: '#4dabf7', boxShadow: '0 0 8px #4dabf7'}} />}
                 </DraggableWrapper>
               );
             })}
+
+            <WiringCanvas
+              items={workspaceItems}
+              wires={wires}
+              activeWire={activeWire}
+              wireColors={wireColors}
+              onWireColorChange={handleWireColorChange}
+              onWireDelete={handleWireDelete}
+              onWireDetach={handleWireDetach}
+              workspaceId="workplane-container"
+              viewScale={viewScale}
+              viewOffset={viewOffset}
+            />
           </div>
         </div>
-
-        <WiringCanvas
-          items={workspaceItems}
-          activeWire={activeWire}
-          wireColors={wireColors}
-          onWireColorChange={handleWireColorChange}
-          onWireDelete={handleWireDelete}
-        />
 
         <div style={{ ...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : -460 }}>
           {hexError && (
@@ -919,6 +1092,8 @@ function getStyles(theme, isCompact) {
       overflowY: "auto",
       transition: "margin-left 0.4s",
       padding: 12,
+      position: "relative",
+      zIndex: 20,
     },
     chipColumn: {
       flex: 1,
@@ -955,6 +1130,8 @@ function getStyles(theme, isCompact) {
       borderLeft: "1px solid var(--border)",
       overflowY: "auto",
       transition: "margin-right 0.4s",
+      position: "relative",
+      zIndex: 20,
     },
     gpioPanel: {
       background: "var(--surface-0)",
@@ -973,7 +1150,7 @@ function getStyles(theme, isCompact) {
     floatingBtn: {
       position: "absolute",
       top: 76,
-      zIndex: 10,
+      zIndex: 30,
       background: "var(--accent)",
       color: theme === "dark" ? "#000" : "#fff",
       border: "none",

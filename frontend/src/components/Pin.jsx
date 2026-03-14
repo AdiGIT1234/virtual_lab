@@ -51,12 +51,33 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
       : active 
         ? "0 0 15px #00ff88, 0 0 5px #00ff88" 
         : (hovered ? "0 0 10px rgba(255,255,255,1)" : "inset 0 1px 2px rgba(255,255,255,0.6)"),
-    cursor: pin.arduino != null ? "pointer" : "default",
+    cursor: "pointer",
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     transformOrigin: side === "left" ? "right center" : "left center",
-    transform: hovered ? "scaleX(1.4) scaleY(1.3)" : "scale(1)",
     zIndex: hovered ? 10 : 1
   };
+
+  const terminalNodeStyle = {
+    position: "absolute",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,0.9)",
+    background: "#00ff88",
+    boxShadow: "0 0 10px #00ff88",
+    opacity: hovered ? 1 : 0,
+    transition: "all 0.15s ease-in-out",
+    pointerEvents: "all",
+    zIndex: 20
+  };
+
+  if (side === "left") {
+    terminalNodeStyle.left = 0;
+  } else {
+    terminalNodeStyle.left = "100%";
+  }
 
   const labelStyle = {
     position: "absolute",
@@ -67,11 +88,8 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
     color: hovered ? "#fff" : getPortColor(pin.port),
     textAlign: side === "left" ? "left" : "right",
     textShadow: hovered ? `0 0 8px ${getPortColor(pin.port)}` : "none",
-    cursor: pin.arduino != null ? "pointer" : "default",
+    cursor: "pointer",
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-    transform: hovered 
-      ? (side === "left" ? "translateX(4px)" : "translateX(-4px)") 
-      : "translateX(0px)",
     zIndex: hovered ? 10 : 1
   };
 
@@ -117,12 +135,25 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={() => toggleInput(pin.arduino)}
-        onMouseUp={() => {
-          if (window.onCompleteWire && pin.arduino != null) {
-            window.onCompleteWire(pin.arduino);
-          }
+        onMouseUp={(e) => {
+           e.stopPropagation();
         }}
-      />
+      >
+        <div 
+          id={pin.arduino != null ? `chip-pin-tip-${pin.arduino}` : `chip-pin-tip-${pin.label}`} 
+          style={terminalNodeStyle} 
+          onMouseDown={(e) => {
+            const pinIdentifier = pin.arduino != null ? pin.arduino : pin.label;
+            e.stopPropagation();
+            if (window.getActiveWire && window.getActiveWire()) {
+               if (window.onCompleteWire) window.onCompleteWire(pinIdentifier);
+            } else if (window.onStartWire) {
+               const rect = e.target.getBoundingClientRect();
+               window.onStartWire(`mcu::${pinIdentifier}`, null, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            }
+          }}
+        />
+      </div>
       <div 
         style={labelStyle}
         onMouseEnter={() => setHovered(true)}

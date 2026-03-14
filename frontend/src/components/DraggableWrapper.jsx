@@ -4,6 +4,8 @@ const DraggableWrapper = ({
   id,
   initialX,
   initialY,
+  scale = 1,
+  onScaleChange,
   onStartWire,
   onDelete,
   terminals,
@@ -81,10 +83,51 @@ const DraggableWrapper = ({
             }
 
             onPositionChange?.(id, finalPos);
-            return;
           }
+        } else {
+            onPositionChange?.(id, position);
         }
-        onPositionChange?.(id, position);
+
+        // Auto-connect feature: test for nearest MCU pin or Component terminal
+        const compRect = wrapperRef.current.getBoundingClientRect();
+        const myX = compRect.left + compRect.width / 2;
+        const myY = compRect.top + compRect.height / 2;
+
+        let closestDist = 80; // snap threshold in px
+        let closestTarget = null;
+        
+        // Check Chip Pins
+        document.querySelectorAll('[id^="chip-pin-"]').forEach(node => {
+          const rect = node.getBoundingClientRect();
+          const nx = rect.left + rect.width / 2;
+          const ny = rect.top + rect.height / 2;
+          const dist = Math.hypot(nx - myX, ny - myY);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestTarget = node.id.replace('chip-pin-', ''); // standard mcu pin string
+          }
+        });
+
+        // Check Component Terminals
+        document.querySelectorAll('[data-type="terminal"]').forEach(node => {
+          const compId = node.getAttribute('data-comp-id');
+          const termId = node.getAttribute('data-term-id');
+          if (compId === id) return; // skip self
+          const rect = node.getBoundingClientRect();
+          const nx = rect.left + rect.width / 2;
+          const ny = rect.top + rect.height / 2;
+          const dist = Math.hypot(nx - myX, ny - myY);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestTarget = `${compId}::${termId}`; // nested representation
+          }
+        });
+
+        if (closestTarget && window.onAutoConnectWire) {
+           const myFirstTerm = termList[0]?.id || "main";
+           window.onAutoConnectWire(id, myFirstTerm, closestTarget);
+        }
+
       }
     };
 
@@ -96,7 +139,22 @@ const DraggableWrapper = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging, dragOffset, workspaceRef, viewScale, position, id, onPositionChange]);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY * -0.002;
+      const newScale = Math.min(Math.max(0.5, scale + delta), 3);
+      if (onScaleChange) onScaleChange(id, newScale);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [scale, onScaleChange, id]);
 
   return (
     <div
@@ -105,6 +163,8 @@ const DraggableWrapper = ({
         position: 'absolute',
         left: position.x,
         top: position.y,
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
         cursor: isDragging ? 'grabbing' : 'grab',
         zIndex: isDragging ? 100 : 8, // lower than wiring canvas
         userSelect: 'none'
@@ -175,13 +235,22 @@ const DraggableWrapper = ({
             key={term.id}
             id={`comp-terminal-${id}-${term.id}`}
             data-type="terminal"
+            data-comp-id={id}
+            data-term-id={term.id}
             title={term.label || term.id}
             onMouseDown={(e) => {
               e.stopPropagation();
-              if (onStartWire) {
+              if (window.getActiveWire && window.getActiveWire()) {
+                if (window.onCompleteComponentWire) {
+                  window.onCompleteComponentWire(id, term.id);
+                }
+              } else if (onStartWire) {
                 const rect = e.target.getBoundingClientRect();
                 onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
               }
+            }}
+            onMouseUp={(e) => {
+              e.stopPropagation();
             }}
             style={{
               width: 14,

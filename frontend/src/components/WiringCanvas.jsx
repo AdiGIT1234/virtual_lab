@@ -11,93 +11,100 @@ const WIRE_COLORS = [
   { name: "White", value: "#cccccc" },
 ];
 
-const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange, onWireDelete }) => {
+const WiringCanvas = ({ items, wires = [], activeWire, onWireDetach, onWireClick, wireColors = {}, onWireColorChange, onWireDelete, workspaceId, viewScale = 1, viewOffset = { x: 0, y: 0 } }) => {
   const [lines, setLines] = useState([]);
   const [contextMenu, setContextMenu] = useState(null);
 
   useEffect(() => {
     const updateLines = () => {
       const newLines = [];
-      items.forEach(item => {
-        // Fallback for legacy single-pin objects
-        const pins = item.pins ? item.pins : (item.pin != null && item.pin !== "" ? { main: item.pin } : {});
-        
-        Object.entries(pins).forEach(([termId, pinVal]) => {
-          if (pinVal !== "" && pinVal != null) {
-            let compNode = document.getElementById(`comp-terminal-${item.id}-${termId}`);
-            if (!compNode) compNode = document.getElementById(`comp-terminal-${item.id}-main`); // Legacy fallback
-            if (!compNode) compNode = document.getElementById(`comp-terminal-${item.id}`);
-            
-            const pinNode = document.getElementById(`chip-pin-${pinVal}`);
-            if (compNode && pinNode) {
-              const compRect = compNode.getBoundingClientRect();
-              const pinRect = pinNode.getBoundingClientRect();
-              
-              // For the pin side, target the tip of the pin
-              let px = pinRect.left;
-              if (pinRect.left > window.innerWidth / 2) px = pinRect.right;
+      const workspaceNode = workspaceId ? document.getElementById(workspaceId) : null;
+      const workspaceRect = workspaceNode?.getBoundingClientRect();
+      if (!workspaceRect) return;
 
-               const wireId = `${item.id}::${termId}`;
-              // Use custom color if set, otherwise default based on type
-              const defaultColor = termId === 'r' ? '#ff3333' : termId === 'g' ? '#33ff33' : termId === 'b' ? '#3333ff' : item.type.includes('LED') ? '#ff4040' : '#4dabf7';
-              
-              newLines.push({
-                id: wireId,
-                x1: compRect.left + compRect.width / 2,
-                y1: compRect.top + compRect.height / 2,
-                x2: px,
-                y2: pinRect.top + pinRect.height / 2,
-                color: wireColors[wireId] || defaultColor,
-              });
-            }
-          }
-        });
+      const resolvePort = (portStr) => {
+        if (!portStr) return null;
+        if (portStr.startsWith("mcu::")) {
+          const pinVal = portStr.split("::")[1];
+          let node = document.getElementById(`chip-pin-tip-${pinVal}`);
+          if (!node) node = document.getElementById(`chip-pin-${pinVal}`); // Fallback
+          if (!node) return null;
+          const rect = node.getBoundingClientRect();
+          return { 
+             x: (rect.left + rect.width / 2 - workspaceRect.left - viewOffset.x) / viewScale, 
+             y: (rect.top + rect.height / 2 - workspaceRect.top - viewOffset.y) / viewScale
+          };
+        } else {
+          const [compId, termId] = portStr.split("::");
+          let node = document.getElementById(`comp-terminal-${compId}-${termId}`);
+          if (!node) node = document.getElementById(`comp-terminal-${compId}`);
+          if (!node) return null;
+          const rect = node.getBoundingClientRect();
+          return { 
+             x: (rect.left + rect.width / 2 - workspaceRect.left - viewOffset.x) / viewScale, 
+             y: (rect.top + rect.height / 2 - workspaceRect.top - viewOffset.y) / viewScale 
+          };
+        }
+      };
+
+      wires.forEach(wire => {
+        const p1 = resolvePort(wire.source);
+        const p2 = resolvePort(wire.target);
+        if (p1 && p2) {
+          newLines.push({
+            id: wire.id,
+            wire,
+            sourcePos: p1,
+            targetPos: p2,
+            color: wire.color || "#4dabf7",
+            bends: wire.bends || []
+          });
+        }
       });
+
       setLines(newLines);
     };
 
     updateLines();
-    const interval = setInterval(updateLines, 16); // 60fps tracking for dragged components
-
+    const interval = setInterval(updateLines, 16); 
     return () => clearInterval(interval);
-  }, [items, wireColors]);
+  }, [wires, items, workspaceId, viewScale, viewOffset]);
 
-  const getOrthogonalPath = (x1, y1, x2, y2) => {
-    // 1. Always drop down from component terminal to prevent wire from crossing over the component body
-    const dropY = y1 + 25; 
-    
-    // 2. The chip pin is at x2. Safe vertical corridor outside the chip pins
-    const isRightSide = x2 > window.innerWidth / 2;
-    const extendX = isRightSide ? x2 + 30 : x2 - 30;
-    
-    // 3. Default horizontal lane
-    let routeY = dropY;
-    
-    const chipNode = document.getElementById('atmega-chip');
-    if (chipNode) {
-      const chipRect = chipNode.getBoundingClientRect();
-      const margin = 40; 
-      
-      const minX = Math.min(x1, extendX);
-      const maxX = Math.max(x1, extendX);
-      
-      // Check if horizontal lane intersects chip
-      const hzCrosses = (minX < chipRect.right + 20 && maxX > chipRect.left - 20);
-      const vtCrosses = (routeY > chipRect.top - 20 && routeY < chipRect.bottom + 20);
-      
-      if (hzCrosses && vtCrosses) {
-         const routeTopY = chipRect.top - margin;
-         const routeBottomY = chipRect.bottom + margin;
-         
-         const distTop = Math.abs(routeY - chipRect.top);
-         const distBottom = Math.abs(routeY - chipRect.bottom);
-         
-         routeY = distTop < distBottom ? routeTopY : routeBottomY;
-      }
+  const getPolylinePath = (start, bends, end) => {
+    if (!start || !end) return "";
+    let d = `M ${start.x} ${start.y}`;
+    (bends || []).forEach(b => {
+      d += ` L ${b.x} ${b.y}`;
+    });
+    d += ` L ${end.x} ${end.y}`;
+    return d;
+  };
+
+  const resolveActivePort = (portStr, fallbackX, fallbackY) => {
+    const workspaceNode = workspaceId ? document.getElementById(workspaceId) : null;
+    if (!portStr || !workspaceNode) return { x: fallbackX, y: fallbackY };
+    const workspaceRect = workspaceNode.getBoundingClientRect();
+    if (portStr.startsWith("mcu::")) {
+      const pinVal = portStr.split("::")[1];
+      let node = document.getElementById(`chip-pin-tip-${pinVal}`);
+      if (!node) node = document.getElementById(`chip-pin-${pinVal}`); // Fallback
+      if (!node) return { x: fallbackX, y: fallbackY };
+      const rect = node.getBoundingClientRect();
+      return { 
+         x: (rect.left + rect.width / 2 - workspaceRect.left - viewOffset.x) / viewScale, 
+         y: (rect.top + rect.height / 2 - workspaceRect.top - viewOffset.y) / viewScale 
+      };
+    } else {
+      const [compId, termId] = portStr.split("::");
+      let node = document.getElementById(`comp-terminal-${compId}-${termId}`);
+      if (!node) node = document.getElementById(`comp-terminal-${compId}`);
+      if (!node) return { x: fallbackX, y: fallbackY };
+      const rect = node.getBoundingClientRect();
+      return { 
+         x: (rect.left + rect.width / 2 - workspaceRect.left - viewOffset.x) / viewScale, 
+         y: (rect.top + rect.height / 2 - workspaceRect.top - viewOffset.y) / viewScale 
+      };
     }
-
-    // Path generation: M(start) -> L(drop from comp) -> L(if routeY changed, move to safe lane) -> L(over to safe column) -> L(up/down to pin) -> L(hook into pin)
-    return `M ${x1} ${y1} L ${x1} ${dropY} L ${x1} ${routeY} L ${extendX} ${routeY} L ${extendX} ${y2} L ${x2} ${y2}`;
   };
 
   const handleWireRightClick = (e, wireId) => {
@@ -124,20 +131,26 @@ const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange, o
 
   return (
     <>
-      <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11 }}>
+      <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11, overflow: 'visible' }}>
         {/* Existing Component Wires */}
         {lines.map(line => {
-          const path = getOrthogonalPath(line.x1, line.y1, line.x2, line.y2);
+          const path = getPolylinePath(line.sourcePos, line.bends, line.targetPos);
 
           return (
-            <g key={line.id}>
-              {/* Invisible thick hitbox for right-click */}
+            <g key={line.id} onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, wireId: line.id });
+                if (onWireClick) onWireClick(line.id, e.clientX, e.clientY);
+            }}>
+              {/* Invisible thick hitbox for click/hover */}
               <path 
                 d={path} 
                 fill="none" 
                 stroke="transparent" 
                 strokeWidth="16" 
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 style={{ pointerEvents: "stroke", cursor: "pointer" }}
                 onContextMenu={(e) => handleWireRightClick(e, line.id)}
               />
@@ -148,29 +161,81 @@ const WiringCanvas = ({ items, activeWire, wireColors = {}, onWireColorChange, o
                 stroke={line.color} 
                 strokeWidth="4" 
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.6))", pointerEvents: "none" }}
               />
+              {/* Draggable Endpoints */}
+              <circle
+                cx={line.sourcePos.x}
+                cy={line.sourcePos.y}
+                r="6"
+                fill={line.color}
+                stroke="#222"
+                strokeWidth="2"
+                style={{ pointerEvents: "all", cursor: "grab", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))" }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onWireDetach) onWireDetach(line.id, "source");
+                }}
+              />
+              <circle
+                cx={line.targetPos.x}
+                cy={line.targetPos.y}
+                r="6"
+                fill={line.color}
+                stroke="#222"
+                strokeWidth="2"
+                style={{ pointerEvents: "all", cursor: "grab", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))" }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onWireDetach) onWireDetach(line.id, "target");
+                }}
+              />
+              {line.bends.map((bend, i) => (
+                <circle
+                  key={i}
+                  cx={bend.x}
+                  cy={bend.y}
+                  r="4"
+                  fill="#ffffff"
+                  stroke={line.color}
+                  strokeWidth="2"
+                  style={{ pointerEvents: "none", opacity: 0.6 }}
+                />
+              ))}
             </g>
           );
         })}
 
         {/* Active Wires Being Dragged */}
-        {activeWire && (() => {
-          const path = getOrthogonalPath(activeWire.startX, activeWire.startY, activeWire.currentX, activeWire.currentY);
+        {activeWire && workspaceId && (() => {
+          const workspaceNode = document.getElementById(workspaceId);
+          if (!workspaceNode) return null;
+          const workspaceRect = workspaceNode.getBoundingClientRect();
+          const startP = resolveActivePort(activeWire.source, activeWire.startX, activeWire.startY);
+          
+          // Current is raw viewport pixel, translate to local space
+          const currentP = { 
+             x: (activeWire.currentX - workspaceRect.left) / viewScale, 
+             y: (activeWire.currentY - workspaceRect.top) / viewScale 
+          };
+          
+          const path = getPolylinePath(startP, activeWire.bends, currentP);
           return (
             <path 
               d={path}
               fill="none"
               stroke="#00ff88"
               strokeWidth="4"
-              strokeDasharray="8 4"
-              style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ filter: "drop-shadow(0 0 8px #00ff88)", pointerEvents: "none" }}
             />
           );
         })()}
       </svg>
-
-      {/* Wire Color Context Menu */}
       {contextMenu && (
         <div
           style={{
