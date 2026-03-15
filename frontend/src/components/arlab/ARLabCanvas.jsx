@@ -5,7 +5,7 @@ import CircuitScene from "./CircuitScene";
 
 const showStats = import.meta.env.DEV;
 
-export default function ARLabCanvas() {
+export default function ARLabCanvas({ highlightedId, componentStyles }) {
   return (
     <Canvas
       shadows
@@ -15,7 +15,7 @@ export default function ARLabCanvas() {
       <color attach="background" args={["#010307"]} />
       <fog attach="fog" args={["#010307", 5, 18]} />
       <Suspense fallback={null}>
-        <CircuitScene />
+        <CircuitScene highlightedComponentId={highlightedId} componentStyles={componentStyles} />
       </Suspense>
       <OrbitControls
         enableDamping
