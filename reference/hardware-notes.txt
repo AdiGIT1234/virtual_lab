@@ -1,0 +1,153 @@
+Hardware Knowledge Base
+=======================
+
+All summaries below were compiled from public manufacturer datasheets and the same facts surfaced inside the simulator UI. Pin names are kept consistent with the parts inside AR Lab so you can wire them confidently.
+
+Microcontroller Boards
+----------------------
+
+ATmega328P (Arduino Uno form factor)
+- CPU: 8-bit AVR RISC, 16 MHz default clock
+- Memory: 32 KB flash, 2 KB SRAM, 1 KB EEPROM
+- GPIO: 14 digital pins (D0–D13) with 6 PWM channels, 6 analog inputs (A0–A5)
+- Interfaces: UART (D0/D1), SPI (D10–D13), I²C/TWI (A4/A5)
+- Power: VIN 7–12 V, onboard 5 V and 3.3 V regulators, RESET pin
+
+ATmega2560 (Arduino Mega form factor)
+- CPU: 8-bit AVR, 16 MHz, 4 hardware timers + watchdog
+- Memory: 256 KB flash, 8 KB SRAM, 4 KB EEPROM
+- GPIO: 54 digital (D0–D53) with 15 PWM outputs, 16 analog inputs (A0–A15)
+- Interfaces: 4 UART ports, SPI header, I²C pins, additional SPI on ICSP header
+- Power: VIN 7–12 V, IOREF/RESET/VIN/5V/3V3/GND header cluster
+
+ESP32-S3 DevKit (module reference)
+- CPU: Dual-core Xtensa LX7, up to 240 MHz
+- Memory: 384 KB ROM, 512 KB SRAM, external flash via QSPI
+- GPIO: 34 pins (0–48) with touch sensing, ADC, DAC, PWM, I²C, SPI, UART
+- Connectivity: Wi-Fi 802.11 b/g/n and Bluetooth LE 5.0
+- Power: 5 V via USB, 3.3 V regulator, EN and BOOT strapping pins
+
+Displays
+--------
+
+LCD1602 (HD44780 16x2)
+- Parallel interface (4-bit or 8-bit). Pins: VSS, VDD, VO, RS, RW, E, D0–D7, LED+, LED-
+- Character grid: 2 rows × 16 columns, built-in CGROM + CGRAM.
+
+LCD2004 (HD44780 20x4)
+- Same pinout as LCD1602 with 4 rows × 20 columns.
+
+SSD1306 OLED (128×64 I²C)
+- Pins: VCC, GND, SCL, SDA (I²C). 128×64 monochrome pixels with internal charge pump.
+
+ILI9341 TFT (320×240 SPI)
+- Pins: VCC, GND, CS, RESET, DC, MOSI, MISO, SCK, LED, optional T_IRQ/T_DO for touch panels.
+
+Seven-Segment LED
+- Pins: a, b, c, d, e, f, g, plus DP (optional). Common cathode used in AR Lab preset.
+
+LED Bar Graph
+- 10 independent LED segments. Pins numbered 1–10 sharing a common cathode plane.
+
+Sensors
+-------
+
+DHT22 Temperature & Humidity
+- Pins: VCC (3.3–6 V), DATA (pull-up required), NC, GND.
+- Digital single-wire protocol; resolution 0.1 °C and 0.1 %RH.
+
+NTC Thermistor
+- Pins: T1, T2. Forms a voltage divider for analog readings.
+
+Photoresistor (LDR)
+- Pins: L1, L2. Resistance falls as light increases; analog voltage via divider.
+
+PIR Motion Sensor (HC-SR501)
+- Pins: VCC, OUT, GND. Digital output stays HIGH (~3.3 V) while motion detected.
+
+HC-SR04 Ultrasonic
+- Pins: VCC, TRIG, ECHO, GND. TRIG pulse ≥10 µs; ECHO pulse width equals travel time.
+
+MPU6050 IMU
+- Pins: VCC, GND, SCL, SDA, AD0, INT. I²C address selectable via AD0.
+
+Flame Sensor Module
+- Pins: VCC, GND, AOUT, DOUT. Analog channel for flame intensity, digital comparator for threshold.
+
+Gas Sensor (MQ-2 Board)
+- Pins: VCC, GND, AOUT, DOUT. Sensitive to LPG, methane, hydrogen, etc.
+
+Heartbeat (Pulse) Sensor
+- Pins: VCC, GND, SIGNAL. Analog photoplethysmography output.
+
+Input Devices
+-------------
+
+Pushbutton / Tactile Switch
+- Pins: two pairs internally linked. Use with pull-up resistors.
+
+Membrane Keypad 4×4
+- Pins: R1–R4, C1–C4. Matrix scanning (rows driven, columns read).
+
+Rotary Encoder KY-040
+- Pins: CLK, DT, SW, VCC, GND. Quadrature outputs plus pushbutton.
+
+Analog Joystick
+- Pins: VRX, VRY, SW, VCC, GND. Dual potentiometers + pushbutton.
+
+DIP Switch (8-position)
+- Pins: 1–8 plus COM rails. Simple on/off toggles for address selection.
+
+Outputs / Actuators
+-------------------
+
+RGB LED (common anode)
+- Pins: R, G, B, COM. Drive via PWM for color mixing.
+
+NeoPixel (WS2812)
+- Pins: 5V, DIN, GND. Single-wire 800 kHz protocol; chainable.
+
+Servo Motor (SG90)
+- Pins: VCC (5 V), GND, SIG. 1–2 ms pulses at 50 Hz control angle.
+
+Stepper Motor Driver (Bipolar)
+- Pins: A+, A-, B+, B-. Driven via ULN2003/A4988 style controllers.
+
+Buzzer Module
+- Pins: SIG, GND, VCC. Active buzzer toggles with digital input; passive uses PWM.
+
+Modules & Communication
+-----------------------
+
+IR Receiver (VS1838-style)
+- Pins: OUT, VCC, GND. Demodulates 38 kHz IR remote signals.
+
+IR Remote
+- Powered by CR2032. Sends NEC-style 32-bit codes.
+
+DS1307 RTC Module
+- Pins: VCC, GND, SDA, SCL, SQW. Battery backup keeps time.
+
+microSD Card Module (SPI)
+- Pins: VCC, GND, MISO, MOSI, SCK, CS. Logic level shifting included.
+
+HX711 Load Cell Amplifier
+- Pins: VCC, GND, DT, SCK, E+, E-, A+, A-. 24-bit ADC for strain gauges.
+
+Relay Module (5 V)
+- Pins: VCC, GND, IN, plus screw terminals COM/NO/NC.
+
+LED Matrix 8×8
+- Pins: ROW0–ROW7, COL0–COL7. Multiplexed scanning required.
+
+Logic & Tools
+-------------
+
+Shift Register 74HC595
+- Pins: SER, SRCLK, RCLK, MR, OE, Q0–Q7. Serial-in, parallel-out for LED driving.
+
+Logic Analyzer Tool
+- Virtual instrument capturing up to 8 channels at 5 MS/s inside AR Lab.
+
+Serial Monitor Tool
+- Console view of UART data routed from the MCU’s TX pin.

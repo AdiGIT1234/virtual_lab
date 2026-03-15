@@ -3,6 +3,7 @@ import LandingPage from "./pages/LandingPage";
 import ExperimentPage from "./pages/ExperimentPage";
 import SandboxPage from "./pages/SandboxPage";
 import ARLabPage from "./pages/ARLabPage";
+import ReferencePage from "./pages/ReferencePage";
 import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route path="/experiment/:experimentId" element={<ExperimentPage />} />
           <Route path="/sandbox" element={<SandboxPage />} />
           <Route path="/arlab" element={<ARLabPage />} />
+          <Route path="/reference" element={<ReferencePage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

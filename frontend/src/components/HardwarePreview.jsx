@@ -2,19 +2,20 @@ import { createElement, useMemo } from "react";
 
 const buildThumbUrl = (docSlug) => (docSlug ? `https://thumbs.wokwi.com/docs/parts/${docSlug}.html/thumbnail.png` : null);
 
-export default function WokwiPreview({
-  tag,
-  docSlug,
-  imageUrl,
-  size = "medium",
-  style,
-}) {
+const SIZE_MAP = {
+  small: { width: 120, height: 95 },
+  medium: { width: 200, height: 150 },
+  large: { width: 360, height: 260 },
+};
+
+export default function HardwarePreview({ tag, docSlug, imageUrl, size = "medium", style }) {
   const resolvedImage = imageUrl || buildThumbUrl(docSlug);
   const scale = size === "small" ? 0.8 : size === "large" ? 1.2 : 1;
+  const dims = SIZE_MAP[size] || SIZE_MAP.medium;
 
   const previewStyle = useMemo(() => ({
-    width: size === "small" ? 100 : size === "large" ? 200 : 150,
-    height: size === "small" ? 90 : size === "large" ? 180 : 130,
+    width: dims.width,
+    height: dims.height,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -24,7 +25,7 @@ export default function WokwiPreview({
     border: "1px solid rgba(255,255,255,0.08)",
     overflow: "hidden",
     ...style,
-  }), [size, style]);
+  }), [dims.width, dims.height, style]);
 
   if (!tag && !resolvedImage) return null;
 
@@ -42,7 +43,7 @@ export default function WokwiPreview({
         : resolvedImage && (
             <img
               src={resolvedImage}
-              alt="Wokwi component preview"
+              alt="Component preview"
               style={{ width: "100%", height: "100%", objectFit: "contain" }}
               loading="lazy"
             />

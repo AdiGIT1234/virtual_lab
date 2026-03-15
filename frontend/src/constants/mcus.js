@@ -15,6 +15,13 @@ export const MCUS = [
     supported: true,
     portColors: PORT_COLORS,
     pinLayout: PIN_LAYOUT,
+    docSlug: "wokwi-arduino-uno",
+    wokwiTag: "wokwi-arduino-uno",
+    features: [
+      "14 digital I/O (6 PWM)",
+      "6 analog inputs",
+      "16 MHz clock / 5V logic",
+    ],
   },
   {
     id: "atmega2560",
@@ -30,6 +37,13 @@ export const MCUS = [
       E: "#facc15",
     },
     pinLayout: null,
+    docSlug: "wokwi-arduino-mega",
+    wokwiTag: "wokwi-arduino-mega",
+    features: [
+      "54 digital I/O (15 PWM)",
+      "16 analog inputs (A0-A15)",
+      "4 UART, I2C, SPI buses",
+    ],
   },
   {
     id: "esp32s3",
@@ -41,6 +55,13 @@ export const MCUS = [
       GPIO: "#10b981",
     },
     pinLayout: null,
+    docSlug: "wokwi-esp32-devkit-v1",
+    wokwiTag: "wokwi-esp32-devkit-v1",
+    features: [
+      "Dual-core Wi-Fi + BLE",
+      "18 analog inputs (GPIO32-39)",
+      "3 UART / 2 I2C / 2 SPI",
+    ],
   },
 ];
 

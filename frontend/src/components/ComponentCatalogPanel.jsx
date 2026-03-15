@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import WokwiPreview from "./WokwiPreview";
+import HardwarePreview from "./HardwarePreview";
 
 const STATUS_LABELS = {
   simulated: "Simulated",
@@ -80,7 +80,7 @@ export default function ComponentCatalogPanel({ categories = [], onAdd, onClose 
                     const buttonLabel = component.status === "simulated" ? "Add to workspace" : component.status === "visual" ? "Add placeholder" : "Already available";
                     return (
                       <div key={component.id} style={styles.card}>
-                        <WokwiPreview tag={component.wokwiTag} docSlug={component.docSlug} imageUrl={component.imageUrl} size="small" style={styles.cardPreview} />
+                        <HardwarePreview tag={component.wokwiTag} docSlug={component.docSlug} imageUrl={component.imageUrl} size="small" style={styles.cardPreview} />
                         <div style={styles.cardTop}>
                           <span style={styles.cardIcon}>{component.icon || "MOD"}</span>
                           <span style={{ ...styles.statusBadge, color: statusStyle.color, borderColor: statusStyle.border, background: statusStyle.bg }}>

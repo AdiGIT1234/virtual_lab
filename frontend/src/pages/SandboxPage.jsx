@@ -25,6 +25,7 @@ import MemoryViewer from "../components/MemoryViewer";
 import ExecutionTrace from "../components/ExecutionTrace";
 import ComponentCatalogPanel from "../components/ComponentCatalogPanel";
 import ComponentPlaceholder from "../components/ComponentPlaceholder";
+import McuPreviewPanel from "../components/McuPreviewPanel";
 import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
@@ -891,7 +892,11 @@ void loop() {
                   Reset
                 </button>
               </div>
-              <Chip registers={currentRegisters} toggleInput={toggleInput} mcu={selectedMcu} />
+              {selectedMcu?.supported ? (
+                <Chip registers={currentRegisters} toggleInput={toggleInput} mcu={selectedMcu} />
+              ) : (
+                <McuPreviewPanel mcu={selectedMcu} />
+              )}
             </div>
             {workspaceItems.map((item) => {
               const componentMeta = COMPONENT_TYPE_MAP[item.type] || item.metadata;

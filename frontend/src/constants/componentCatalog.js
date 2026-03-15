@@ -1,6 +1,6 @@
 const thumbFromSlug = (slug) => (slug ? `https://thumbs.wokwi.com/docs/parts/${slug}.html/thumbnail.png` : null);
 
-const WOKWI_PART_METADATA = {
+const REFERENCE_PART_METADATA = {
   LCD1602: { wokwiTag: "wokwi-lcd1602", docSlug: "wokwi-lcd1602" },
   LCD2004: { wokwiTag: "wokwi-lcd2004", docSlug: "wokwi-lcd2004" },
   OLED_SSD1306: { wokwiTag: "wokwi-ssd1306", docSlug: "wokwi-ssd1306" },
@@ -685,7 +685,7 @@ export const COMPONENT_CATEGORIES = [
 COMPONENT_CATEGORIES.forEach((category) => {
   category.components = category.components.map((component) => {
     const idKey = typeof component.id === "string" ? component.id.toUpperCase() : undefined;
-    const lookup = WOKWI_PART_METADATA[component.workspaceType] || (idKey ? WOKWI_PART_METADATA[idKey] : undefined);
+    const lookup = REFERENCE_PART_METADATA[component.workspaceType] || (idKey ? REFERENCE_PART_METADATA[idKey] : undefined);
     const docSlug = component.docSlug || lookup?.docSlug || null;
     return {
       ...component,

@@ -169,6 +169,14 @@ export default function LandingPage() {
           <p style={styles.heroSub}>
             Scroll down to explore what's inside the chip
           </p>
+          <div style={styles.heroCtas}>
+            <button style={styles.heroPrimaryBtn} onClick={() => navigate("/sandbox")}>
+              Launch Sandbox ↗
+            </button>
+            <button style={styles.heroSecondaryBtn} onClick={() => navigate("/reference")}>
+              Browse Hardware Library
+            </button>
+          </div>
           <div style={styles.scrollIndicator}>
             <div style={styles.scrollMouse}>
               <div style={styles.scrollWheel} />
@@ -299,7 +307,7 @@ export default function LandingPage() {
           <div style={styles.featuresGrid}>
             {FEATURES.map((f, i) => (
               <div key={i} style={styles.featureCard}>
-                <div style={styles.featureIcon}>{f.icon}</div>
+                <div style={styles.featureIcon} aria-hidden="true">{f.icon}</div>
                 <h3 style={styles.featureTitle}>{f.title}</h3>
                 <p style={styles.featureDesc}>{f.desc}</p>
               </div>
@@ -317,7 +325,8 @@ export default function LandingPage() {
             {EXPERIMENTS.map((exp, idx) => {
               const isVisible = visibleCards.has(String(idx));
               return (
-                <div
+                <button
+                  type="button"
                   key={exp.id}
                   data-idx={idx}
                   style={{
@@ -330,6 +339,8 @@ export default function LandingPage() {
                   }}
                   onMouseEnter={() => setHoveredCard(exp.id)}
                   onMouseLeave={() => setHoveredCard(null)}
+                  onFocus={() => setHoveredCard(exp.id)}
+                  onBlur={() => setHoveredCard(null)}
                   onClick={() => navigate(`/experiment/${exp.id}`)}
                 >
                   <div style={styles.expCardTop}>
@@ -341,11 +352,11 @@ export default function LandingPage() {
                       background: exp.difficulty === "Beginner" ? "#00ff8810" : exp.difficulty === "Intermediate" ? "#ffcc0010" : "#ff336610",
                     }}>{exp.difficulty}</span>
                   </div>
-                  <div style={{ ...styles.expIcon, color: exp.color }}>{exp.icon}</div>
+                  <div style={{ ...styles.expIcon, color: exp.color }} aria-hidden="true">{exp.icon}</div>
                   <h3 style={styles.expTitle}>{exp.title}</h3>
                   <p style={styles.expAim}>{exp.aim}</p>
                   <div style={{ ...styles.expArrow, color: exp.color }}>Start Lab →</div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -398,7 +409,7 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1,
-    pointerEvents: "none",
+    pointerEvents: "auto",
   },
   chipVideo: {
     position: "absolute",
@@ -409,6 +420,7 @@ const styles = {
     objectFit: "cover",
     willChange: "transform",
     backfaceVisibility: "hidden",
+    pointerEvents: "none",
   },
   videoQualityLayer: {
     position: "absolute",
@@ -435,6 +447,7 @@ const styles = {
     textAlign: "center",
     zIndex: 5,
     transition: "opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+    pointerEvents: "auto",
   },
   heroBadge: {
     display: "inline-flex",
@@ -477,6 +490,35 @@ const styles = {
     color: "#aaa",
     margin: "0 0 40px 0",
     textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+  },
+  heroCtas: {
+    display: "flex",
+    gap: "16px",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  heroPrimaryBtn: {
+    border: "none",
+    borderRadius: "999px",
+    padding: "14px 28px",
+    fontSize: 15,
+    fontWeight: 700,
+    background: "linear-gradient(135deg, #00ffd5, #12a8ff)",
+    color: "#041119",
+    cursor: "pointer",
+    boxShadow: "0 15px 35px rgba(0,255,204,0.3)",
+  },
+  heroSecondaryBtn: {
+    borderRadius: "999px",
+    padding: "14px 24px",
+    fontSize: 14,
+    fontWeight: 600,
+    border: "1px solid rgba(255,255,255,0.25)",
+    background: "rgba(0,0,0,0.25)",
+    color: "#f0f0f0",
+    cursor: "pointer",
+    backdropFilter: "blur(6px)",
   },
   scrollIndicator: {
     display: "flex",
@@ -736,7 +778,16 @@ const styles = {
     padding: "28px 24px",
     cursor: "pointer",
     transition: "all 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
-    display: "flex", flexDirection: "column", gap: "8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    width: "100%",
+    textAlign: "left",
+    font: "inherit",
+    color: "inherit",
+    backgroundClip: "padding-box",
+    appearance: "none",
+    outline: "none",
   },
   expCardTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   expNum: { fontFamily: "'Times New Roman', Times, serif", fontSize: "12px", color: "#333", fontWeight: 700 },

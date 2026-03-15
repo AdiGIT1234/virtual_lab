@@ -1,4 +1,4 @@
-import WokwiPreview from "./WokwiPreview";
+import HardwarePreview from "./HardwarePreview";
 
 export default function ComponentPlaceholder({ label, status = "visual", description, category, wokwiTag, docSlug, imageUrl }) {
   const statusText = status === "simulated" ? "Simulation ready" : status === "tool" ? "Built-in tool" : "Visual placeholder";
@@ -11,7 +11,7 @@ export default function ComponentPlaceholder({ label, status = "visual", descrip
   return (
     <div style={styles.shell}>
       {(wokwiTag || imageUrl || docSlug) && (
-        <WokwiPreview tag={wokwiTag} docSlug={docSlug} imageUrl={imageUrl} size="medium" style={styles.preview} />
+        <HardwarePreview tag={wokwiTag} docSlug={docSlug} imageUrl={imageUrl} size="medium" style={styles.preview} />
       )}
       <div style={styles.title}>{label || "Component"}</div>
       {category && <div style={styles.category}>{category}</div>}
