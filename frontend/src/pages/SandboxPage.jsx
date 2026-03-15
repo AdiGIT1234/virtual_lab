@@ -23,13 +23,27 @@ import VccNode from "../components/VccNode";
 import ExecutionInspector from "../components/ExecutionInspector";
 import MemoryViewer from "../components/MemoryViewer";
 import ExecutionTrace from "../components/ExecutionTrace";
+import ComponentCatalogPanel from "../components/ComponentCatalogPanel";
+import ComponentPlaceholder from "../components/ComponentPlaceholder";
 import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
+import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
 import { useTheme } from "../context/useTheme";
 import useMediaQuery from "../hooks/useMediaQuery";
 import { useCircuitStore } from "../state/useCircuitStore";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
+
+const normalizeTerminals = (terminals = []) => {
+  if (!terminals || terminals.length === 0) {
+    return [{ id: "main", label: "PIN" }];
+  }
+  return terminals.map((terminal) => (
+    typeof terminal === "string"
+      ? { id: terminal, label: terminal.toUpperCase() }
+      : terminal
+  ));
+};
 
 export default function SandboxPage() {
   const navigate = useNavigate();
@@ -68,9 +82,11 @@ void loop() {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(true);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   const [activeWire, setActiveWire] = useState(null);
   const activeWireRef = useRef(null);
+  const workplaneRef = useRef(null);
 
   const [wireColors, setWireColors] = useState({});
   const storedWorkspaceItems = useCircuitStore((state) => state.workspaceItems);
@@ -107,6 +123,9 @@ void loop() {
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
+  const [chipTransform, setChipTransform] = useState({ x: 520, y: 180, scale: 1 });
+  const chipDragDataRef = useRef(null);
+  const [isChipDragging, setIsChipDragging] = useState(false);
 
   const [inputs, setInputsState] = useState(storeInputs || {});
   const setInputs = useCallback((updater, source = "sandbox") => {
@@ -215,12 +234,22 @@ void loop() {
     }
   };
 
-  const addComponent = (type) => {
+  const addComponent = (type, componentMeta) => {
+    if (!type) return;
+    const catalogMeta = COMPONENT_TYPE_MAP[type] || componentMeta;
+    const normalizedTerms = catalogMeta?.terminals ? normalizeTerminals(catalogMeta.terminals) : null;
+
     let pins = { main: "" };
     if (type === "RGB_LED") pins = { r: "", g: "", b: "" };
     if (type === "SEVEN_SEG") pins = { a: "", b: "", c: "", d: "", e: "", f: "", g: "" };
     if (type === "RESISTOR") pins = { t1: "", t2: "" };
     if (type === "WIRE_NODE") pins = { main: "" };
+    if (!["RGB_LED", "SEVEN_SEG", "RESISTOR", "WIRE_NODE"].includes(type) && normalizedTerms) {
+      pins = normalizedTerms.reduce((acc, terminal) => {
+        acc[terminal.id] = "";
+        return acc;
+      }, {});
+    }
 
     const newItem = {
       id: `${type.toLowerCase()}-${Date.now()}`,
@@ -230,6 +259,17 @@ void loop() {
       y: 150 + Math.random() * 100,
       scale: 1,
       ...(type === "RESISTOR" ? { resistance: 330 } : {}),
+      metadata: catalogMeta
+        ? {
+            label: catalogMeta.label,
+            status: catalogMeta.status,
+            category: catalogMeta.category,
+            description: catalogMeta.description,
+            wokwiTag: catalogMeta.wokwiTag,
+            docSlug: catalogMeta.docSlug,
+            imageUrl: catalogMeta.imageUrl,
+          }
+        : undefined,
     };
     setWorkspaceItems((prev) => [...prev, newItem]);
   };
@@ -597,6 +637,36 @@ void loop() {
     setViewOffset({ x: 0, y: 0 });
   };
 
+  const handleChipMouseDown = useCallback((e) => {
+    if (e.target.closest('[data-chip-node="interactive"]')) return;
+    e.preventDefault();
+    const rect = workplaneRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const pointerX = (e.clientX - rect.left) / viewScale;
+    const pointerY = (e.clientY - rect.top) / viewScale;
+    chipDragDataRef.current = {
+      offsetX: pointerX - chipTransform.x,
+      offsetY: pointerY - chipTransform.y,
+    };
+    setIsChipDragging(true);
+  }, [viewScale, chipTransform.x, chipTransform.y]);
+
+  const handleChipWheel = useCallback((e) => {
+    if (!e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const zoomDelta = -e.deltaY * 0.0015;
+    setChipTransform((prev) => {
+      const nextScale = Math.min(2.5, Math.max(0.6, parseFloat((prev.scale + zoomDelta).toFixed(2))));
+      return { ...prev, scale: nextScale };
+    });
+  }, []);
+
+  const resetChipTransform = useCallback(() => {
+    setChipTransform({ x: 520, y: 180, scale: 1 });
+  }, []);
+
   const handlePanMove = useCallback((e) => {
     if (!panSessionRef.current) return;
     const dx = e.clientX - panSessionRef.current.x;
@@ -644,6 +714,31 @@ void loop() {
       window.removeEventListener("mouseup", handlePanEnd);
     };
   }, [handlePanMove, handlePanEnd]);
+
+  useEffect(() => {
+    if (!isChipDragging) return;
+    const handleMove = (e) => {
+      const rect = workplaneRef.current?.getBoundingClientRect();
+      if (!rect || !chipDragDataRef.current) return;
+      const pointerX = (e.clientX - rect.left) / viewScale;
+      const pointerY = (e.clientY - rect.top) / viewScale;
+      setChipTransform((prev) => ({
+        ...prev,
+        x: pointerX - chipDragDataRef.current.offsetX,
+        y: pointerY - chipDragDataRef.current.offsetY,
+      }));
+    };
+    const handleUp = () => {
+      setIsChipDragging(false);
+      chipDragDataRef.current = null;
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [isChipDragging, viewScale]);
 
   const handleAddBreakpoint = (address) => {
     setBreakpoints((prev) => (prev.includes(address) ? prev : [...prev, address]));
@@ -695,30 +790,27 @@ void loop() {
       </div>
 
       <div style={styles.toolbar}>
-        <select
-          style={styles.componentSelect}
-          onChange={(e) => {
-            if (e.target.value) {
-              addComponent(e.target.value);
-              e.target.value = "";
-            }
-          }}
-        >
-          <option value="">+ Add Component</option>
-          <option value="LED_RED">Red LED</option>
-          <option value="LED_GREEN">Green LED</option>
-          <option value="LED_YELLOW">Yellow LED</option>
-          <option value="RESISTOR">Resistor</option>
-          <option value="BUTTON">Push Button</option>
-          <option value="DIAL">Potentiometer</option>
-          <option value="MULTIMETER">Multimeter</option>
-          <option value="RGB_LED">RGB LED</option>
-          <option value="SERVO">Micro Servo</option>
-          <option value="SEVEN_SEG">7-Segment Display</option>
-          <option value="WIRE_NODE">Wire Routing Node</option>
-          <option value="GROUND_NODE">Ground Node</option>
-          <option value="VCC_NODE">VCC Node</option>
-        </select>
+        <div style={styles.componentPicker}>
+          <select
+            style={styles.componentSelect}
+            onChange={(e) => {
+              if (e.target.value) {
+                addComponent(e.target.value);
+                e.target.value = "";
+              }
+            }}
+          >
+            <option value="">+ Add Component</option>
+            {SUPPORTED_COMPONENTS.map((component) => (
+              <option key={component.workspaceType} value={component.workspaceType}>
+                {component.label}
+              </option>
+            ))}
+          </select>
+          <button style={styles.libraryBtn} onClick={() => setIsCatalogOpen(true)}>
+            Browse Library
+          </button>
+        </div>
         <div style={styles.workspaceActions}>
           <button onClick={handleSaveWorkspace}>💾 Save</button>
           <button onClick={handleLoadWorkspace}>↺ Load</button>
@@ -768,20 +860,43 @@ void loop() {
         <div style={styles.chipColumn}>
           <div
             id="workplane-container"
+            ref={workplaneRef}
             style={{
               ...styles.workplane,
               transform: `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${viewScale})`,
             }}
             onMouseDown={handlePanStart}
           >
-            <div style={styles.chipAnchor}>
+            <div
+              style={{
+                ...styles.chipDraggable,
+                left: chipTransform.x,
+                top: chipTransform.y,
+                transform: `scale(${chipTransform.scale})`,
+                cursor: isChipDragging ? "grabbing" : "grab",
+              }}
+              onMouseDown={handleChipMouseDown}
+              onWheel={handleChipWheel}
+            >
+            <div style={styles.chipControls}>
+                <span style={styles.chipLabel}>Drag chip • Scroll to zoom</span>
+                <button
+                  style={styles.resetChipBtn}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetChipTransform();
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
               <Chip registers={currentRegisters} toggleInput={toggleInput} mcu={selectedMcu} />
             </div>
             {workspaceItems.map((item) => {
-              
+              const componentMeta = COMPONENT_TYPE_MAP[item.type] || item.metadata;
+
               // Resolve multi-pin endpoints properly based on component
-              // For most items (LED, BUTTON) we care about "main". 
-              // For RGB LED, we care about "r", "g", "b".
               const resolvedMain = resolveConnection(item.id, "main");
               const configState = getPinLogic(resolvedMain.pin);
               const analogState = getPinAnalog(resolvedMain.pin, resolvedMain.resistance);
@@ -817,6 +932,8 @@ void loop() {
                 terminals = [{ id: "main", label: "+5V", color: "#ffcf33" }];
               } else if (item.type === "WIRE_NODE") {
                 terminals = [{ id: "main", label: "Tie Point", color: "#4dabf7" }];
+              } else if (componentMeta?.terminals) {
+                terminals = normalizeTerminals(componentMeta.terminals);
               }
 
               const configPanel = item.type === "RESISTOR" ? (
@@ -834,6 +951,72 @@ void loop() {
                 </div>
               ) : null;
 
+              let renderedContent = null;
+              if (item.type === "LED_RED") {
+                renderedContent = <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+              } else if (item.type === "LED_GREEN") {
+                renderedContent = <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+              } else if (item.type === "LED_YELLOW") {
+                renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+              } else if (item.type === "RESISTOR") {
+                renderedContent = <Resistor resistance={item.resistance || 330} />;
+              } else if (item.type === "BUTTON") {
+                renderedContent = (
+                  <div onMouseDown={() => toggleInput(resolvedMain.pin)}>
+                    <PushButton state={inputs[resolvedMain.pin] === 1} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
+                  </div>
+                );
+              } else if (item.type === "DIAL") {
+                renderedContent = (
+                  <Dial value={inputs[resolvedMain.pin] || 0} onChange={(val) => setAnalogInput(resolvedMain.pin, val)} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
+                );
+              } else if (item.type === "MULTIMETER") {
+                renderedContent = (
+                  <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin} Rdg` : "Unwired"} />
+                );
+              } else if (item.type === "RGB_LED") {
+                renderedContent = (
+                  <RGB_LED
+                    rState={getPinLogic(resolveConnection(item.id, "r").pin)}
+                    gState={getPinLogic(resolveConnection(item.id, "g").pin)}
+                    bState={getPinLogic(resolveConnection(item.id, "b").pin)}
+                  />
+                );
+              } else if (item.type === "SERVO") {
+                renderedContent = <Servo angle={analogState > 0 ? (analogState / 255) * 180 : 0} />;
+              } else if (item.type === "SEVEN_SEG") {
+                renderedContent = (
+                  <SevenSegment
+                    a={getPinLogic(resolveConnection(item.id, "a").pin)}
+                    b={getPinLogic(resolveConnection(item.id, "b").pin)}
+                    c={getPinLogic(resolveConnection(item.id, "c").pin)}
+                    d={getPinLogic(resolveConnection(item.id, "d").pin)}
+                    e={getPinLogic(resolveConnection(item.id, "e").pin)}
+                    f={getPinLogic(resolveConnection(item.id, "f").pin)}
+                    g={getPinLogic(resolveConnection(item.id, "g").pin)}
+                  />
+                );
+              } else if (item.type === "GROUND_NODE") {
+                renderedContent = <GroundNode />;
+              } else if (item.type === "VCC_NODE") {
+                renderedContent = <VccNode />;
+              } else if (item.type === "WIRE_NODE") {
+                renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
+              }
+
+              if (!renderedContent) {
+                renderedContent = (
+                  <ComponentPlaceholder
+                    label={componentMeta?.label || item.metadata?.label || item.type}
+                    status={componentMeta?.status || item.metadata?.status || "visual"}
+                    category={componentMeta?.category || item.metadata?.category}
+                    wokwiTag={componentMeta?.wokwiTag || item.metadata?.wokwiTag}
+                    docSlug={componentMeta?.docSlug || item.metadata?.docSlug}
+                    imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl}
+                  />
+                );
+              }
+
               return (
                 <DraggableWrapper
                   key={item.id}
@@ -846,53 +1029,12 @@ void loop() {
                   onDelete={deleteComponent}
                   configPanel={configPanel}
                   workspaceId="workplane-container"
+                  workspaceRef={workplaneRef}
                   viewScale={viewScale}
                   onPositionChange={handleItemPositionChange}
                   onScaleChange={handleItemScaleChange}
                 >
-                  {item.type === "LED_RED" && (
-                    <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
-                  )}
-                  {item.type === "LED_GREEN" && (
-                    <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
-                  )}
-                  {item.type === "LED_YELLOW" && (
-                    <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />
-                  )}
-                  {item.type === "RESISTOR" && <Resistor resistance={item.resistance || 330} />}
-                  {item.type === "BUTTON" && (
-                    <div onMouseDown={() => toggleInput(resolvedMain.pin)}>
-                      <PushButton state={inputs[resolvedMain.pin] === 1} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
-                    </div>
-                  )}
-                  {item.type === "DIAL" && (
-                    <Dial value={inputs[resolvedMain.pin] || 0} onChange={(val) => setAnalogInput(resolvedMain.pin, val)} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
-                  )}
-                  {item.type === "MULTIMETER" && (
-                    <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin} Rdg` : "Unwired"} />
-                  )}
-                  {item.type === "RGB_LED" && (
-                    <RGB_LED 
-                      rState={getPinLogic(resolveConnection(item.id, "r").pin)} 
-                      gState={getPinLogic(resolveConnection(item.id, "g").pin)} 
-                      bState={getPinLogic(resolveConnection(item.id, "b").pin)} 
-                    />
-                  )}
-                  {item.type === "SERVO" && <Servo angle={analogState > 0 ? (analogState / 255) * 180 : 0} />}
-                  {item.type === "SEVEN_SEG" && (
-                    <SevenSegment
-                      a={getPinLogic(resolveConnection(item.id, "a").pin)}
-                      b={getPinLogic(resolveConnection(item.id, "b").pin)}
-                      c={getPinLogic(resolveConnection(item.id, "c").pin)}
-                      d={getPinLogic(resolveConnection(item.id, "d").pin)}
-                      e={getPinLogic(resolveConnection(item.id, "e").pin)}
-                      f={getPinLogic(resolveConnection(item.id, "f").pin)}
-                      g={getPinLogic(resolveConnection(item.id, "g").pin)}
-                    />
-                  )}
-                  {item.type === "GROUND_NODE" && <GroundNode />}
-                  {item.type === "VCC_NODE" && <VccNode />}
-                  {item.type === "WIRE_NODE" && <div style={{width: 12, height: 12, borderRadius: 6, background: '#4dabf7', boxShadow: '0 0 8px #4dabf7'}} />}
+                  {renderedContent}
                 </DraggableWrapper>
               );
             })}
@@ -955,6 +1097,16 @@ void loop() {
         </div>
       </div>
       <ChatbotWidget />
+      {isCatalogOpen && (
+        <ComponentCatalogPanel
+          categories={COMPONENT_CATEGORIES}
+          onAdd={(workspaceType, component) => {
+            addComponent(workspaceType, component);
+            setIsCatalogOpen(false);
+          }}
+          onClose={() => setIsCatalogOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1051,6 +1203,12 @@ function getStyles(theme, isCompact) {
       borderBottom: "1px solid var(--border)",
       background: "var(--surface-2)",
     },
+    componentPicker: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      alignItems: "center",
+    },
     componentSelect: {
       background: "var(--surface-0)",
       border: "1px solid var(--border)",
@@ -1059,6 +1217,15 @@ function getStyles(theme, isCompact) {
       borderRadius: 8,
       fontFamily: "monospace",
       minWidth: 200,
+    },
+    libraryBtn: {
+      border: "1px solid var(--border)",
+      borderRadius: 8,
+      background: "transparent",
+      color: "var(--text-primary)",
+      padding: "6px 14px",
+      cursor: "pointer",
+      fontFamily: "monospace",
     },
     workspaceActions: {
       display: "flex",
@@ -1112,12 +1279,49 @@ function getStyles(theme, isCompact) {
       borderRadius: 20,
       border: "1px solid var(--border)",
     },
-    chipAnchor: {
+    chipDraggable: {
       position: "absolute",
-      top: "50%",
+      pointerEvents: "auto",
+      transformOrigin: "top left",
+      transition: "box-shadow 0.2s",
+      zIndex: 15,
+    },
+    chipControls: {
+      position: "absolute",
+      top: -42,
       left: "50%",
-      transform: "translate(-50%, -50%)",
-      pointerEvents: "none",
+      transform: "translateX(-50%)",
+      padding: "6px 14px",
+      borderRadius: 999,
+      background: "rgba(0,0,0,0.65)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      color: "var(--text-secondary)",
+      fontSize: 11,
+      letterSpacing: "0.05em",
+      textTransform: "uppercase",
+      fontFamily: "monospace",
+      pointerEvents: "auto",
+    },
+    chipLabel: {
+      color: "var(--text-secondary)",
+      fontFamily: "monospace",
+      fontSize: 10,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+    },
+    resetChipBtn: {
+      border: "1px solid var(--border)",
+      borderRadius: 999,
+      background: "transparent",
+      color: "var(--text-primary)",
+      fontSize: 10,
+      padding: "4px 10px",
+      cursor: "pointer",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
     },
     analyzerColumn: {
       width: isCompact ? "100%" : 460,

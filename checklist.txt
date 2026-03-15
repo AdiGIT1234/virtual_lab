@@ -223,3 +223,159 @@ Tinkercad Circuits
 Wokwi
 
 But open, educational, and extensible.
+
+Component Coverage Inventory
+
+2. Displays
+
+ LCD1602 (16x2 LCD)
+
+ LCD2004 (20x4 LCD)
+
+ OLED Display (SSD1306)
+
+ ILI9341 TFT Display
+
+ 7-Segment Display
+
+ LED Bar Graph
+
+ NeoPixel Matrix
+
+ NeoPixel LED strip / ring
+
+ E-paper displays (basic support)
+
+ TV / Analog display modules
+
+3. Sensors — Common IoT and robotics sensors supported.
+
+ Environmental Sensors
+
+  DHT22 Temperature & Humidity
+
+  NTC Temperature Sensor
+
+  Photoresistor (LDR)
+
+ Motion / Position Sensors
+
+  PIR Motion Sensor
+
+  MPU6050 Accelerometer + Gyroscope
+
+ Distance / Object Detection
+
+  HC-SR04 Ultrasonic Distance Sensor
+
+ Other Sensors
+
+  Flame Sensor
+
+  Gas Sensor
+
+  Heartbeat Sensor
+
+  Sound Sensor
+
+  Load Cell (via HX711)
+
+4. Input Devices
+
+ Pushbutton
+
+ Pushbutton (6mm tactile)
+
+ Membrane Keypad
+
+ Rotary Encoder (KY-040)
+
+ Analog Joystick
+
+ DIP Switch (8)
+
+ Rotary Dialer
+
+5. Output Devices / Actuators
+
+ LEDs
+
+  LED
+
+  RGB LED
+
+  NeoPixel
+
+  LED Ring
+
+  LED Bar Graph
+
+ Motors / Motion
+
+  Servo Motor
+
+  Stepper Motor (Biaxial Stepper)
+
+ Sound
+
+  Buzzer
+
+6. Analog Components
+
+ Potentiometer
+
+ Slide Potentiometer
+
+ Photoresistor (LDR)
+
+ NTC Thermistor
+
+7. Switches
+
+ Push Button
+
+ Slide Switch
+
+ DIP Switch
+
+8. Communication / Modules
+
+ IR Receiver
+
+ IR Remote
+
+ DS1307 RTC Module
+
+ microSD Card Module
+
+ HX711 Load Cell Amplifier
+
+9. Passive Components
+
+ Resistor
+
+ Breadboard
+
+ Wires / connections
+
+10. Logic / IC Components
+
+ Shift Registers
+
+ Logic Analyzer
+
+ Digital chips (via custom chips API)
+
+ Custom ICs (via WebAssembly models)
+
+11. Miscellaneous Components
+
+ Relay modules
+
+ Keypads
+
+ Matrix LEDs
+
+ SD card modules
+
+ Serial monitor / logic analyzer tools

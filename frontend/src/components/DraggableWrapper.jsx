@@ -231,41 +231,61 @@ const DraggableWrapper = ({
           zIndex: 60
       }}>
         {termList.map(term => (
-          <div
-            key={term.id}
-            id={`comp-terminal-${id}-${term.id}`}
-            data-type="terminal"
-            data-comp-id={id}
-            data-term-id={term.id}
-            title={term.label || term.id}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              if (window.getActiveWire && window.getActiveWire()) {
-                if (window.onCompleteComponentWire) {
-                  window.onCompleteComponentWire(id, term.id);
+          <div key={term.id} style={styles.terminalWrapper}>
+            <div
+              id={`comp-terminal-${id}-${term.id}`}
+              data-type="terminal"
+              data-comp-id={id}
+              data-term-id={term.id}
+              title={term.label || term.id}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                if (window.getActiveWire && window.getActiveWire()) {
+                  if (window.onCompleteComponentWire) {
+                    window.onCompleteComponentWire(id, term.id);
+                  }
+                } else if (onStartWire) {
+                  const rect = e.target.getBoundingClientRect();
+                  onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
                 }
-              } else if (onStartWire) {
-                const rect = e.target.getBoundingClientRect();
-                onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
-              }
-            }}
-            onMouseUp={(e) => {
-              e.stopPropagation();
-            }}
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: term.color || '#222',
-              border: `2px solid ${term.color || '#aaa'}`,
-              cursor: 'crosshair',
-              boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : "none",
-              transition: "all 0.2s"
-            }}
-          />
+              }}
+              onMouseUp={(e) => {
+                e.stopPropagation();
+              }}
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                background: term.color || '#222',
+                border: `2px solid ${term.color || '#aaa'}`,
+                cursor: 'crosshair',
+                boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : "none",
+                transition: "all 0.2s"
+              }}
+            />
+            <span style={styles.terminalLabel}>{term.label || term.id}</span>
+          </div>
         ))}
       </div>
     </div>
   );
+};
+
+const styles = {
+  terminalWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 30,
+  },
+  terminalLabel: {
+    fontSize: 9,
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+    color: 'var(--text-secondary, #a0a0a0)',
+    pointerEvents: 'none',
+    fontFamily: 'monospace'
+  }
 };
 export default DraggableWrapper;

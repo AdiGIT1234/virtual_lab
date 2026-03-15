@@ -138,6 +138,7 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
         onMouseUp={(e) => {
            e.stopPropagation();
         }}
+        data-chip-node="interactive"
       >
         <div 
           id={pin.arduino != null ? `chip-pin-tip-${pin.arduino}` : `chip-pin-tip-${pin.label}`} 
@@ -152,19 +153,21 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {} }) {
                window.onStartWire(`mcu::${pinIdentifier}`, null, rect.left + rect.width / 2, rect.top + rect.height / 2);
             }
           }}
+          data-chip-node="interactive"
         />
       </div>
       <div 
-        style={labelStyle}
+        style={{ ...labelStyle, userSelect: "none" }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={() => toggleInput(pin.arduino)}
+        data-chip-node="interactive"
       >
         {pin.label}
       </div>
 
       <div style={infoBoxStyle}>
-        <div style={{ color: getPortColor(pin.port), fontWeight: "bold", marginBottom: "4px", fontSize: "11px" }}>
+        <div style={{ color: getPortColor(pin.port), fontWeight: "bold", marginBottom: "4px", fontSize: "11px", userSelect: "none" }}>
           {pin.label}
         </div>
         <div style={{ color: "#aaa", marginBottom: "2px" }}>Type: {pinInfo.type}</div>
