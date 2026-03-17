@@ -1,9 +1,0 @@
-3D Lab Checklist
-=================
-
-[x] Share sandbox workspace state with the ARLab scene so wiring stays in sync
-[x] Replace placeholder board/breadboard meshes with optimized GLTF models and pin hotspots
-[x] Drive LED/servo visuals via live AVR outputs (PORT/PWM) and expose status overlays
-[ ] Allow ARLab interactions (pin toggles ✅, component placement ⏳) to push updates back into the sandbox workspace
-[ ] Surface preset cards with wiring + code snippets and let users load them from either UI
-[ ] Document the 3D lab architecture and extension steps in frontend/README.md

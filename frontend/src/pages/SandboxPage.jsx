@@ -32,6 +32,8 @@ import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "
 import { useTheme } from "../context/useTheme";
 import useMediaQuery from "../hooks/useMediaQuery";
 import { useCircuitStore } from "../state/useCircuitStore";
+import { useAuth } from "../context/useAuth";
+import ProtectedFeature from "../components/ProtectedFeature";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
@@ -49,6 +51,7 @@ const normalizeTerminals = (terminals = []) => {
 export default function SandboxPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { saveExperiment } = useAuth();
   const isCompact = useMediaQuery("(max-width: 1200px)");
 
   const [selectedMcuId, setSelectedMcuId] = useState(DEFAULT_MCU_ID);
@@ -568,10 +571,27 @@ void loop() {
     return { pin: null, resistance: currentResistance };
   }, [workspaceItems, wires]);
 
-  const handleSaveWorkspace = () => {
+  const handleSaveWorkspace = async () => {
     const payload = { items: workspaceItems, inputs, wireColors, wires };
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(payload));
-    alert("Workspace saved to local storage!");
+    
+    // Also save to Supabase if the function exists
+    if (saveExperiment) {
+      try {
+        await saveExperiment({
+          experimentId: `sandbox-${selectedMcuId}`,
+          title: `Sandbox (${selectedMcuId})`,
+          code: code,
+          resultJson: payload
+        });
+        alert("Workspace saved securely to your account!");
+      } catch (err) {
+        console.error("Cloud save failed:", err);
+        alert("Saved locally, but cloud save failed.");
+      }
+    } else {
+      alert("Workspace saved to local storage!");
+    }
   };
 
   const handleLoadWorkspace = () => {
@@ -813,9 +833,13 @@ void loop() {
           </button>
         </div>
         <div style={styles.workspaceActions}>
-          <button onClick={handleSaveWorkspace}>💾 Save</button>
+          <ProtectedFeature compact action="save your workspace">
+            <button onClick={handleSaveWorkspace}>💾 Save</button>
+          </ProtectedFeature>
           <button onClick={handleLoadWorkspace}>↺ Load</button>
-          <button onClick={handleExportWorkspace}>⤴ Export</button>
+          <ProtectedFeature compact action="export workspaces">
+            <button onClick={handleExportWorkspace}>⤴ Export</button>
+          </ProtectedFeature>
         </div>
         <div style={styles.zoomControls}>
           <button onClick={() => handleZoom("out")}>−</button>

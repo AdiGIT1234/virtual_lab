@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/useTheme";
+import { useAuth } from "../context/useAuth";
 import {
   motion,
   useScroll,
@@ -113,7 +114,7 @@ function HudInfoItem({ info, phase, side, index }) {
             {info.title}
           </span>
         </div>
-        <p className="text-[#8892A0] text-[11px] leading-relaxed max-w-[240px] font-light">
+        <p className="text-[var(--lp-text-low)] text-[11px] leading-relaxed max-w-[240px] font-light">
           {info.desc}
         </p>
       </div>
@@ -191,14 +192,14 @@ function FeatureCard({ feature, index }) {
         }}
       >
         <div
-          className="relative overflow-hidden p-8 border border-white/6 transition-all duration-300"
+          className="relative overflow-hidden p-8 border border-[var(--lp-border)] transition-all duration-300"
           style={{
             transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
             transition: isHovered ? "transform 0.1s ease-out" : "transform 0.4s ease-out",
             clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))",
             background: isHovered
               ? "linear-gradient(135deg, rgba(0,242,255,0.06) 0%, rgba(112,0,255,0.04) 100%)"
-              : "rgba(255,255,255,0.02)",
+              : "var(--lp-card-base)",
           }}
         >
           {/* Circuit trace glow on hover */}
@@ -227,14 +228,134 @@ function FeatureCard({ feature, index }) {
             <div className="text-4xl mb-5 transition-transform duration-300 group-hover:scale-110">
               {feature.icon}
             </div>
-            <h3 className="text-[#E2E8F0] text-lg font-bold mb-2 tracking-tight">
+            <h3 className="text-[var(--lp-text-main)] text-lg font-bold mb-2 tracking-tight">
               {feature.title}
             </h3>
-            <p className="text-[#64748B] text-sm leading-relaxed">
+            <p className="text-[var(--lp-text-low)] text-sm leading-relaxed">
               {feature.desc}
             </p>
           </div>
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Auth Dock ── */
+function AuthDock() {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const { login, signup } = useAuth();
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!form.email || !form.password || (mode === "signup" && !form.name)) {
+      setError("Fill all required fields");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        await signup({
+          email: form.email,
+          password: form.password,
+          name: form.name,
+          institute: form.institute,
+        });
+        // Stay on page
+      } else {
+        await login({ email: form.email, password: form.password });
+        // Stay on page
+      }
+    } catch (err) {
+      setError(err.message || "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClass =
+    "w-full bg-transparent border border-[var(--lp-border)] px-4 py-3 text-sm text-[var(--lp-text-main)] placeholder-[#64748B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]";
+
+  return (
+    <motion.div
+      id="auth-dock"
+      className="w-full max-w-sm border border-[var(--lp-border)] bg-[var(--lp-auth-bg)] backdrop-blur-xl p-6 sm:p-7"
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}
+    >
+      <div className="flex items-center gap-2 mb-4 text-[11px] tracking-[0.2em] font-mono text-[var(--lp-text-low)] uppercase">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]" />
+        <span>{mode === "login" ? "Secure Access" : "Create Access"}</span>
+      </div>
+
+      <div className="flex mb-6 border border-[var(--lp-border)]">
+        {["login", "signup"].map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.2em] ${mode === tab ? "text-[#050505]" : "text-[var(--lp-text-mid)]"}`}
+            style={{
+              background: mode === tab ? "linear-gradient(135deg, #00F2FF, #7000FF)" : "transparent",
+              transition: "all 0.2s ease",
+            }}
+            onClick={() => setMode(tab)}
+          >
+            {tab === "login" ? "Login" : "Signup"}
+          </button>
+        ))}
+      </div>
+
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {mode === "signup" && (
+          <>
+            <div>
+              <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Name *</label>
+              <input name="name" value={form.name} onChange={handleChange} className={inputClass} placeholder="Aditya Singh" />
+            </div>
+            <div>
+              <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Institute</label>
+              <input name="institute" value={form.institute} onChange={handleChange} className={inputClass} placeholder="IIT Bombay" />
+            </div>
+          </>
+        )}
+        <div>
+          <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Email *</label>
+          <input type="email" name="email" value={form.email} onChange={handleChange} className={inputClass} placeholder="aditya@lab.ai" />
+        </div>
+        <div>
+          <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Password *</label>
+          <input type="password" name="password" value={form.password} onChange={handleChange} className={inputClass} placeholder="••••••••" />
+        </div>
+        {error && (
+          <div className="text-[11px] text-[#ff3366] font-mono tracking-wider">{error}</div>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3.5 text-xs font-black tracking-[0.25em] uppercase border-0 text-[#050505] disabled:opacity-60"
+          style={{
+            background: "linear-gradient(135deg, #00F2FF, #00FFB2)",
+            clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+          }}
+        >
+          {loading ? "Initializing…" : mode === "login" ? "Login" : "Create Account"}
+        </button>
+      </form>
+
+      <div className="mt-4 text-[11px] text-[var(--lp-text-low)] font-mono tracking-widest">
+        {mode === "login" ? "New here? Toggle to signup." : "Have credentials? Toggle to login."}
       </div>
     </motion.div>
   );
@@ -261,15 +382,15 @@ function ExperimentCard({ exp, index }) {
       initial={{ opacity: 0, y: 30 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: (index % 5) * 0.08, ease: [0.16, 1, 0.3, 1] }}
-      className="relative group text-left w-full cursor-pointer border border-white/6 rounded-none overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
+      className="relative group text-left w-full cursor-pointer border border-[var(--lp-border)] rounded-none overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
       onClick={() => navigate(`/experiment/${exp.id}`)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         background: isHovered
           ? `linear-gradient(135deg, ${exp.color}08 0%, transparent 100%)`
-          : "rgba(255,255,255,0.015)",
-        borderColor: isHovered ? `${exp.color}33` : "rgba(255,255,255,0.06)",
+          : "var(--lp-card-base)",
+        borderColor: isHovered ? `${exp.color}33` : "var(--lp-border)",
         clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
       }}
     >
@@ -281,7 +402,7 @@ function ExperimentCard({ exp, index }) {
       <div className="relative z-10 p-6">
         {/* Top row */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-[#333] text-xs font-mono font-bold">
+          <span className="text-[var(--lp-text-inverse-muted)] text-xs font-mono font-bold">
             {String(index + 1).padStart(2, "0")}
           </span>
           <span
@@ -301,10 +422,10 @@ function ExperimentCard({ exp, index }) {
         </div>
 
         {/* Title & aim */}
-        <h3 className="text-[#E2E8F0] text-sm font-bold mb-1.5 tracking-tight">
+        <h3 className="text-[var(--lp-text-main)] text-sm font-bold mb-1.5 tracking-tight">
           {exp.title}
         </h3>
-        <p className="text-[#64748B] text-xs leading-relaxed mb-4">
+        <p className="text-[var(--lp-text-low)] text-xs leading-relaxed mb-4">
           {exp.aim}
         </p>
 
@@ -350,7 +471,7 @@ function ChargingButton() {
     <button
       onClick={handleClick}
       disabled={isCharging}
-      className="relative cursor-pointer group px-12 py-5 text-lg font-bold tracking-wider uppercase border-2 border-[#00F2FF]/30 bg-transparent text-[#00F2FF] transition-all duration-300 overflow-hidden hover:border-[#00F2FF]/60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
+      className="w-full sm:w-auto relative cursor-pointer group px-6 py-4 md:px-12 md:py-5 text-base md:text-lg font-bold tracking-wider uppercase border-2 border-[#00F2FF]/30 bg-transparent text-[#00F2FF] transition-all duration-300 overflow-hidden hover:border-[#00F2FF]/60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
       style={{
         clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
       }}
@@ -418,7 +539,7 @@ function TerminalFooter() {
   }, [isInView]);
 
   return (
-    <footer ref={ref} className="relative border-t border-white/4 bg-[#030303]">
+    <footer ref={ref} className="relative border-t border-[var(--lp-border-faint)] bg-[var(--lp-footer-bg)]">
       <div className="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <div className="font-mono text-xs space-y-1.5">
           {lines.map((line, i) => (
@@ -429,10 +550,10 @@ function TerminalFooter() {
               transition={{ duration: 0.3 }}
               className="flex gap-2"
             >
-              <span className={`${line.prefix === "[OK!]" ? "text-[#00F2FF]" : line.prefix === "[SYS]" ? "text-[#7000FF]" : "text-[#64748B]"} font-bold`}>
+              <span className={`${line.prefix === "[OK!]" ? "text-[#00F2FF]" : line.prefix === "[SYS]" ? "text-[#7000FF]" : "text-[var(--lp-text-low)]"} font-bold`}>
                 {line.prefix}
               </span>
-              <span className="text-[#64748B]">{line.text}</span>
+              <span className="text-[var(--lp-text-low)]">{line.text}</span>
             </motion.div>
           ))}
           <motion.div
@@ -446,12 +567,12 @@ function TerminalFooter() {
           </motion.div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="mt-8 pt-6 border-t border-[var(--lp-border-faint)] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-[#00F2FF] text-xl">⬡</span>
-            <span className="text-[#E2E8F0] font-bold text-sm">ATmega328P Virtual Lab</span>
+            <span className="text-[var(--lp-text-main)] font-bold text-sm">ATmega328P Virtual Lab</span>
           </div>
-          <p className="text-[#475569] text-xs">
+          <p className="text-[var(--lp-text-low)] text-xs">
             © {new Date().getFullYear()} · Open Source · Free Forever
           </p>
         </div>
@@ -467,6 +588,7 @@ function TerminalFooter() {
 export default function LandingPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { isAuthenticated } = useAuth();
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const statsRef = useRef(null);
@@ -485,11 +607,6 @@ export default function LandingPage() {
   useMotionValueEvent(heroScrollProgress, "change", (v) => {
     setDeconstructPhase(v);
   });
-
-  /* Nav visibility */
-  const navOpacity = useTransform(heroScrollProgress, [0.7, 0.9], [0, 1]);
-
-  const navY = useTransform(heroScrollProgress, [0.7, 0.9], [-30, 0]);
 
   /* Hero text fade */
   const heroTextOpacity = useTransform(heroScrollProgress, [0, 0.15], [1, 0]);
@@ -515,7 +632,26 @@ export default function LandingPage() {
   const videoOverlayOpacity = useTransform(heroScrollProgress, [0, 0.8], [0.1, 0.55]);
 
   return (
-    <div ref={containerRef} className="relative bg-[#050505] text-[#E2E8F0]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div ref={containerRef} className="relative bg-[var(--lp-bg)] text-[var(--lp-text-main)] transition-colors duration-500" style={{ 
+        fontFamily: "'Inter', system-ui, sans-serif",
+        "--lp-bg": theme === "light" ? "#FAF9F6" : "#050505",
+        "--lp-nav-bg": theme === "light" ? "rgba(250,249,246,0.8)" : "rgba(5,5,5,0.7)",
+        "--lp-video-fade1": theme === "light" ? "rgba(250,249,246,0)" : "rgba(5,5,5,0)",
+        "--lp-video-fade2": theme === "light" ? "rgba(250,249,246,0.3)" : "rgba(5,5,5,0.15)",
+        "--lp-video-fade3": theme === "light" ? "rgba(250,249,246,0.8)" : "rgba(5,5,5,0.5)",
+        "--lp-video-overlay-start": theme === "light" ? "rgba(250,249,246,0.6)" : "rgba(5,5,5,0.4)",
+        "--lp-video-overlay-end": theme === "light" ? "rgba(250,249,246,0.95)" : "rgba(5,5,5,0.85)",
+        "--lp-text-main": theme === "light" ? "#1E293B" : "#E2E8F0",
+        "--lp-text-mid": theme === "light" ? "#475569" : "#94A3B8",
+        "--lp-text-low": theme === "light" ? "#64748B" : "#64748B",
+        "--lp-text-inverse-muted": theme === "light" ? "#CBD5E1" : "#333",
+        "--lp-border": theme === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.06)",
+        "--lp-border-faint": theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)",
+        "--lp-auth-bg": theme === "light" ? "rgba(240,238,230,0.7)" : "rgba(0,0,0,0.6)",
+        "--lp-footer-bg": theme === "light" ? "#EAE8DF" : "#030303",
+        "--lp-toggle-bg": theme === "light" ? "#E2E8F0" : "#0A0A0A",
+        "--lp-card-base": theme === "light" ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.015)"
+      }}>
       {/* Scanline overlay */}
       <ScanlineOverlay />
 
@@ -544,7 +680,7 @@ export default function LandingPage() {
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: "linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0.15) 60%, rgba(5,5,5,0.5) 100%)",
+              background: "linear-gradient(180deg, var(--lp-video-fade1) 0%, var(--lp-video-fade2) 60%, var(--lp-video-fade3) 100%)",
             }}
           />
 
@@ -553,73 +689,99 @@ export default function LandingPage() {
             className="absolute inset-0 pointer-events-none"
             style={{
               opacity: videoOverlayOpacity,
-              background: "linear-gradient(180deg, rgba(5,5,5,0.4) 0%, rgba(5,5,5,0.85) 100%)",
+              background: "linear-gradient(180deg, var(--lp-video-overlay-start) 0%, var(--lp-video-overlay-end) 100%)",
             }}
           />
 
           {/* ── Hero Text (fades on scroll) ── */}
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 px-6"
+            className="absolute inset-0 z-10 px-6"
             style={{ opacity: heroTextOpacity, y: heroTextY }}
           >
-            {/* Pulsing live badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 mb-8 border border-[#00F2FF]/20 rounded-full bg-[#00F2FF]/6 backdrop-blur-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00F2FF] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00F2FF]" />
-              </span>
-              <span className="text-[#00F2FF] text-xs font-semibold tracking-[0.15em] uppercase font-mono">
-                Live Status — ATmega328P
-              </span>
-            </div>
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center gap-10 lg:gap-16">
+                <div className="text-center lg:text-left max-w-3xl">
+                  <div className="inline-flex items-center gap-2.5 px-4 py-1.5 mb-8 border border-[#00F2FF]/20 rounded-full bg-[#00F2FF]/6 backdrop-blur-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00F2FF] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00F2FF]" />
+                    </span>
+                    <span className="text-[#00F2FF] text-xs font-semibold tracking-[0.15em] uppercase font-mono">
+                      Live Status — ATmega328P
+                    </span>
+                  </div>
 
-            <h1
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-[-0.04em] mb-6 max-w-5xl"
-              style={{ fontFamily: "'Heat Robox', 'Inter', sans-serif", fontFeatureSettings: "'liga' 0, 'dlig' 0", fontVariantLigatures: "none" }}
-            >
-              Master Embedded
-              <br />
-              Programming{" "}
-              <span className="bg-linear-to-r from-[#00F2FF] via-[#00FFB2] to-[#7000FF] bg-clip-text text-transparent">
-                Hands-On
-              </span>
-            </h1>
+                  <h1
+                    className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-[1.05] tracking-normal mb-6"
+                    style={{ fontFamily: "'Heat Robox', 'Inter', sans-serif", fontFeatureSettings: "'liga' 0, 'dlig' 0", fontVariantLigatures: "none" }}
+                  >
+                    Master Embedded
+                    <br />
+                    Programming{" "}
+                    <span className="bg-linear-to-r from-[#00F2FF] via-[#00FFB2] to-[#7000FF] bg-clip-text text-transparent">
+                      Hands-On
+                    </span>
+                  </h1>
 
-            <p className="text-[#8892A0] text-lg md:text-xl max-w-xl mb-10 font-light leading-relaxed">
-              Scroll down to deconstruct the chip and explore its architecture
-            </p>
+                  <p className="text-[var(--lp-text-low)] text-lg md:text-xl mb-10 font-light leading-relaxed max-w-xl">
+                    Scroll down to deconstruct the chip and explore its architecture
+                  </p>
 
-            <div className="flex flex-wrap gap-4 justify-center mb-12">
-              <button
-                onClick={() => navigate("/sandbox")}
-                className="group relative px-8 py-3.5 font-bold text-sm tracking-wider uppercase overflow-hidden cursor-pointer border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
-                style={{
-                  background: "linear-gradient(135deg, #00F2FF, #00FFB2)",
-                  color: "#050505",
-                  clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
-                }}
-              >
-                Launch Sandbox ↗
-              </button>
-              <button
-                onClick={() => navigate("/reference")}
-                className="px-8 py-3.5 font-semibold text-sm tracking-wider border border-white/20 bg-white/4 backdrop-blur-md text-[#E2E8F0] hover:border-white/40 transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
-                style={{
-                  clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
-                }}
-              >
-                Browse Hardware Library
-              </button>
-            </div>
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center lg:justify-start mb-6 w-full sm:w-auto relative z-20">
+                    <button
+                      onClick={() => navigate("/sandbox")}
+                      className="w-full sm:w-auto group relative px-6 py-3 md:px-8 md:py-3.5 font-bold text-sm tracking-wider uppercase overflow-hidden cursor-pointer border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
+                      style={{
+                        background: "linear-gradient(135deg, #00F2FF, #00FFB2)",
+                        color: "#050505",
+                        clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+                      }}
+                    >
+                      Launch Sandbox ↗
+                    </button>
+                    <button
+                      onClick={() => navigate("/reference")}
+                      className="w-full sm:w-auto px-6 py-3 md:px-8 md:py-3.5 font-semibold text-sm tracking-wider border border-[var(--lp-border)] bg-[var(--lp-card-base)] backdrop-blur-md text-[var(--lp-text-main)] hover:border-[var(--lp-border)] transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
+                      style={{
+                        clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+                      }}
+                    >
+                      Browse Hardware Library
+                    </button>
+                  </div>
 
-            {/* Scroll indicator */}
-            <div className="flex flex-col items-center gap-2 animate-bounce">
-              <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
-                <div className="w-1 h-2 rounded-full bg-[#00F2FF] animate-pulse" />
+                  <button
+                    className="text-[10px] tracking-[0.2em] uppercase font-mono text-[var(--lp-text-low)] underline decoration-dotted"
+                    onClick={() => document.getElementById("auth-dock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    type="button"
+                  >
+                    Need credentials? Access below
+                  </button>
+
+                  <div className="flex flex-col items-center lg:items-start gap-2 mt-8 animate-bounce">
+                    <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
+                      <div className="w-1 h-2 rounded-full bg-[#00F2FF] animate-pulse" />
+                    </div>
+                    <span className="text-[var(--lp-text-low)] text-[10px] tracking-[0.2em] uppercase font-mono">
+                      Scroll to deconstruct
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full max-w-sm">
+                  {!isAuthenticated ? (
+                    <AuthDock />
+                  ) : (
+                    <div className="border border-[var(--lp-border)] bg-[var(--lp-auth-bg)] backdrop-blur-xl p-8 text-center" style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}>
+                      <span className="text-[#00F2FF] text-lg font-bold mb-4 block tracking-wider uppercase font-mono">Access Granted</span>
+                      <p className="text-[var(--lp-text-mid)] text-sm mb-6">Welcome back. Your session is active.</p>
+                      <button onClick={() => navigate("/dashboard")} className="w-full py-3.5 text-xs font-black tracking-[0.25em] uppercase border-0 text-[#050505]" style={{ background: "linear-gradient(135deg, #00F2FF, #00FFB2)", clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
+                        Enter Dashboard →
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <span className="text-[#475569] text-[10px] tracking-[0.2em] uppercase font-mono">
-                Scroll to deconstruct
-              </span>
             </div>
           </motion.div>
 
@@ -647,12 +809,12 @@ export default function LandingPage() {
                     key={i}
                     initial={false}
                     animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 10 }}
-                    className="bg-black/40 backdrop-blur-md border border-white/6 p-2.5 rounded-sm"
+                    className="bg-[var(--lp-auth-bg)] backdrop-blur-md border border-[var(--lp-border)] p-2.5 rounded-sm"
                   >
                     <span className="text-[#00F2FF] text-[10px] font-bold font-mono block truncate">
                       {info.title}
                     </span>
-                    <span className="text-[#64748B] text-[9px] line-clamp-2">{info.desc}</span>
+                    <span className="text-[var(--lp-text-low)] text-[9px] line-clamp-2">{info.desc}</span>
                   </motion.div>
                 );
               })}
@@ -676,13 +838,11 @@ export default function LandingPage() {
 
       {/* ════════════════ STICKY NAV ════════════════ */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 md:px-10 border-b border-white/4"
+        className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 md:px-10 border-b border-[var(--lp-border-faint)] transition-colors duration-500"
         style={{
-          opacity: navOpacity,
-          y: navY,
           backdropFilter: `blur(20px)`,
           WebkitBackdropFilter: `blur(20px)`,
-          background: "rgba(5,5,5,0.7)",
+          background: "var(--lp-nav-bg)",
         }}
       >
         <div className="flex items-center gap-3">
@@ -692,12 +852,29 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-6">
-          <a href="#experiments" className="hidden md:inline text-[#94A3B8] text-sm hover:text-[#E2E8F0] transition-colors">
+          <a href="#experiments" className="hidden md:inline text-[var(--lp-text-mid)] text-sm hover:text-[var(--lp-text-main)] transition-colors">
             Experiments
           </a>
-          <a href="#features" className="hidden md:inline text-[#94A3B8] text-sm hover:text-[#E2E8F0] transition-colors">
+          <a href="#features" className="hidden md:inline text-[var(--lp-text-mid)] text-sm hover:text-[var(--lp-text-main)] transition-colors">
             Features
           </a>
+          {isAuthenticated ? (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="hidden md:inline text-[var(--lp-text-mid)] text-xs tracking-[0.2em] uppercase hover:text-[var(--lp-text-main)]"
+              type="button"
+            >
+              Dashboard
+            </button>
+          ) : (
+            <button
+              onClick={() => document.getElementById("auth-dock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="hidden md:inline text-[var(--lp-text-mid)] text-xs tracking-[0.2em] uppercase hover:text-[var(--lp-text-main)]"
+              type="button"
+            >
+              Sign In
+            </button>
+          )}
           <button
             onClick={() => navigate("/sandbox")}
             className="hidden sm:block px-5 py-2 text-xs font-bold tracking-wider uppercase cursor-pointer border-0 focus:outline-none"
@@ -712,7 +889,7 @@ export default function LandingPage() {
           {/* Tactical theme toggle switch */}
           <button
             onClick={toggleTheme}
-            className="relative w-14 h-7 rounded-sm border border-white/10 bg-[#0A0A0A] cursor-pointer overflow-hidden transition-all duration-300 focus:outline-none group"
+            className="relative w-14 h-7 rounded-sm border border-[var(--lp-border)] bg-[var(--lp-toggle-bg)] cursor-pointer overflow-hidden transition-all duration-300 focus:outline-none group"
             aria-label="Toggle theme"
           >
             <div
@@ -746,7 +923,7 @@ export default function LandingPage() {
         <div className="relative max-w-5xl mx-auto">
           {/* Tactical folder container */}
           <div
-            className="relative border border-white/6 bg-white/1 p-8 md:p-14"
+            className="relative border border-[var(--lp-border)] bg-[var(--lp-card-base)] p-8 md:p-14"
             style={{
               clipPath: "polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px)",
             }}
@@ -777,7 +954,7 @@ export default function LandingPage() {
               <span className="bg-linear-to-r from-[#00F2FF] to-[#7000FF] bg-clip-text text-transparent" style={{ fontFamily: "'Cyber Alert Numbers', 'Heat Robox', monospace" }}>328</span>
               P-PU
             </h2>
-            <p className="text-[#64748B] text-base md:text-lg leading-relaxed max-w-2xl mb-12 font-light">
+            <p className="text-[var(--lp-text-low)] text-base md:text-lg leading-relaxed max-w-2xl mb-12 font-light">
               The heart of the Arduino UNO. A 28-pin, 8-bit AVR RISC microcontroller by Microchip Technology
               — running 131 instructions at up to 20 MHz with 32KB Flash, 2KB SRAM, and 1KB EEPROM.
             </p>
@@ -787,7 +964,7 @@ export default function LandingPage() {
               {CHIP_STATS.map((stat, i) => (
                 <div key={i} className="flex flex-col items-center text-center">
                   <AnimatedCounter value={stat.value} suffix={stat.suffix} inView={statsInView} />
-                  <span className="text-[10px] text-[#475569] font-mono font-bold tracking-[0.15em] uppercase mt-1.5">
+                  <span className="text-[10px] text-[var(--lp-text-low)] font-mono font-bold tracking-[0.15em] uppercase mt-1.5">
                     {stat.label}
                   </span>
                 </div>
@@ -848,7 +1025,7 @@ export default function LandingPage() {
               </span>
               ?
             </h2>
-            <p className="text-[#64748B] text-base md:text-lg max-w-xl mx-auto font-light">
+            <p className="text-[var(--lp-text-low)] text-base md:text-lg max-w-xl mx-auto font-light">
               Everything you need to learn embedded systems — zero hardware required.
             </p>
           </motion.div>
@@ -891,7 +1068,7 @@ export default function LandingPage() {
               </span>{" "}
               Progressive Experiments
             </h2>
-            <p className="text-[#64748B] text-base md:text-lg max-w-xl mx-auto font-light">
+            <p className="text-[var(--lp-text-low)] text-base md:text-lg max-w-xl mx-auto font-light">
               From first blink to watchdog reset — each experiment builds on the last.
             </p>
           </motion.div>
@@ -905,7 +1082,7 @@ export default function LandingPage() {
             ].map((cat) => (
               <div key={cat.label} className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ background: cat.color, boxShadow: `0 0 8px ${cat.color}40` }} />
-                <span className="text-xs font-mono text-[#94A3B8]">
+                <span className="text-xs font-mono text-[var(--lp-text-mid)]">
                   <span className="font-bold" style={{ color: cat.color }}>{cat.label}</span>
                   {" "}· {cat.desc}
                 </span>
@@ -952,7 +1129,7 @@ export default function LandingPage() {
             </span>
             ?
           </h2>
-          <p className="text-[#64748B] text-lg md:text-xl mb-12 font-light leading-relaxed max-w-lg mx-auto">
+          <p className="text-[var(--lp-text-low)] text-lg md:text-xl mb-12 font-light leading-relaxed max-w-lg mx-auto">
             Jump into the sandbox and write real AVR C code.
             <br />
             No downloads. No setup. Just code.
@@ -960,7 +1137,7 @@ export default function LandingPage() {
 
           <ChargingButton />
 
-          <p className="text-[#334155] text-xs font-mono mt-8 tracking-wider">
+          <p className="text-[var(--lp-text-low)] text-xs font-mono mt-8 tracking-wider">
             &gt; SYSTEM INIT COMPLETE — AWAITING USER INPUT_
           </p>
         </motion.div>
