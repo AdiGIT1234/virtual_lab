@@ -1,27 +1,31 @@
 export default function SceneLighting() {
   return (
     <group>
-      <ambientLight intensity={0.35} color="#9fd5ff" />
+      <ambientLight intensity={0.15} color="#4f6e8c" />
+      <rectAreaLight
+        width={4}
+        height={4}
+        color="#ffffff"
+        intensity={2.5}
+        position={[-2, 3, 2]}
+        lookAt={[0, 0, 0]}
+      />
       <directionalLight
-        position={[3, 4, 2]}
-        intensity={0.8}
+        position={[4, 6, 2]}
+        intensity={0.9}
+        color="#aaddff"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-far={15}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
+        shadow-bias={-0.0001}
+        shadow-mapSize={[2048, 2048]}
       />
       <spotLight
-        position={[-3, 5, -2]}
-        angle={0.5}
-        penumbra={0.4}
-        intensity={0.6}
-        color="#00ffc6"
+        position={[-4, 3, -4]}
+        angle={0.6}
+        penumbra={0.8}
+        intensity={4}
+        color="#3bc2ff"
+        castShadow
       />
-      <hemisphereLight skyColor="#74c0ff" groundColor="#050910" intensity={0.3} />
     </group>
   );
 }

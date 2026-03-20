@@ -15,7 +15,7 @@ const cloneWorkspace = (items = []) => items.map((item) => ({
 
 const deriveComponents = (workspaceItems = []) => {
   return workspaceItems
-    .filter((item) => ["LED_RED", "LED_GREEN", "LED_YELLOW", "LED", "RESISTOR", "BUTTON", "RGB_LED"].includes(item.type))
+    .filter((item) => ["LED_RED", "LED_GREEN", "LED_YELLOW", "LED", "RESISTOR", "BUTTON", "RGB_LED", "SERVO", "SEVEN_SEG"].includes(item.type))
     .map((item, index) => {
       const pin = item.pins?.main ?? item.pin ?? null;
       const componentType = item.type.startsWith("LED") ? "LED" : item.type;
@@ -27,6 +27,9 @@ const deriveComponents = (workspaceItems = []) => {
           color: LED_COLORS[item.type] || LED_COLORS["LED"],
           index,
         },
+        resistance: item.resistance,
+        x: item.x,
+        y: item.y,
       };
 
       if (item.type === "RGB_LED") {
@@ -140,6 +143,19 @@ export const useCircuitStore = create((set) => ({
         inputs: next,
         inputsVersion: state.inputsVersion + 1,
         lastInputsSource: source,
+      };
+    });
+  },
+  updateComponent: (id, updates, source = "arlab") => {
+    set((state) => {
+      const nextItems = state.workspaceItems.map((item) =>
+        item.id === id ? { ...item, ...updates } : item
+      );
+      return {
+        workspaceItems: nextItems,
+        workspaceVersion: state.workspaceVersion + 1,
+        lastUpdatedBy: source,
+        components: deriveComponents(nextItems),
       };
     });
   },

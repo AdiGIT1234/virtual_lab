@@ -26,6 +26,7 @@ import ExecutionTrace from "../components/ExecutionTrace";
 import ComponentCatalogPanel from "../components/ComponentCatalogPanel";
 import ComponentPlaceholder from "../components/ComponentPlaceholder";
 import McuPreviewPanel from "../components/McuPreviewPanel";
+import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
@@ -85,8 +86,9 @@ void loop() {
   const [wires, setWires] = useState([]);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(true);
+  const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(false);
 
   const [activeWire, setActiveWire] = useState(null);
   const activeWireRef = useRef(null);
@@ -127,7 +129,7 @@ void loop() {
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
-  const [chipTransform, setChipTransform] = useState({ x: 520, y: 180, scale: 1 });
+  const [chipTransform, setChipTransform] = useState({ x: 260, y: 100, scale: 1.2 });
   const chipDragDataRef = useRef(null);
   const [isChipDragging, setIsChipDragging] = useState(false);
 
@@ -685,7 +687,7 @@ void loop() {
   }, []);
 
   const resetChipTransform = useCallback(() => {
-    setChipTransform({ x: 520, y: 180, scale: 1 });
+    setChipTransform({ x: 260, y: 100, scale: 1.2 });
   }, []);
 
   const handlePanMove = useCallback((e) => {
@@ -804,8 +806,8 @@ void loop() {
           <button style={styles.runButton} onClick={runCode} disabled={!isMcuSupported}>
             ▶ Run
           </button>
-          <button style={styles.xrButton} onClick={() => navigate("/arlab?preset=blink")}>
-            3D Lab Preview
+          <button style={styles.xrButton} onClick={() => setIs3DMode(!is3DMode)}>
+            {is3DMode ? "2D Workbench" : "3D Lab Preview"}
           </button>
         </div>
       </div>
@@ -883,6 +885,31 @@ void loop() {
         </div>
 
         <div style={styles.chipColumn}>
+          {is3DMode ? (
+            <div style={{ flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "#010307" }}>
+              <ARLabCanvas highlightedId={null} componentStyles={{}} />
+              <div style={{ position: "absolute", bottom: 20, left: 20, padding: "12px 16px", background: "rgba(0,0,0,0.8)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 8, zIndex: 10, backdropFilter: "blur(10px)" }}>
+                {isRunning || liveMode ? (
+                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff3366", boxShadow: "0 0 8px #ff3366", animation: "pulse 1.5s infinite" }}></div><span style={{ color: "#fff", fontSize: 12, fontWeight: "bold", letterSpacing: "0.1em" }}>LIVE MCU</span></>
+                ) : (
+                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#444" }}></div><span style={{ color: "#888", fontSize: 12, fontWeight: "bold", letterSpacing: "0.1em" }}>STOPPED</span></>
+                )}
+              </div>
+              <div style={{ position: "absolute", top: 20, right: 20, padding: "12px", background: "rgba(0,0,0,0.7)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", gap: 6, zIndex: 10, backdropFilter: "blur(10px)", minWidth: 160 }}>
+                <span style={{ color: "#00f2ff", fontSize: 10, fontWeight: "bold", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Output State</span>
+                {["PORTB", "PORTC", "PORTD"].map((portName) => {
+                  const arr = currentRegisters?.[portName] || Array(8).fill(0);
+                  const hexHex = parseInt([...arr].reverse().join(""), 2).toString(16).toUpperCase().padStart(2, "0");
+                  return (
+                    <div key={portName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, fontFamily: "monospace" }}>
+                      <span style={{ color: "#9fbacd" }}>{portName}</span>
+                      <span style={{ color: "#fff", fontWeight: "bold" }}>0x{hexHex}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div
             id="workplane-container"
             ref={workplaneRef}
@@ -1081,6 +1108,7 @@ void loop() {
               viewOffset={viewOffset}
             />
           </div>
+          )}
         </div>
 
         <div style={{ ...styles.analyzerColumn, marginRight: isAnalyzerOpen ? 0 : -460 }}>
