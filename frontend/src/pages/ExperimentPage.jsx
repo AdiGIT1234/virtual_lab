@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget";
+import allExperiments from "../data/all_experiments.json";
 
 export default function ExperimentPage() {
   const { experimentId } = useParams();
@@ -27,8 +28,9 @@ export default function ExperimentPage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
-        setData(null);
+        console.warn("Backend fetch failed, falling back to local static JSON data:", err.message);
+        const localData = allExperiments[experimentId];
+        setData(localData || null);
         setLoading(false);
       });
   }, [experimentId]);

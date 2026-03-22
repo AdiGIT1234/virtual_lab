@@ -35,6 +35,7 @@ import useMediaQuery from "../hooks/useMediaQuery";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { useAuth } from "../context/useAuth";
 import ProtectedFeature from "../components/ProtectedFeature";
+import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
@@ -104,6 +105,7 @@ void loop() {
   const inputsVersion = useCircuitStore((state) => state.inputsVersion);
   const inputsSource = useCircuitStore((state) => state.lastInputsSource);
   const syncInputs = useCircuitStore((state) => state.syncInputs);
+  const loadPreset = useCircuitStore((state) => state.loadPreset);
 
   const defaultWorkspace = useMemo(() => [], []);
 
@@ -675,10 +677,8 @@ void loop() {
   }, [viewScale, chipTransform.x, chipTransform.y]);
 
   const handleChipWheel = useCallback((e) => {
-    if (!e.ctrlKey) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    e.preventDefault();
+    e.stopPropagation();
     const zoomDelta = -e.deltaY * 0.0015;
     setChipTransform((prev) => {
       const nextScale = Math.min(2.5, Math.max(0.6, parseFloat((prev.scale + zoomDelta).toFixed(2))));
@@ -842,6 +842,22 @@ void loop() {
           <ProtectedFeature compact action="export workspaces">
             <button onClick={handleExportWorkspace}>⤴ Export</button>
           </ProtectedFeature>
+          <select 
+            style={{...styles.componentSelect, marginLeft: "10px", width: "140px"}}
+            onChange={(e) => {
+              if (e.target.value) {
+                if (window.confirm("Loading a preset will replace your current workspace. Continue?")) {
+                  loadPreset(e.target.value);
+                }
+                e.target.value = "";
+              }
+            }}
+          >
+            <option value="">Load Preset...</option>
+            {Object.keys(CIRCUIT_PRESETS).map(key => (
+              <option key={key} value={key}>{CIRCUIT_PRESETS[key].name}</option>
+            ))}
+          </select>
         </div>
         <div style={styles.zoomControls}>
           <button onClick={() => handleZoom("out")}>−</button>
@@ -886,27 +902,77 @@ void loop() {
 
         <div style={styles.chipColumn}>
           {is3DMode ? (
-            <div style={{ flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "#010307" }}>
+            <div style={{
+              flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%",
+              borderRadius: 14, overflow: "hidden",
+              border: "1px solid rgba(0,210,255,0.15)",
+              background: "linear-gradient(135deg, #010307 0%, #020810 100%)",
+              boxShadow: "inset 0 0 60px rgba(0,210,255,0.03), 0 0 40px rgba(0,0,0,0.5)",
+            }}>
               <ARLabCanvas highlightedId={null} componentStyles={{}} />
-              <div style={{ position: "absolute", bottom: 20, left: 20, padding: "12px 16px", background: "rgba(0,0,0,0.8)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 8, zIndex: 10, backdropFilter: "blur(10px)" }}>
+
+              {/* Bottom-left status badge */}
+              <div style={{
+                position: "absolute", bottom: 20, left: 20, zIndex: 10,
+                padding: "10px 18px", borderRadius: 10,
+                background: "rgba(0,8,20,0.85)", backdropFilter: "blur(16px)",
+                border: `1px solid ${isRunning || liveMode ? "rgba(0,242,255,0.2)" : "rgba(255,255,255,0.06)"}`,
+                display: "flex", alignItems: "center", gap: 10,
+                boxShadow: isRunning || liveMode ? "0 0 20px rgba(0,242,255,0.1)" : "none",
+              }}>
                 {isRunning || liveMode ? (
-                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff3366", boxShadow: "0 0 8px #ff3366", animation: "pulse 1.5s infinite" }}></div><span style={{ color: "#fff", fontSize: 12, fontWeight: "bold", letterSpacing: "0.1em" }}>LIVE MCU</span></>
+                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00f2ff", boxShadow: "0 0 12px #00f2ff, 0 0 4px #00f2ff", animation: "pulse 1.5s infinite" }}></div><span style={{ color: "#00f2ff", fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", fontFamily: "monospace" }}>LIVE MCU</span></>
                 ) : (
-                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#444" }}></div><span style={{ color: "#888", fontSize: 12, fontWeight: "bold", letterSpacing: "0.1em" }}>STOPPED</span></>
+                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#333", boxShadow: "0 0 4px #222" }}></div><span style={{ color: "#555", fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", fontFamily: "monospace" }}>IDLE</span></>
                 )}
               </div>
-              <div style={{ position: "absolute", top: 20, right: 20, padding: "12px", background: "rgba(0,0,0,0.7)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", gap: 6, zIndex: 10, backdropFilter: "blur(10px)", minWidth: 160 }}>
-                <span style={{ color: "#00f2ff", fontSize: 10, fontWeight: "bold", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Output State</span>
+
+              {/* Top-right port state HUD */}
+              <div style={{
+                position: "absolute", top: 20, right: 20, zIndex: 10,
+                padding: "14px 18px", borderRadius: 10,
+                background: "rgba(0,8,20,0.88)", backdropFilter: "blur(16px)",
+                border: "1px solid rgba(0,210,255,0.12)",
+                display: "flex", flexDirection: "column", gap: 7,
+                minWidth: 175, boxShadow: "0 4px 30px rgba(0,0,0,0.4)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00f2ff", boxShadow: "0 0 6px #00f2ff" }} />
+                  <span style={{ color: "#00f2ff", fontSize: 9, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "monospace" }}>Port Register State</span>
+                </div>
                 {["PORTB", "PORTC", "PORTD"].map((portName) => {
                   const arr = currentRegisters?.[portName] || Array(8).fill(0);
                   const hexHex = parseInt([...arr].reverse().join(""), 2).toString(16).toUpperCase().padStart(2, "0");
                   return (
-                    <div key={portName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, fontFamily: "monospace" }}>
-                      <span style={{ color: "#9fbacd" }}>{portName}</span>
-                      <span style={{ color: "#fff", fontWeight: "bold" }}>0x{hexHex}</span>
+                    <div key={portName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span style={{ color: "#6090b0" }}>{portName}</span>
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {[...arr].reverse().map((bit, bi) => (
+                          <div key={bi} style={{
+                            width: 7, height: 7,
+                            background: bit ? "#00f2ff" : "#1a2030",
+                            borderRadius: 1,
+                            boxShadow: bit ? "0 0 4px #00f2ff" : "none",
+                            transition: "all 0.2s",
+                          }} />
+                        ))}
+                        <span style={{ color: "#e0e8f0", fontWeight: 700, marginLeft: 6, fontSize: 11 }}>0x{hexHex}</span>
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Bottom-right hint */}
+              <div style={{
+                position: "absolute", bottom: 20, right: 20, zIndex: 10,
+                padding: "8px 14px", borderRadius: 8,
+                background: "rgba(0,8,20,0.7)", backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255,255,255,0.04)",
+              }}>
+                <span style={{ color: "#506070", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.08em" }}>
+                  🖱 Orbit · Scroll Zoom · Drag Pan
+                </span>
               </div>
             </div>
           ) : (

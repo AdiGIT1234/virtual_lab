@@ -114,7 +114,7 @@ function HudInfoItem({ info, phase, side, index }) {
             {info.title}
           </span>
         </div>
-        <p className="text-[var(--lp-text-low)] text-[11px] leading-relaxed max-w-[240px] font-light">
+        <p className="text-(--lp-text-low) text-[11px] leading-relaxed max-w-[240px] font-light">
           {info.desc}
         </p>
       </div>
@@ -192,7 +192,7 @@ function FeatureCard({ feature, index }) {
         }}
       >
         <div
-          className="relative overflow-hidden p-8 border border-[var(--lp-border)] transition-all duration-300"
+          className="relative overflow-hidden p-8 border border-(--lp-border) transition-all duration-300"
           style={{
             transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
             transition: isHovered ? "transform 0.1s ease-out" : "transform 0.4s ease-out",
@@ -228,10 +228,10 @@ function FeatureCard({ feature, index }) {
             <div className="text-4xl mb-5 transition-transform duration-300 group-hover:scale-110">
               {feature.icon}
             </div>
-            <h3 className="text-[var(--lp-text-main)] text-lg font-bold mb-2 tracking-tight">
+            <h3 className="text-(--lp-text-main) text-lg font-bold mb-2 tracking-tight">
               {feature.title}
             </h3>
-            <p className="text-[var(--lp-text-low)] text-sm leading-relaxed">
+            <p className="text-(--lp-text-low) text-sm leading-relaxed">
               {feature.desc}
             </p>
           </div>
@@ -244,7 +244,7 @@ function FeatureCard({ feature, index }) {
 /* ── Auth Dock ── */
 function AuthDock() {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -255,12 +255,34 @@ function AuthDock() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Password requirement checks
+  const pw = form.password;
+  const pwChecks = [
+    { label: "Use 8 or more characters", ok: pw.length >= 8 },
+    { label: "Use an upper case letter", ok: /[A-Z]/.test(pw) },
+    { label: "Use a lower case letter", ok: /[a-z]/.test(pw) },
+    { label: "Use a number", ok: /[0-9]/.test(pw) },
+    { label: "Use a symbol (e.g., $@!%*?&)", ok: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  const allPwValid = pwChecks.every((c) => c.ok);
+  const passwordsMatch = pw.length > 0 && form.confirmPassword.length > 0 && pw === form.confirmPassword;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (!form.email || !form.password || (mode === "signup" && !form.name)) {
       setError("Fill all required fields");
       return;
+    }
+    if (mode === "signup") {
+      if (!allPwValid) {
+        setError("Password does not meet all requirements");
+        return;
+      }
+      if (!passwordsMatch) {
+        setError("Passwords do not match");
+        return;
+      }
     }
     setLoading(true);
     try {
@@ -284,28 +306,28 @@ function AuthDock() {
   };
 
   const inputClass =
-    "w-full bg-transparent border border-[var(--lp-border)] px-4 py-3 text-sm text-[var(--lp-text-main)] placeholder-[#64748B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]";
+    "w-full bg-transparent border border-(--lp-border) px-4 py-3 text-sm text-(--lp-text-main) placeholder-[#64748B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]";
 
   return (
     <motion.div
       id="auth-dock"
-      className="w-full max-w-sm border border-[var(--lp-border)] bg-[var(--lp-auth-bg)] backdrop-blur-xl p-6 sm:p-7"
+      className="w-full max-w-sm border border-(--lp-border) bg-(--lp-auth-bg) backdrop-blur-xl p-6 sm:p-7"
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}
     >
-      <div className="flex items-center gap-2 mb-4 text-[11px] tracking-[0.2em] font-mono text-[var(--lp-text-low)] uppercase">
+      <div className="flex items-center gap-2 mb-4 text-[11px] tracking-[0.2em] font-mono text-(--lp-text-low) uppercase">
         <span className="w-1.5 h-1.5 rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]" />
         <span>{mode === "login" ? "Secure Access" : "Create Access"}</span>
       </div>
 
-      <div className="flex mb-6 border border-[var(--lp-border)]">
+      <div className="flex mb-6 border border-(--lp-border)">
         {["login", "signup"].map((tab) => (
           <button
             key={tab}
             type="button"
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.2em] ${mode === tab ? "text-[#050505]" : "text-[var(--lp-text-mid)]"}`}
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.2em] ${mode === tab ? "text-[#050505]" : "text-(--lp-text-mid)"}`}
             style={{
               background: mode === tab ? "linear-gradient(135deg, #00F2FF, #7000FF)" : "transparent",
               transition: "all 0.2s ease",
@@ -321,23 +343,56 @@ function AuthDock() {
         {mode === "signup" && (
           <>
             <div>
-              <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Name *</label>
+              <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Name *</label>
               <input name="name" value={form.name} onChange={handleChange} className={inputClass} placeholder="Aditya Singh" />
             </div>
             <div>
-              <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Institute</label>
+              <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Institute</label>
               <input name="institute" value={form.institute} onChange={handleChange} className={inputClass} placeholder="IIT Bombay" />
             </div>
           </>
         )}
         <div>
-          <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Email *</label>
+          <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Email *</label>
           <input type="email" name="email" value={form.email} onChange={handleChange} className={inputClass} placeholder="aditya@lab.ai" />
         </div>
         <div>
-          <label className="text-xs uppercase text-[var(--lp-text-mid)] tracking-[0.2em] mb-1 block">Password *</label>
+          <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Password *</label>
           <input type="password" name="password" value={form.password} onChange={handleChange} className={inputClass} placeholder="••••••••" />
         </div>
+
+        {/* Password requirements checklist (signup only) */}
+        {mode === "signup" && pw.length > 0 && (
+          <div className="space-y-1 pl-1">
+            {pwChecks.map((check) => (
+              <div key={check.label} className="flex items-center gap-2 text-[11px] font-mono">
+                <span style={{ color: check.ok ? "#00F2FF" : "#64748B", fontSize: "12px", lineHeight: 1 }}>
+                  {check.ok ? "✓" : "○"}
+                </span>
+                <span style={{ color: check.ok ? "#00F2FF" : "#94A3B8" }}>{check.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Password confirmation (signup only) */}
+        {mode === "signup" && (
+          <div>
+            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Password Confirmation</label>
+            <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} className={inputClass} placeholder="••••••••" />
+            {form.confirmPassword.length > 0 && (
+              <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono">
+                <span style={{ color: passwordsMatch ? "#00FFB2" : "#ff3366", fontSize: "12px" }}>
+                  {passwordsMatch ? "✓" : "✗"}
+                </span>
+                <span style={{ color: passwordsMatch ? "#00FFB2" : "#ff3366" }}>
+                  {passwordsMatch ? "Passwords match." : "Passwords do not match."}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="text-[11px] text-[#ff3366] font-mono tracking-wider">{error}</div>
         )}
@@ -354,7 +409,7 @@ function AuthDock() {
         </button>
       </form>
 
-      <div className="mt-4 text-[11px] text-[var(--lp-text-low)] font-mono tracking-widest">
+      <div className="mt-4 text-[11px] text-(--lp-text-low) font-mono tracking-widest">
         {mode === "login" ? "New here? Toggle to signup." : "Have credentials? Toggle to login."}
       </div>
     </motion.div>
@@ -382,7 +437,7 @@ function ExperimentCard({ exp, index }) {
       initial={{ opacity: 0, y: 30 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: (index % 5) * 0.08, ease: [0.16, 1, 0.3, 1] }}
-      className="relative group text-left w-full cursor-pointer border border-[var(--lp-border)] rounded-none overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
+      className="relative group text-left w-full cursor-pointer border border-(--lp-border) rounded-none overflow-hidden transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
       onClick={() => navigate(`/experiment/${exp.id}`)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -402,7 +457,7 @@ function ExperimentCard({ exp, index }) {
       <div className="relative z-10 p-6">
         {/* Top row */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-[var(--lp-text-inverse-muted)] text-xs font-mono font-bold">
+          <span className="text-(--lp-text-inverse-muted) text-xs font-mono font-bold">
             {String(index + 1).padStart(2, "0")}
           </span>
           <span
@@ -422,10 +477,10 @@ function ExperimentCard({ exp, index }) {
         </div>
 
         {/* Title & aim */}
-        <h3 className="text-[var(--lp-text-main)] text-sm font-bold mb-1.5 tracking-tight">
+        <h3 className="text-(--lp-text-main) text-sm font-bold mb-1.5 tracking-tight">
           {exp.title}
         </h3>
-        <p className="text-[var(--lp-text-low)] text-xs leading-relaxed mb-4">
+        <p className="text-(--lp-text-low) text-xs leading-relaxed mb-4">
           {exp.aim}
         </p>
 
@@ -539,7 +594,7 @@ function TerminalFooter() {
   }, [isInView]);
 
   return (
-    <footer ref={ref} className="relative border-t border-[var(--lp-border-faint)] bg-[var(--lp-footer-bg)]">
+    <footer ref={ref} className="relative border-t border-(--lp-border-faint) bg-(--lp-footer-bg)">
       <div className="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <div className="font-mono text-xs space-y-1.5">
           {lines.map((line, i) => (
@@ -550,10 +605,10 @@ function TerminalFooter() {
               transition={{ duration: 0.3 }}
               className="flex gap-2"
             >
-              <span className={`${line.prefix === "[OK!]" ? "text-[#00F2FF]" : line.prefix === "[SYS]" ? "text-[#7000FF]" : "text-[var(--lp-text-low)]"} font-bold`}>
+              <span className={`${line.prefix === "[OK!]" ? "text-[#00F2FF]" : line.prefix === "[SYS]" ? "text-[#7000FF]" : "text-(--lp-text-low)"} font-bold`}>
                 {line.prefix}
               </span>
-              <span className="text-[var(--lp-text-low)]">{line.text}</span>
+              <span className="text-(--lp-text-low)">{line.text}</span>
             </motion.div>
           ))}
           <motion.div
@@ -567,12 +622,12 @@ function TerminalFooter() {
           </motion.div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-[var(--lp-border-faint)] flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="mt-8 pt-6 border-t border-(--lp-border-faint) flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-[#00F2FF] text-xl">⬡</span>
-            <span className="text-[var(--lp-text-main)] font-bold text-sm">ATmega328P Virtual Lab</span>
+            <span className="text-(--lp-text-main) font-bold text-sm">ATmega328P Virtual Lab</span>
           </div>
-          <p className="text-[var(--lp-text-low)] text-xs">
+          <p className="text-(--lp-text-low) text-xs">
             © {new Date().getFullYear()} · Open Source · Free Forever
           </p>
         </div>
@@ -632,7 +687,7 @@ export default function LandingPage() {
   const videoOverlayOpacity = useTransform(heroScrollProgress, [0, 0.8], [0.1, 0.55]);
 
   return (
-    <div ref={containerRef} className="relative bg-[var(--lp-bg)] text-[var(--lp-text-main)] transition-colors duration-500" style={{ 
+    <div ref={containerRef} className="relative bg-(--lp-bg) text-(--lp-text-main) transition-colors duration-500" style={{ 
         fontFamily: "'Inter', system-ui, sans-serif",
         "--lp-bg": theme === "light" ? "#FAF9F6" : "#050505",
         "--lp-nav-bg": theme === "light" ? "rgba(250,249,246,0.8)" : "rgba(5,5,5,0.7)",
@@ -723,7 +778,7 @@ export default function LandingPage() {
                     </span>
                   </h1>
 
-                  <p className="text-[var(--lp-text-low)] text-lg md:text-xl mb-10 font-light leading-relaxed max-w-xl">
+                  <p className="text-white/80 text-lg md:text-xl mb-10 font-light leading-relaxed max-w-xl" style={{ textShadow: "0 2px 12px rgba(0,0,0,0.7)" }}>
                     Scroll down to deconstruct the chip and explore its architecture
                   </p>
 
@@ -741,7 +796,7 @@ export default function LandingPage() {
                     </button>
                     <button
                       onClick={() => navigate("/reference")}
-                      className="w-full sm:w-auto px-6 py-3 md:px-8 md:py-3.5 font-semibold text-sm tracking-wider border border-[var(--lp-border)] bg-[var(--lp-card-base)] backdrop-blur-md text-[var(--lp-text-main)] hover:border-[var(--lp-border)] transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
+                      className="w-full sm:w-auto px-6 py-3 md:px-8 md:py-3.5 font-semibold text-sm tracking-wider border border-(--lp-border) bg-(--lp-card-base) backdrop-blur-md text-(--lp-text-main) hover:border-(--lp-border) transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]"
                       style={{
                         clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
                       }}
@@ -751,7 +806,7 @@ export default function LandingPage() {
                   </div>
 
                   <button
-                    className="text-[10px] tracking-[0.2em] uppercase font-mono text-[var(--lp-text-low)] underline decoration-dotted"
+                    className="text-[10px] tracking-[0.2em] uppercase font-mono text-(--lp-text-low) underline decoration-dotted"
                     onClick={() => document.getElementById("auth-dock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
                     type="button"
                   >
@@ -762,7 +817,7 @@ export default function LandingPage() {
                     <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
                       <div className="w-1 h-2 rounded-full bg-[#00F2FF] animate-pulse" />
                     </div>
-                    <span className="text-[var(--lp-text-low)] text-[10px] tracking-[0.2em] uppercase font-mono">
+                    <span className="text-(--lp-text-low) text-[10px] tracking-[0.2em] uppercase font-mono">
                       Scroll to deconstruct
                     </span>
                   </div>
@@ -772,9 +827,9 @@ export default function LandingPage() {
                   {!isAuthenticated ? (
                     <AuthDock />
                   ) : (
-                    <div className="border border-[var(--lp-border)] bg-[var(--lp-auth-bg)] backdrop-blur-xl p-8 text-center" style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}>
+                    <div className="border border-(--lp-border) bg-(--lp-auth-bg) backdrop-blur-xl p-8 text-center" style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}>
                       <span className="text-[#00F2FF] text-lg font-bold mb-4 block tracking-wider uppercase font-mono">Access Granted</span>
-                      <p className="text-[var(--lp-text-mid)] text-sm mb-6">Welcome back. Your session is active.</p>
+                      <p className="text-(--lp-text-mid) text-sm mb-6">Welcome back. Your session is active.</p>
                       <button onClick={() => navigate("/dashboard")} className="w-full py-3.5 text-xs font-black tracking-[0.25em] uppercase border-0 text-[#050505]" style={{ background: "linear-gradient(135deg, #00F2FF, #00FFB2)", clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))" }}>
                         Enter Dashboard →
                       </button>
@@ -809,12 +864,12 @@ export default function LandingPage() {
                     key={i}
                     initial={false}
                     animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 10 }}
-                    className="bg-[var(--lp-auth-bg)] backdrop-blur-md border border-[var(--lp-border)] p-2.5 rounded-sm"
+                    className="bg-(--lp-auth-bg) backdrop-blur-md border border-(--lp-border) p-2.5 rounded-sm"
                   >
                     <span className="text-[#00F2FF] text-[10px] font-bold font-mono block truncate">
                       {info.title}
                     </span>
-                    <span className="text-[var(--lp-text-low)] text-[9px] line-clamp-2">{info.desc}</span>
+                    <span className="text-(--lp-text-low) text-[9px] line-clamp-2">{info.desc}</span>
                   </motion.div>
                 );
               })}
@@ -838,7 +893,7 @@ export default function LandingPage() {
 
       {/* ════════════════ STICKY NAV ════════════════ */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 md:px-10 border-b border-[var(--lp-border-faint)] transition-colors duration-500"
+        className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 md:px-10 border-b border-(--lp-border-faint) transition-colors duration-500"
         style={{
           backdropFilter: `blur(20px)`,
           WebkitBackdropFilter: `blur(20px)`,
@@ -852,16 +907,16 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-6">
-          <a href="#experiments" className="hidden md:inline text-[var(--lp-text-mid)] text-sm hover:text-[var(--lp-text-main)] transition-colors">
+          <a href="#experiments" className="hidden md:inline text-(--lp-text-mid) text-sm hover:text-(--lp-text-main) transition-colors">
             Experiments
           </a>
-          <a href="#features" className="hidden md:inline text-[var(--lp-text-mid)] text-sm hover:text-[var(--lp-text-main)] transition-colors">
+          <a href="#features" className="hidden md:inline text-(--lp-text-mid) text-sm hover:text-(--lp-text-main) transition-colors">
             Features
           </a>
           {isAuthenticated ? (
             <button
               onClick={() => navigate("/dashboard")}
-              className="hidden md:inline text-[var(--lp-text-mid)] text-xs tracking-[0.2em] uppercase hover:text-[var(--lp-text-main)]"
+              className="hidden md:inline text-(--lp-text-mid) text-xs tracking-[0.2em] uppercase hover:text-(--lp-text-main)"
               type="button"
             >
               Dashboard
@@ -869,7 +924,7 @@ export default function LandingPage() {
           ) : (
             <button
               onClick={() => document.getElementById("auth-dock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-              className="hidden md:inline text-[var(--lp-text-mid)] text-xs tracking-[0.2em] uppercase hover:text-[var(--lp-text-main)]"
+              className="hidden md:inline text-(--lp-text-mid) text-xs tracking-[0.2em] uppercase hover:text-(--lp-text-main)"
               type="button"
             >
               Sign In
@@ -889,7 +944,7 @@ export default function LandingPage() {
           {/* Tactical theme toggle switch */}
           <button
             onClick={toggleTheme}
-            className="relative w-14 h-7 rounded-sm border border-[var(--lp-border)] bg-[var(--lp-toggle-bg)] cursor-pointer overflow-hidden transition-all duration-300 focus:outline-none group"
+            className="relative w-14 h-7 rounded-sm border border-(--lp-border) bg-(--lp-toggle-bg) cursor-pointer overflow-hidden transition-all duration-300 focus:outline-none group"
             aria-label="Toggle theme"
           >
             <div
@@ -923,7 +978,7 @@ export default function LandingPage() {
         <div className="relative max-w-5xl mx-auto">
           {/* Tactical folder container */}
           <div
-            className="relative border border-[var(--lp-border)] bg-[var(--lp-card-base)] p-8 md:p-14"
+            className="relative border border-(--lp-border) bg-(--lp-card-base) p-8 md:p-14"
             style={{
               clipPath: "polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px)",
             }}
@@ -954,7 +1009,7 @@ export default function LandingPage() {
               <span className="bg-linear-to-r from-[#00F2FF] to-[#7000FF] bg-clip-text text-transparent" style={{ fontFamily: "'Cyber Alert Numbers', 'Heat Robox', monospace" }}>328</span>
               P-PU
             </h2>
-            <p className="text-[var(--lp-text-low)] text-base md:text-lg leading-relaxed max-w-2xl mb-12 font-light">
+            <p className="text-(--lp-text-low) text-base md:text-lg leading-relaxed max-w-2xl mb-12 font-light">
               The heart of the Arduino UNO. A 28-pin, 8-bit AVR RISC microcontroller by Microchip Technology
               — running 131 instructions at up to 20 MHz with 32KB Flash, 2KB SRAM, and 1KB EEPROM.
             </p>
@@ -964,7 +1019,7 @@ export default function LandingPage() {
               {CHIP_STATS.map((stat, i) => (
                 <div key={i} className="flex flex-col items-center text-center">
                   <AnimatedCounter value={stat.value} suffix={stat.suffix} inView={statsInView} />
-                  <span className="text-[10px] text-[var(--lp-text-low)] font-mono font-bold tracking-[0.15em] uppercase mt-1.5">
+                  <span className="text-[10px] text-(--lp-text-low) font-mono font-bold tracking-[0.15em] uppercase mt-1.5">
                     {stat.label}
                   </span>
                 </div>
@@ -1025,7 +1080,7 @@ export default function LandingPage() {
               </span>
               ?
             </h2>
-            <p className="text-[var(--lp-text-low)] text-base md:text-lg max-w-xl mx-auto font-light">
+            <p className="text-(--lp-text-low) text-base md:text-lg max-w-xl mx-auto font-light">
               Everything you need to learn embedded systems — zero hardware required.
             </p>
           </motion.div>
@@ -1068,7 +1123,7 @@ export default function LandingPage() {
               </span>{" "}
               Progressive Experiments
             </h2>
-            <p className="text-[var(--lp-text-low)] text-base md:text-lg max-w-xl mx-auto font-light">
+            <p className="text-(--lp-text-low) text-base md:text-lg max-w-xl mx-auto font-light">
               From first blink to watchdog reset — each experiment builds on the last.
             </p>
           </motion.div>
@@ -1082,7 +1137,7 @@ export default function LandingPage() {
             ].map((cat) => (
               <div key={cat.label} className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ background: cat.color, boxShadow: `0 0 8px ${cat.color}40` }} />
-                <span className="text-xs font-mono text-[var(--lp-text-mid)]">
+                <span className="text-xs font-mono text-(--lp-text-mid)">
                   <span className="font-bold" style={{ color: cat.color }}>{cat.label}</span>
                   {" "}· {cat.desc}
                 </span>
@@ -1129,7 +1184,7 @@ export default function LandingPage() {
             </span>
             ?
           </h2>
-          <p className="text-[var(--lp-text-low)] text-lg md:text-xl mb-12 font-light leading-relaxed max-w-lg mx-auto">
+          <p className="text-(--lp-text-low) text-lg md:text-xl mb-12 font-light leading-relaxed max-w-lg mx-auto">
             Jump into the sandbox and write real AVR C code.
             <br />
             No downloads. No setup. Just code.
@@ -1137,7 +1192,7 @@ export default function LandingPage() {
 
           <ChargingButton />
 
-          <p className="text-[var(--lp-text-low)] text-xs font-mono mt-8 tracking-wider">
+          <p className="text-(--lp-text-low) text-xs font-mono mt-8 tracking-wider">
             &gt; SYSTEM INIT COMPLETE — AWAITING USER INPUT_
           </p>
         </motion.div>

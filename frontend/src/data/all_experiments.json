@@ -1,0 +1,3640 @@
+{
+  "exp05_timer0_normal": {
+    "id": "exp05_timer0_normal",
+    "title": "Level 5: Timers (Timer0 Normal Mode)",
+    "difficulty": "Intermediate",
+    "aim": "To use Timer 0 in Normal Mode and the Overflow Interrupt on the ATmega328P to blink an LED without blocking the main program.",
+    "objective": "Understand how 8-bit timer registers (TCCR0B, TIMSK0) work, calculate prescaler and timer overflows, and use ISR(TIMER0_OVF_vect) for precise timing.",
+    "theory": "<h3>Hardware Timers</h3><p>Instead of software delay loops (like <code>_delay_ms</code>), the ATmega328P contains dedicated hardware counters called <b>Timers</b>. Timer0 is an 8-bit timer, meaning it repeatedly counts from 0 up to 255. Once it hits 255 and tries to go to 256, it overflows back to 0.</p><h3>The Prescaler</h3><p>Running at 16 MHz, a timer would overflow in just 16 microseconds! A <b>Prescaler</b> slows down the clock feeding the timer by dividing it. If we set a prescaler of 1024 (using the <b>TCCR0B</b> register), the timer ticks at 16,000,000 / 1024 = 15,625 Hz. One overflow then takes roughly 16.38 milliseconds.</p><h3>Timer Interrupts</h3><p>When the timer overflows, it sets a flag (TOV0). By configuring the <b>TIMSK0</b> (Timer Interrupt Mask Register) to enable the Timer Overflow Interrupt, the CPU immediately calls the Overflow ISR (Interrupt Service Routine). This frees up your main loop to handle things like reading buttons simultaneously, because the blinking is handled asynchronously in the background.</p>",
+    "pretest": [
+      {
+        "question": "Which of these registers controls the prescaler for Timer0?",
+        "options": [
+          "TCCR0B",
+          "TIMSK0",
+          "TCNT0",
+          "OCR0A"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "TCCR0B (Timer/Counter Control Register 0 B) handles setting the prescaler and starting the timer clock."
+      },
+      {
+        "question": "If Timer0 is an 8-bit counter, at what value does it naturally overflow when running in Normal Mode?",
+        "options": [
+          "FF (255)",
+          "FFFF (65535)",
+          "A",
+          "Depends on OCR0A"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "The counter holds 8 bits (0-255). It overflows when trying to step past 255."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Include <avr/io.h> and <avr/interrupt.h>.",
+      "Set the DDR for an LED pin (e.g., PB5) connected to Pin 13 to act as an output.",
+      "Configure TCCR0B to set the prescaler for Timer0 to 1024 by setting CS02 and CS00 to 1.",
+      "Enable the Timer0 Overflow Interrupt by setting TOIE0 to 1 in the TIMSK0 register.",
+      "Turn on global interrupts using sei();.",
+      "Write the ISR(TIMER0_OVF_vect) routine.",
+      "Inside the ISR, setup a static counter variable. Increment it every overflow.",
+      "Since one overflow is ~16ms, toggle the LED state when the static counter reaches 61 (1000ms / 16.38ms). Reset the counter to 0.",
+      "Leave the main loop (while(1)) completely empty. The background hardware handles everything!"
+    ],
+    "posttest": [
+      {
+        "question": "If we leave the main while(1) loop completely empty, what is the CPU doing?",
+        "options": [
+          "Nothing, it goes to sleep automatically",
+          "Executing other code from flash",
+          "Endlessly spinning in the while loop until the background interrupt disrupts it",
+          "It halts execution entirely"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "The CPU endlessly spins in the empty loop, continuously checking if an interrupt has been flagged by the hardware module."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Perfect! You successfully broke free from blocking delays by harnessing autonomous hardware timers. This is crucial for real-time operating systems."
+  },
+  "exp12_spi_master": {
+    "id": "exp12_spi_master",
+    "title": "Level 12: SPI Comm (Master Mode)",
+    "difficulty": "Advanced",
+    "aim": "To execute high-speed bidirectional communication by configuring the ATmega328P as an SPI Master.",
+    "objective": "Understand the Serial Peripheral Interface (SPI) pins (MOSI, MISO, SCK, SS), configure SPCR (Control Register), and transmit data using SPSR and SPDR.",
+    "theory": "<h3>SPI Architecture</h3><p>SPI (Serial Peripheral Interface) is a synchronous, full-duplex protocol. It is vastly faster than UART (up to 8 Megabits per second). It uses 4 dedicated hardware pins:<br><b>MOSI:</b> Master Out Slave In.<br><b>MISO:</b> Master In Slave Out.<br><b>SCK:</b> Serial Clock generated ONLY by the Master.<br><b>SS:</b> Slave Select, driven LOW by the Master to tell a specific component on the bus to listen.</p><h3>Full Duplex Exchanging</h3><p>In SPI, reading and writing happen simultaneously. As the master shifts an 8-bit command bit-by-bit out of MOSI, the slave device shifts an 8-bit response bit-by-bit into MISO via shift registers. To read a byte from a slave, you MUST transmit a dummy byte (like 0xFF) just to generate the 8 clock pulses on SCK to suck the answer in.</p><h3>Configuring the SPCR</h3><p>The Master MUST explicitly set the MOSI, SCK, and SS pins as OUTPUTs in DDRB. The MISO pin must be an INPUT. The SPI Control Register (<b>SPCR</b>) enables SPI (SPE=1) and explicitly asserts Master mode (MSTR=1).</p>",
+    "pretest": [
+      {
+        "question": "Why must the ATmega328P (as Master) explicitly set the SS (Slave Select) pin to OUTPUT and keep it HIGH if it\u2019s not communicating, even if it uses another pin to select the slave?",
+        "options": [
+          "To boost power output",
+          "If SS is an input and pulled LOW externally, the hardware violently forces the ATmega328P into Slave Mode, destroying Master operations",
+          "To tell the UART hardware to turn off",
+          "Because the SPCR register requires it for SPI clock division"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "This is a critical hardware feature. If the physical SS pin (PB2) is configured as input and drops to LOW, it is an over-ride that disables the MSTR bit in SPCR."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Configure DDRB explicitly. Set MOSI (PB3), SCK (PB5), and SS (PB2) as outputs. Keep MISO (PB4) as an input.",
+      "Drive SS High (PORTB |= (1<<2)) so no slaves are falsely selected yet.",
+      "Initialize the SPI Control Register (SPCR). Enable SPI (SPE=1), Master (MSTR=1), and optionally set the clock rate to fosc/16 (SPR0=1).",
+      "To transmit, pull the target slave's chip select pin LOW.",
+      "Load data into the SPI Data Register: `SPDR = data;`",
+      "Wait for the SPI Interrupt Flag (SPIF) in the SPSR register to be set to 1.",
+      "The received answer from the slave is now living inside `SPDR`. Read it, then pull the chip select pin HIGH to end the transaction."
+    ],
+    "posttest": [
+      {
+        "question": "When loading data into SPDR, what action generates the serial clock pulses (SCK) to move the bits?",
+        "options": [
+          "A separate clock generation function",
+          "The act of writing to SPDR physically triggers the 8-pulse clock hardware sequence",
+          "Continuously polling the SPSR register",
+          "The Slave pulling MISO low"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Writing an 8-bit value directly into SPDR immediately and automatically kicks off the 8 hardware SCK pulses required to execute the transaction."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "You've mastered synchronous protocols. SPI is extensively used for addressing high-speed hardware: SD Cards, TFT Screens, and Flash Memory chips."
+  },
+  "exp09_adc_polling": {
+    "id": "exp09_adc_polling",
+    "title": "Level 9: Analog-to-Digital Conversion",
+    "difficulty": "Intermediate",
+    "aim": "To understand how the Analog-to-Digital Converter (ADC) built into the ATmega328P transforms continuous physical voltages into discrete numeric values.",
+    "objective": "Understand the ADC Multiplexer Selection register (ADMUX), the ADC Control/Status register (ADCSRA), and how to read the 10-bit result in ADCH/ADCL via software polling.",
+    "theory": "<h3>The Real World is Analog</h3><p>Light levels, temperatures, and audio signals don't exist merely as 0V or 5V (digital); they are continuous voltages anywhere in between. Microcontrollers only understand digital code. The Analog-to-Digital Converter (ADC) bridge is this gap.</p><h3>10-Bit Resolution</h3><p>The ATmega328P's ADC has 10 bits of resolution. It slices the 0V to 5V input range into 1024 unique steps (2^10). At 5V reference, each step is roughly 4.88mV. An input of 0V reads as 0, 2.5V reads as 511, and 5V reads as 1023.</p><h3>Connecting to the ADC Multiplexer</h3><p>The ATmega328P has only ONE physical ADC circuit, but it can read from multiple pins (A0-A5) using an internal switch called a Multiplexer (MUX). We configure the <b>ADMUX</b> register to tell the ADC which pin to connect to. We also configure the <b>ADCSRA</b> register to turn the ADC on (ADEN) and set the ADC clock speed using its dedicated prescaler (ADPS0-2).</p><h3>Triggering a Conversion</h3><p>Once configured, writing a 1 to the ADSC (Start Conversion) bit in ADCSRA asks the ADC to take a reading. Converting takes time (13-260 microseconds). We use a <code>while</code> loop to wait (poll) until the hardware clears the ADSC bit to 0, which means the conversion finished and the result is waiting in the ADC data registers (ADCL and ADCH).</p>",
+    "pretest": [
+      {
+        "question": "What is the primary function of the multiplexer (MUX) within the ATmega328P's ADC architecture?",
+        "options": [
+          "To amplify the input voltage",
+          "To route 5V power to the analog pins",
+          "To allow sequentially connecting one single ADC circuit to multiple input pins (A0 to A5)",
+          "To convert analog voltage into a digital number"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "To save space and power, there is only one physical ADC that rapidly 'switches' (multiplexes) between the different analog input pins when requested."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Connect a Potentiometer to VCC (5V), GND (0V), and its center wipe to Analog Pin A0 (PC0).",
+      "Configure ADMUX to select the AVCC voltage reference (REFS0=1) and channel 0 (MUX0-3=0).",
+      "Configure ADCSRA to enable the ADC (ADEN=1) and set a prescaler of 128 (ADPS0=1, ADPS1=1, ADPS2=1) so the ADC clock is 125kHz.",
+      "Inside the infinite while(1) loop, set the ADSC bit in ADCSRA to start a conversion.",
+      "Stall the MCU safely by waiting for the ADSC bit to clear: while(ADCSRA & (1<<ADSC)); .",
+      "When the while loop terminates, read the 16-bit combined result straight from the special `ADC` macro provided by <avr/io.h>.",
+      "Map the ADC value (0-1023) to an 8-bit output on PORTD (0-255) to visually observe the reading change on an array of 8 LEDs."
+    ],
+    "posttest": [
+      {
+        "question": "If you apply exactly 2.5V to the analog pin while using a 5V reference, what digital value roughly will the 10-bit ADC produce?",
+        "options": [
+          "0",
+          "511",
+          "1023",
+          "250"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "2.5V is half of 5V. Half of the 10-bit maximum (1023) is approximately 511."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Perfect reading of the physical world! The ADC is the absolute heart of environmental sensor programming."
+  },
+  "exp15_watchdog_timer": {
+    "id": "exp15_watchdog_timer",
+    "title": "Level 15: System Stability (Watchdog Timer)",
+    "difficulty": "Advanced",
+    "aim": "To use the Watchdog Timer (WDT) to automatically reset a crashed or deadlocked microcontroller.",
+    "objective": "Understand how the separate on-chip Watchdog oscillator functions, configure WDTCSR for various timeout lengths, and execute the wdt_reset() macro.",
+    "theory": "<h3>What is a Watchdog Timer?</h3><p>In the real world, software can crash. A robot driving a car will crash if an infinite loop holds up the main processing. A Watchdog Timer (WDT) is a completely separate hardware timer (running on its own internal 128kHz oscillator) whose sole purpose is to count up. If it ever reaches its specified timeout value, it violently forces a hard reset on the entire ATmega328P.</p><h3>Feeding the Dog</h3><p>The only way to prevent a reset is for the main software to routinely 'feed' or 'kick' the dog by sending it a reset signal. In C, we do this by calling the <code>wdt_reset()</code> function inside our main loop. If our main loop freezes unexpectedly, <code>wdt_reset()</code> is never called. The watchdog keeps ticking, eventually hitting its timeout and generating a System Reset.</p><h3>Watchdog Reset Flag (WDRF)</h3><p>When the system restarts, you might want to know WHY it restarted. The MCUSR (MCU Status Register) contains a WDRF flag. If WDRF is 1 immediately after booting, you know a watchdog reset occurred!</p>",
+    "pretest": [
+      {
+        "question": "What is the consequence of entering an infinite `while(1)` loop that does NOT contain `wdt_reset()` when the Watchdog Timer is enabled?",
+        "options": [
+          "The ATmega328P crashes permanently",
+          "The CPU ignores the Watchdog",
+          "The Watchdog Timer resets the microcontroller completely when the timeout period elapses",
+          "The CPU runs at double the clock speed"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "The Watchdog cannot be stopped by software bugs. If it is not 'fed', it will inevitably force a hardware reset."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Include <avr/wdt.h> at the top of the program.",
+      "Wire an LED to Pin 13 to serve as an indicator.",
+      "In setup, blink the LED rapidly 5 times to prove the ATmega328P has booted up.",
+      "Enable the Watchdog Timer with a 2-second timeout using <code>wdt_enable(WDTO_2S);</code>.",
+      "In the main infinite loop, turn the LED ON.",
+      "Delay for 1000ms using <code>_delay_ms()</code>.",
+      "Feed the watchdog using <code>wdt_reset();</code>.",
+      "Delay for another 1000ms.",
+      "Now intentionally freeze the program with an empty infinite loop: <code>while(1);</code>.",
+      "Observe the LED. 2 seconds after the empty loop begins, the chip will forcefully reset, and you will see the 5 rapid boot-up blinks again."
+    ],
+    "posttest": [
+      {
+        "question": "Where does the Watchdog Timer get its clock signal?",
+        "options": [
+          "From the 16MHz external crystal oscillator",
+          "From the USB bus",
+          "From its own dedicated on-chip 128kHz oscillator",
+          "From Timer1"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "The Watchdog relies on an independent internal RC oscillator so that it continues to function even if the main CPU crystal dramatically fails."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Flawless emergency protocol! Watchdog timers are crucial to long-running, remote embedded devices where a human isn't present to push the reset button."
+  },
+  "exp10_uart_tx": {
+    "id": "exp10_uart_tx",
+    "title": "Level 10: Serial Comm (UART Transmit)",
+    "difficulty": "Intermediate",
+    "aim": "To configure the hardware Universal Synchronous/Asynchronous Receiver/Transmitter (USART) to transmit plain text serial data over a USB-Serial connection.",
+    "objective": "Understand asynchronous communication basics like baud rate (UBRR0), framing format (UCSR0C), and how to check the Data Register Empty flag (UDRE0) before transmitting raw chars.",
+    "theory": "<h3>Serial vs Parallel</h3><p>Instead of using 8 wires to send a byte (like writing to PORTD), serial communication sends bits down a single wire one after another. UART (Universal Asynchronous Receiver-Transmitter) is standard for this. It is termed 'Asynchronous' because there is no clock wire shared between the two devices; they must both independently agree beforehand on exactly how fast the bits will arrive.</p><h3>The Baud Rate</h3><p>This agreed-upon speed is the baud rate. Common speeds are 9600 or 115200 bits per second. The ATmega328P uses the 16-bit <b>UBRR0</b> register to divide its 16MHz clock down into the baud rate. The formula is: <code>UBRR0 = (F_CPU / (16 * Baud)) - 1</code>. For 9600 baud at 16MHz, UBRR0 is 103.</p><h3>Framing and UDR0</h3><p>When you place an 8-bit character into the <b>UDR0</b> (USART Data Register), the hardware UART takes over. It adds a START bit, outputs the 8 data bits sequentially over the TX pin (PD1), and adds a STOP bit (the Frame). Because this takes time, you CANNOT write a second character to UDR0 immediately. You must wait (poll) the <b>UDRE0</b> (USART Data Register Empty) flag in UCSR0A. Only when it is 1 is the register empty and ready for the next character.</p>",
+    "pretest": [
+      {
+        "question": "What happens if the transmitting UART is configured for 9600 baud, but the receiving computer is configured for 115200 baud?",
+        "options": [
+          "The connection is refused electronically",
+          "Characters will be received normally but slower",
+          "The receiver interprets the slow pulses as completely different data, showing random 'garbage' characters",
+          "The ATmega328P crashes"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Because there is no hardware clock to sync them, mismatched baud rates lead to incorrect framing logic and data corruption."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Configure UBRR0 for 9600 baud. (UBRR0H = (103>>8); UBRR0L = 103;).",
+      "Enable the Transmitter by setting the TXEN0 bit in the UCSR0B register.",
+      "Configure the frame format to 8 data bits, 1 stop bit by writing to UCSR0C (default on ATmega328P).",
+      "Create a function `void UART_Transmit(unsigned char data)`.",
+      "Inside this function, write a while loop that waits until the UDRE0 bit in UCSR0A is set (1).",
+      "Once the loop unblocks, write the `data` byte into the UDR0 register.",
+      "In the main loop, call UART_Transmit repeatedly to send \"Hello, World!\\n\", delaying 1000ms in between strings."
+    ],
+    "posttest": [
+      {
+        "question": "Why is it mandatory to check the UDRE0 flag before writing to UDR0?",
+        "options": [
+          "To avoid overwriting the previous character while it is still in the middle of being transmitted",
+          "To clear the UART memory",
+          "To boost the TX voltage to 5V",
+          "To signal the computer that we are ready"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "If UDR0 is overwritten before the hardware finishes sending the last byte into the shift register, the byte is permanently lost."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Hello, World! You can now output debug data perfectly over standard RS-232 serial logic."
+  },
+  "exp01_led_blinking": {
+    "id": "exp01_led_blinking",
+    "title": "Level 1: Hello World (LED Blinking)",
+    "difficulty": "Beginner",
+    "aim": "To write an Embedded C program to blink an LED connected to an ATmega328P.",
+    "objective": "Understand GPIO configuration using DDRx and PORTx registers, and learn how to stall the MCU using delay routines.",
+    "theory": "<h3>What is GPIO?</h3><p>General Purpose Input/Output (GPIO) pins allow microcontrollers to read digital signals (like buttons) or write digital signals (like turning on an LED).</p><h3>The Registers</h3><ul><li><b>DDRx (Data Direction Register):</b> Configures a pin as INPUT (0) or OUTPUT (1). For example, setting DDRB = 0xFF makes all PORTB pins outputs.</li><li><b>PORTx (Data Register):</b> When a pin is configured as an output, writing a 1 to PORTx sets the pin HIGH (5V), and writing a 0 sets it LOW (0V).</li></ul><h3>The Delay Loop</h3><p>Microcontrollers operate infinitely fast (up to 16 million instructions per second on an Arduino UNO). If you turn an LED ON and OFF without a delay, it happens so fast that it will just look dimly lit. A delay function forces the microcontroller to count empty cycles, keeping the LED in its current state long enough for the human eye to see.</p>",
+    "pretest": [
+      {
+        "question": "Which register is responsible for setting a pin as an Input or Output?",
+        "options": [
+          "PORTB",
+          "PINB",
+          "DDRB",
+          "MCUCR"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "The Data Direction Register (DDR) configures pin direction."
+      },
+      {
+        "question": "If you write '1' to a bit in the PORT register while the DDR bit is set to '1', what happens to the output pin?",
+        "options": [
+          "It becomes High-Z",
+          "It outputs 5V (HIGH)",
+          "It outputs 0V (LOW)",
+          "It acts as an input"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Writing 1 to PORT when DDR is 1 drives the pin HIGH."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Connect the Anode (long leg) of an LED to Pin 13 (PORTB Pin 5) of the ATmega328P.",
+      "Connect the Cathode (short leg) of the LED through a 330\u03a9 resistor to GND.",
+      "Write the code to set DDRB bit 5 as an output.",
+      "In the infinite loop, set PORTB bit 5 HIGH.",
+      "Call a delay function to wait for 1000ms.",
+      "Set PORTB bit 5 LOW, and wait another 1000ms."
+    ],
+    "posttest": [
+      {
+        "question": "Why do we need a resistor connected in series with the LED?",
+        "options": [
+          "To increase the voltage",
+          "To decrease the software delay",
+          "To limit current and prevent burning out the LED",
+          "To convert AC to DC"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "LEDs have no internal resistance, so they will draw infinite current and burn out without a current-limiting resistor."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Congratulations! You successfully configured an output pin and wrote a blocking loop to blink the LED."
+  },
+  "exp08_pwm_phase_correct": {
+    "id": "exp08_pwm_phase_correct",
+    "title": "Level 8: PWM (Phase Correct)",
+    "difficulty": "Intermediate",
+    "aim": "To use Timer 1 in Phase Correct PWM mode to generate symmetric, noise-free pulses suitable for motor control and servos.",
+    "objective": "Understand how dual-slope Phase Correct PWM differs from Fast PWM, and configure ICR1 or OCR1A to define custom PWM frequencies.",
+    "theory": "<h3>Dual-Slope Counting</h3><p>Unlike Fast PWM which counts up to TOP and immediately restarts at 0 (single-slope), Phase Correct PWM counts up from 0 to TOP, and then counts back down from TOP to 0 (dual-slope). This creates a symmetrical pulse centered exactly half-way through the PWM cycle, which is vastly preferred in motor control to avoid sudden phase shifts and current spikes.</p><h3>Defining Custom TOP with ICR1</h3><p>Normally a 16-bit timer counts to 65535, giving a very slow PWM frequency. By using Phase Correct PWM mode with <b>ICR1</b> (Input Capture Register) defining the TOP value, we can create custom-frequency PWM! For example, standard RC Servo motors expect a 50Hz signal (a 20ms period). We calculate what ICR1 needs to be so the timer reaches TOP in exactly 10ms (half the 20ms dual-slope cycle).</p><h3>Controlling Servos</h3><p>A servo expects a 50Hz signal where the HIGH pulse lasts between 1.0ms (0 degrees) and 2.0ms (180 degrees). We use <b>OCR1A</b> to define how long the pulse stays high within that 20ms window.</p>",
+    "pretest": [
+      {
+        "question": "What happens differently when a timer operates in Phase Correct PWM mode instead of Fast PWM?",
+        "options": [
+          "The timer stops entirely at the top",
+          "The timer counts up to TOP and then counts backwards to 0",
+          "The timer automatically disables the prescaler",
+          "The timer counts twice as fast"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Counting up and then down generates a symmetric 'dual slope' waveform."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Connect the Control signal of a Servo Motor to Pin 9 (PB1 / OC1A).",
+      "Configure DDRB to make PB1 an output.",
+      "Set the TCCR1A and TCCR1B registers for Phase Correct PWM using ICR1 as the TOP value (Mode 10).",
+      "Set the TCCR1A COM1A1 bit to clear OC1A on up-counting compare match, and set OC1A on down-counting compare match.",
+      "Calculate the TOP value for 50Hz based on a chosen prescaler (e.g. 8). Calculate: fPWM = fclk / (2 * N * TOP). For fPWM=50Hz, TOP (ICR1) = 20000.",
+      "In the main loop, map servo positions to OCR1A delays. A 1ms pulse (1000 ticks) is 0\u00b0, and a 2ms pulse (2000 ticks) is 180\u00b0.",
+      "Write code to sweep OCR1A between 1000 and 2000."
+    ],
+    "posttest": [
+      {
+        "question": "If ICR1 defines the full wavelength frequency (50Hz), what register controls the exact width of the pulse (duty cycle) sent to the servo?",
+        "options": [
+          "TCCR1B",
+          "TCNT1",
+          "OCR1A",
+          "ICR1"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "OCR1A determines the compare-match threshold, which sets exactly when the pin transitions from high to low inside the cycle."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Outstanding work defining custom hardware frequencies! You can now effectively drive RC robotics servos."
+  },
+  "exp13_i2c_master": {
+    "id": "exp13_i2c_master",
+    "title": "Level 13: I2C Comm (TWI Master)",
+    "difficulty": "Advanced",
+    "aim": "To address multiple devices over the I2C (Two-Wire Interface - TWI) bus using only two synchronous pins: SCL and SDA.",
+    "objective": "Understand the TWI Control mechanisms: TWCR, TWSR, and TWBR, generate a START/STOP condition, and address unique 7-bit slave devices.",
+    "theory": "<h3>The I2C Bus Architecture</h3><p>Unlike UART (point-to-point) or SPI (multi-CS), I2C uses Open-Drain circuitry and unique addressing. Only <b>SDA</b> (Serial Data) and <b>SCL</b> (Serial Clock) are needed to connect up to 127 unique devices to the ATmega328P. Both lines must be pulled up to VCC with external resistors.</p><h3>Master Control: TWCR</h3><p>The TWI Control Register (<b>TWCR</b>) manages every single bus action. A transaction is initiated by generating a START condition: writing `(1<<TWINT) | (1<<TWSTA) | (1<<TWEN)` to TWCR. TWINT (Interrupt Flag) must be cleared by writing a 1 to it to initiate the action, and then polled in software to confirm when the TWI hardware finishes the action.</p><h3>Addressing Slaves</h3><p>After a successful START, the master transmits the 7-bit Slave Address appended with a Read/Write bit (0 for Write, 1 for Read) out of <b>TWDR</b>. The designated slave responds by pulling SDA Low during the 9th clock cycle, known as the Acknowledge (ACK).</p>",
+    "pretest": [
+      {
+        "question": "What happens if you never write a 1 to the TWINT bit in the TWCR register?",
+        "options": [
+          "The transaction starts, but the flag isn't cleared",
+          "The I2C hardware remains stalled permanently, waiting to be cleared",
+          "An interrupt forces the bit to 0 automatically",
+          "SCL locks at 5V permanently"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Clearing the TWINT flag literally un-stalls the hardware state machine allowing the next action (like sending data) to legally execute."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Initialize the bus speed (SCL Frequency) using the TWI Bit Rate Register (TWBR).",
+      "Enable the TWI hardware explicitly (TWEN = 1) in TWCR.",
+      "Formally generate a START condition on the bus. (TWCR = (1<<TWINT)|(1<<TWSTA)|(1<<TWEN)).",
+      "Wait for the hardware to confirm it successfully grabbed the bus by checking when the TWINT bit sets to 1: `while (!(TWCR & (1<<TWINT)));`.",
+      "Load the Slave Address (e.g., 0x27) shifted left by 1 into TWDR. Set the LSB to 0 to WRITE.",
+      "Clear TWINT and enable TWI again to send the address: `TWCR = (1<<TWINT) | (1<<TWEN);`.",
+      "Wait again. After ACK, load real data into TWDR. Clear TWINT again.",
+      "After all data is sent, generate a STOP condition: `TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWSTO);`."
+    ],
+    "posttest": [
+      {
+        "question": "Why does I2C use 'Open Drain' configuration for its communication lines?",
+        "options": [
+          "To boost signal strength",
+          "Devices never drive the lines logic HIGH; they only pull them LOW, avoiding short-circuits if two devices talk simultaneously",
+          "It operates better through internal voltage regulators",
+          "It prevents floating pins"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Any device on the bus can safely yank the line to Ground (0V). The pull-up resistors handle pulling it back to 5V."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Flawless bus manipulation. Welcome to I2C\u2014the standard backbone for Sensors, OLED displays, and EEPROM modules."
+  },
+  "exp04_external_interrupts": {
+    "id": "exp04_external_interrupts",
+    "title": "Level 4: External Interrupts (INT0 & INT1)",
+    "difficulty": "Intermediate",
+    "aim": "To use external hardware interrupts on the ATmega328P to pause the main program and execute an Interrupt Service Routine (ISR).",
+    "objective": "Understand how interrupt vectors function in C (using ISR macros and AVR/interrupt.h), configure EICRA and EIMSK, and debounce interrupts in software.",
+    "theory": "<h3>What is an Interrupt?</h3><p>An interrupt is an emergency signal from hardware that tells the CPU to immediately stop what it's doing (the main loop) and jump to a specific piece of code called an Interrupt Service Routine (ISR).</p><h3>Configuring Interrupts</h3><p>In the ATmega328P, INT0 (Pin 2) and INT1 (Pin 3) are the primary external interrupt pins.</p><ol><li><b>EICRA (External Interrupt Control Register A):</b> Configures exactly <i>what</i> triggers the interrupt (e.g., rising edge, falling edge, low level, or any logic change).</li><li><b>EIMSK (External Interrupt Mask Register):</b> Actually enables the specific interrupt pin you want to use (INT0 or INT1).</li><li><b>sei():</b> The global interrupt enable macro. Even if you turn on the INT0 pin, nothing will happen until you execute <code>sei();</code> to tell the CPU to accept all interrupts.</li></ol><h3>The Global Variable gotcha</h3><p>Whenever a variable is written in an ISR and read in the main loop, it MUST be declared with the <code>volatile</code> keyword (e.g., <code>volatile uint8_t flag = 0;</code>). This tells the C compiler that the value can change without warning, preventing it from optimizing the variable out of existence.</p>",
+    "pretest": [
+      {
+        "question": "Which macro MUST be executed to enable global interrupts?",
+        "options": [
+          "cli()",
+          "EICRA = 1",
+          "sei()",
+          "ISR()"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "sei() (Set Enable Interrupts) turns on the master switch for all interrupts in the ATmega."
+      },
+      {
+        "question": "What is the correct syntax to declare an Interrupt Service Routine for the pin INT0?",
+        "options": [
+          "void interrupt_int0()",
+          "ISR(INT0_vect)",
+          "int0_interrupt()",
+          "ISR(PCINT0_vect)"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The avr/interrupt.h library uses the ISR() macro passing the hardcoded vector name (INT0_vect)."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Include the <avr/interrupt.h> header at the top of your code.",
+      "Declare a volatile integer counter variable.",
+      "Wire a push button to Pin 2 (PD2 / INT0) and connect the other end to GND. Enable its internal pull-up in DDRD/PORTD.",
+      "Configure INT0 to trigger on a FALLING edge by writing to EICRA.",
+      "Enable the INT0 interrupt by setting bit 0 in EIMSK.",
+      "Enable global interrupts by calling sei();.",
+      "Write the ISR(INT0_vect) routine to increment the counter every time the button is pressed.",
+      "In the main loop, map the counter's value to LEDs on PORTB to visualize it (a binary counter)."
+    ],
+    "posttest": [
+      {
+        "question": "Why shouldn't you place a delay(_delay_ms) inside an ISR?",
+        "options": [
+          "Delays are not accurate in ISRs",
+          "It halts the entire system, preventing other code and interrupts from running",
+          "The compiler will throw an error",
+          "It uses too much current"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "ISRs must execute as quickly as possible. During an ISR, global interrupts are disabled, so a long delay will freeze the microcontroller."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Outstanding! You have successfully stepped out of single-threaded polling and learned event-driven microcontroller programming using hardware interrupts."
+  },
+  "exp03_seven_segment": {
+    "id": "exp03_seven_segment",
+    "title": "Level 3: Driving a 7-Segment Display",
+    "difficulty": "Beginner",
+    "aim": "To write a program to display the digits 0-9 sequentially on a common-cathode 7-segment display.",
+    "objective": "Understand how to map digital outputs using a lookup table (array) and drive multiple GPIO pins in parallel using PORT registers.",
+    "theory": "<h3>What is a 7-Segment Display?</h3><p>A 7-segment display is an array of 7 individual LEDs (segments a, b, c, d, e, f, g) housed in a single package. By illuminating a specific combination of these LEDs, you can display any decimal digit from 0 to 9.</p><h3>Pins and Parallel Outputs</h3><p>Rather than turning on each segment individually in code (which is tedious and slow), we configure an entire 8-bit PORT (like <b>PORTD</b>) as an output with <code>DDRD = 0xFF;</code>. Then, by assigning an 8-bit hex or binary value directly to PORTD, we can change all 8 pins at exactly the same time. The order in which we wire the microcontroller to the 7-segment display must match the binary mapping we use in our software.</p><h3>Lookup Tables</h3><p>A lookup table is a powerful and very fast technique in C. We simply define an array (e.g., <code>const uint8_t digits[10] = {0x3F, 0x06...};</code>). The index of the array directly maps to the digit we want to display, making sequential counters incredibly simple to write with a <code>for</code> loop.</p>",
+    "pretest": [
+      {
+        "question": "What is the primary advantage of writing an 8-bit value directly to a PORT register rather than shifting bits one-by-one?",
+        "options": [
+          "It reduces power consumption",
+          "It allows using floating-point math",
+          "It updates all pins simultaneously in a single instruction cycle",
+          "It increases flash memory usage"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Direct port access executes extremely fast and avoids 'glitches' by applying all output states in parallel."
+      },
+      {
+        "question": "If 'a' is bit 0, 'b' is bit 1, and so on... what binary value represents a '1' on a 7-segment display (segments b and c on)?",
+        "options": [
+          "00000101",
+          "00000110",
+          "10000000",
+          "01100000"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Binary 00000110 (or 0x06 in hex) sets bits 1 and 2 high, which turns on segments b and c."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Connect a 7-Segment Display to the breadboard.",
+      "Wire the 7 segments (A through G) sequentially to PORTD pins PD0 to PD6.",
+      "Ensure the common cathode pin is connected to Ground (GND).",
+      "In your code, create an array of 10 hexadecimal values representing digits 0-9.",
+      "Configure all pins of PORTD as outputs using DDRD.",
+      "Inside an infinite loop, write a secondary loop to iterate from 0 to 9.",
+      "Set PORTD to the value from the lookup table for the current index.",
+      "Delay for 1000ms before moving to the next digit."
+    ],
+    "posttest": [
+      {
+        "question": "In a common-anode 7-segment display, how would your software logic change?",
+        "options": [
+          "We would need twice as many delays",
+          "We would output LOW (0) to turn a segment ON",
+          "We would output logic HIGH (1) to turn a segment ON",
+          "Look-up tables would no longer work"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Since the common pin is connected to 5V (VCC), logic LOW (0V) creates the potential difference needed to light the LED segment."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Excellent work! Now you know how to leverage look-up tables and 8-bit port manipulation to efficiently drive complex external modules like 7-Segment displays."
+  },
+  "exp02_push_button": {
+    "id": "exp02_push_button",
+    "title": "Level 2: Reading Inputs (Push Button)",
+    "difficulty": "Beginner",
+    "aim": "To write an Embedded C program to read the state of a push button and control an LED accordingly on the ATmega328P.",
+    "objective": "Understand GPIO input configuration using DDRx, PORTx, and PINx registers, including internal pull-up resistors and debouncing techniques.",
+    "theory": "<h3>Configuring Inputs</h3><p>When you want to read a digital signal on a GPIO pin, you configure it as an INPUT. In the ATmega328P, setting a bit in the <b>DDRx</b> register to <code>0</code> configures the corresponding pin as an input.</p><h3>The PINx Register</h3><p>To actually read the voltage state on an input pin (whether it is 5V or 0V), you must read the <b>PINx</b> (Port Input Pins) register. For example, if PD2 is set as an input, reading <code>PIND & (1 << 2)</code> will tell you if the pin is HIGH or LOW.</p><h3>Internal Pull-up Resistors</h3><p>A bare push button connected between a pin and Ground causes a problem when the button is NOT pressed: the pin is 'floating', and its voltage is unpredictable. To fix this, you enable the microcontroller's internal pull-up resistor. When the pin is an INPUT (DDRx is 0), writing a <code>1</code> to the corresponding bit in the <b>PORTx</b> register connects an internal 20k-50k\u03a9 resistor to 5V (VCC). The pin will naturally read HIGH when unpressed, and LOW when pressed (connected to Ground).</p><h3>Debouncing</h3><p>Mechanical switches 'bounce' when pressed, meaning the metal contacts hit each other multiple times before settling. In software, this looks like multiple rapid button presses. A simple wait (delay) after the first state change helps ignore these bounces (software debouncing).</p>",
+    "pretest": [
+      {
+        "question": "Which register is used to READ the current logical state of an input pin on the ATmega328P?",
+        "options": [
+          "PORTB",
+          "PINB",
+          "DDRB",
+          "ADC"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The PINx register contains the actual physical logic levels present on the pins."
+      },
+      {
+        "question": "How do you enable the internal pull-up resistor on pin PD2?",
+        "options": [
+          "Set DDRD bit 2 to 0, then clear PORTD bit 2 to 0",
+          "Set DDRD bit 2 to 1, then set PORTD bit 2 to 1",
+          "Set DDRD bit 2 to 0, then set PORTD bit 2 to 1",
+          "Set DDRD bit 2 to 1, then clear PORTD bit 2 to 0"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "To enable the pull-up, set the direction to input (DDR bit = 0) and the port value to high (PORT bit = 1)."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Connect an LED with a 330\u03a9 resistor to Pin 13 (PB5) and configure it as an OUTPUT.",
+      "Connect a Push Button between Pin 2 (PD2) and Ground (GND).",
+      "Configure PD2 as an INPUT by clearing bit 2 in the DDRD register (DDRD &= ~(1<<PD2)).",
+      "Enable the internal pull-up resistor on PD2 by setting bit 2 in the PORTD register (PORTD |= (1<<PD2)).",
+      "In your main loop, read the PIND register to check the state of PD2.",
+      "If the bit is 0 (button pressed), turn the LED ON.",
+      "If the bit is 1 (button unpressed), turn the LED OFF."
+    ],
+    "posttest": [
+      {
+        "question": "When using an internal pull-up with a button connected to Ground, what does the PIN register read when the button is PRESSED?",
+        "options": [
+          "HIGH (1)",
+          "LOW (0)",
+          "High Impedance (Z)",
+          "Floating"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Pressing the button connects the pin directly to Ground, forcing the voltage to 0V (LOW)."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Great job! You learned how to read inputs, use bitwise operators to check specific bits within PIN registers, and enable internal pull-up resistors to stabilize inputs."
+  },
+  "exp07_pwm_fast": {
+    "id": "exp07_pwm_fast",
+    "title": "Level 7: Pulse Width Modulation (Fast PWM)",
+    "difficulty": "Intermediate",
+    "aim": "To use Timer 0 in Fast PWM mode on the ATmega328P to fade an LED in and out (analog-like output).",
+    "objective": "Understand how to configure TCCR0A and TCCR0B to enable Fast PWM on OC0A (Pin 6/PD6), altering the duty cycle via OCR0A.",
+    "theory": "<h3>What is PWM?</h3><p>Pulse Width Modulation (PWM) is a technique for getting analog results with digital means. Digital control is used to create a square wave, a signal switched between on and off. By rapidly turning the output on and off, the average voltage delivered to a component (like an LED) changes, giving the illusion of fading.</p><h3>Duty Cycle</h3><p>The duty cycle is the percentage of time a digital signal is ON over an interval or period of time. A 50% duty cycle means the signal is HIGH 50% of the time and LOW 50% of the time, resulting in an average voltage of 2.5V (half of 5V).</p><h3>Configuring Fast PWM</h3><p>We use the dedicated hardware output compare pins (e.g., OC0A on PD6) driven by Timer0. We configure the Waveform Generation Mode bits in TCCR0A/B to Fast PWM mode. In this mode, the timer counts from 0 to 255 repeatedly. When TCNT0 matches OCR0A, the OC0A pin resets to LOW. When TCNT0 overflows back to 0, the OC0A pin sets HIGH. Changing OCR0A changes when the pin drops LOW, modifying the duty cycle.</p>",
+    "pretest": [
+      {
+        "question": "What is the primary purpose of Pulse Width Modulation (PWM)?",
+        "options": [
+          "To amplify the power to 10V",
+          "To simulate analog variation using rapid digital switching",
+          "To measure external analog voltages",
+          "To slow down the main clock oscillator"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Rapid digital pulsing changes the average power delivered, looking like a smooth analog shift to external components."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Configure PD6 (OC0A) as an output by setting the corresponding bit in DDRD.",
+      "Set the Waveform Generation Mode bits in TCCR0A and TCCR0B for Fast PWM (WGM00 = 1, WGM01 = 1, WGM02 = 0).",
+      "Set COM0A1 = 1 in TCCR0A to Clear OC0A on Compare Match, set OC0A at BOTTOM (non-inverting mode).",
+      "Set the clock select bits in TCCR0B to start the timer (e.g., prescaler 64).",
+      "In your main loop, slowly increase the value of OCR0A from 0 to 255 using a loop and a short delay.",
+      "Once it reaches 255, slowly decrease OCR0A from 255 down to 0."
+    ],
+    "posttest": [
+      {
+        "question": "If OCR0A is set to 127 in Fast PWM mode (non-inverting), what is the approximate duty cycle on pin OC0A?",
+        "options": [
+          "10%",
+          "25%",
+          "50%",
+          "100%"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Since Timer0 counts to 255, matching at 127 means the pin is high for exactly half the period."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Brilliant job. You are now controlling the intensity of power delivery, an absolute necessity for LEDs, servo motors, and heaters."
+  },
+  "exp14_eeprom_rw": {
+    "id": "exp14_eeprom_rw",
+    "title": "Level 14: Non-Volatile Memory (EEPROM)",
+    "difficulty": "Advanced",
+    "aim": "To durably store and retrieve configuration variables on the ATmega328P through power cycles using internal EEPROM.",
+    "objective": "Understand the EEPROM Address (EEAR), Data (EEDR), and Control (EECR) registers, and safely observe hardware wait-states for erase/write cycles.",
+    "theory": "<h3>What is EEPROM?</h3><p>Most memory (SRAM) is erased instantly when the power turns off. The ATmega328P contains 1024 bytes (1 KB) of Electrically Erasable Programmable Read-Only Memory (EEPROM), which retains data completely without power.</p><h3>Writing to EEPROM</h3><p>Writing to EEPROM is slow (3.3ms) because it physically alters trapped electrons. When the power is lost during a write, EEPROM corrupts. To write a byte:<br>1. Wait until any previous write is finished (poll <b>EEPE</b> inside <b>EECR</b>).<br>2. Load the physical memory address (0-1023) into <b>EEAR</b>.<br>3. Load the 8-bit data into <b>EEDR</b>.<br>4. Temporarily disable interrupts using `cli()`.<br>5. Set the Master Write Enable bit (<b>EEMPE</b>) in EECR.<br>6. Within exactly 4 clock cycles, set the Write Enable bit (<b>EEPE</b>).</p><h3>Reading from EEPROM</h3><p>Reading is extremely fast compared to writing. You wait until write operations are complete, supply the address into EEAR, set the Read Enable bit (EERE), and then copy the resulting byte pulled into EEDR.",
+    "pretest": [
+      {
+        "question": "Why is it mandatory to run 'cli()' (Clear Interrupts) before triggering the Master Write Enable (EEMPE) bit?",
+        "options": [
+          "To avoid corrupting the UART hardware",
+          "Because the final EEPE write must occur within exactly 4 clock cycles, and an ISR triggering in between would cause the write to be aborted",
+          "To speed up the EEPROM oscillator",
+          "To clear the previous data from the registers"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The 4-cycle timeout is a strict hardware security measure against accidental erratic writes when voltage drops."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Connect a Push Button to Pin 2 and an LED to Pin 13.",
+      "Write an EEPROM_Write(uint16_t uiAddress, uint8_t ucData) function according to the theory rules, including the cli() macro.",
+      "Write an EEPROM_Read(uint16_t uiAddress) function.",
+      "In your setup() function, read the EEPROM address '0'. If it is a '1', turn the LED ON. If '0', keep it OFF.",
+      "In the main loop, if the button is pressed, toggle the LED state (ON to OFF, or OFF to ON).",
+      "Immediately save this new state ('0' or '1') to EEPROM address '0' using EEPROM_Write().",
+      "Reset the microcontroller to verify that it remembers the state of the LED before the reset occurred."
+    ],
+    "posttest": [
+      {
+        "question": "What is the physical maximum amount of write/erase cycles guaranteed for an EEPROM cell in an ATmega328P before it potentially fails?",
+        "options": [
+          "1,000",
+          "10,000",
+          "100,000",
+          "Infinite"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Atmel rates the EEPROM for 100,000 erase/write cycles. Writing to it continuously inside an infinite loop will destroy it in just minutes."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Memory is persistent! You now know how to save user settings, high scores, or calibration sensor constants directly on the chip."
+  },
+  "exp06_timer1_ctc": {
+    "id": "exp06_timer1_ctc",
+    "title": "Level 6: Timers (Timer1 CTC Mode)",
+    "difficulty": "Intermediate",
+    "aim": "To use Timer 1 in Clear Timer on Compare Match (CTC) mode to generate precise, hardware-driven signal timings.",
+    "objective": "Understand how 16-bit timers operate using TCCR1A, TCCR1B, OCR1A, and TIMSK1. Calculate the exact Match values for OCR1A to trigger a 1Hz interrupt.",
+    "theory": "<h3>CTC Mode: Auto-Resetting Timers</h3><p>In Normal mode, the timer counts up to its maximum value (255 or 65535) and overflows. What if we want it to reset earlier to get an exact 1-second delay instead of ~16ms? CTC mode solves this! The timer continually compares its count (<b>TCNT1</b>) against our requested value in <b>OCR1A</b>. If they match, the timer automatically zeroes itself and triggers an interrupt.</p><h3>Timer1 at 16-bits</h3><p>Timer1 is composed of two 8-bit registers (High and Low) that merge to count to 65,535. This allows for massive, incredibly slow counting. At a 16MHz clock with a 1024 prescaler, it ticks at 15,625 Hz.</p><h3>Finding the OCR1A Value</h3><p>To get a 1-second interval, we need 15,625 ticks. Since the timer starts at 0, our count needs to be 15,625 - 1 = 15,624. So, we simply set <code>OCR1A = 15624;</code>.</p>",
+    "pretest": [
+      {
+        "question": "Which of these registers is used to set the top value (the comparison value) when Timer1 is in CTC Mode 4?",
+        "options": [
+          "TCNT1",
+          "OCR1A",
+          "ICR1",
+          "OCR1B"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "OCR1A (Output Compare Register 1 A) is explicitly used as the TOP bound for CTC mode configuration 4."
+      },
+      {
+        "question": "What is the primary benefit of CTC mode over Normal overflow mode?",
+        "options": [
+          "It uses fewer interrupts",
+          "It counts backwards",
+          "You can set exact frequencies without tracking manual counters in software",
+          "CTC Mode generates higher voltages"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Comparing the count to OCR1A allows generating precise, custom-duration timer cycles in pure hardware."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      }
+    ],
+    "procedure": [
+      "Load the standard headers: <avr/io.h> and <avr/interrupt.h>.",
+      "Set the DDR of an LED (e.g., PB5) to Output.",
+      "Configure TCCR1B to set the Waveform Generation Mode bit (WGM12) to 1. This enables CTC mode.",
+      "Configure TCCR1B to set the Prescaler to 1024 (CS12 = 1, CS10 = 1).",
+      "Calculate OCR1A for a 1 second delay at 16MHz/1024, and assign 15624 to OCR1A.",
+      "Enable the specific Compare Match A Interrupt by setting the OCIE1A bit in TIMSK1.",
+      "Initialize global interrupts via sei();.",
+      "Create the ISR(TIMER1_COMPA_vect) and toggle the LED directly inside it; no counters needed."
+    ],
+    "posttest": [
+      {
+        "question": "If you wanted a 0.5 second interval instead, what value would you store in OCR1A?",
+        "options": [
+          "7812",
+          "15624",
+          "31250",
+          "1024"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "Since 1 second requires 15,625 ticks, half a second requires 15,625 / 2 = 7812.5 ticks."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Flawless configuration! Output Compare operations are the bedrock of sound generation, motor control, and precise communication protocols."
+  },
+  "exp11_uart_rx_interrupts": {
+    "id": "exp11_uart_rx_interrupts",
+    "title": "Level 11: Serial Comm (UART Receive Interrupts)",
+    "difficulty": "Intermediate",
+    "aim": "To construct an interrupt-driven UART receiver that automatically catches characters arriving via Serial without polling.",
+    "objective": "Understand the RXCIE0 interrupt, safely buffer incoming characters inside the ISR(USART_RX_vect), and securely pass them to the main loop.",
+    "theory": "<h3>The Problem with Polling Rx</h3><p>Unlike transmitting (Tx), where you decide when to send, receiving (Rx) is totally unpredictable. A user could type a character at any microsecond. If you use a blocking `while(!(UCSR0A & (1<<RXC0)));` loop to wait for a character, your main program halts and does absolutely nothing else.</p><h3>The RX Complete Interrupt</h3><p>By enabling the Receiver Interrupt Enable (<b>RXCIE0</b>) bit in <b>UCSR0B</b>, the UART hardware will automatically trigger an interrupt the instant a new byte completely finishes shifting into the ATmega328P. You write an ISR(USART_RX_vect) that reads the UDR0 register and saves the character to a `volatile` buffer (like an array or ring buffer).</p><h3>Interrupt Handlers</h3><p>When the ISR fires, global interrupts are momentarily disabled. You must read UDR0 inside the ISR immediately, or the next incoming character might overwrite it before your main loop processes it.</p>",
+    "pretest": [
+      {
+        "question": "Which interrupt vector is responsible for firing when a new character arrives on the UART Rx pin?",
+        "options": [
+          "TIMER0_OVF_vect",
+          "USART_TX_vect",
+          "USART_RX_vect",
+          "INT0_vect"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "USART_RX_vect triggers when a full 8-bit frame has successfully been assembled in the UDR0 hardware buffer."
+      },
+      {
+        "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
+        "options": [
+          "To read pin values",
+          "To configure pins as input or output",
+          "To set pull-up resistors",
+          "To configure interrupts"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "DDR configures the direction of each GPIO pin."
+      },
+      {
+        "question": "Which header file provides basic I/O register definitions for AVR?",
+        "options": [
+          "<stdio.h>",
+          "<avr/io.h>",
+          "<string.h>",
+          "<math.h>"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      },
+      {
+        "question": "What does the volatile keyword tell the C compiler?",
+        "options": [
+          "Uses less memory",
+          "May change unexpectedly, so do not optimize reads",
+          "Variable is constant",
+          "Used once only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "volatile prevents the compiler from caching the variable."
+      },
+      {
+        "question": "How many GPIO pins does the ATmega328P have in total?",
+        "options": [
+          "8",
+          "14",
+          "23",
+          "32"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "23 GPIO pins across Port B, C, and D."
+      },
+      {
+        "question": "What is the maximum clock frequency of the ATmega328P?",
+        "options": [
+          "1MHz",
+          "8MHz",
+          "16MHz",
+          "20MHz"
+        ],
+        "correct_answer_index": 3,
+        "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
+      },
+      {
+        "question": "What is the purpose of sei()?",
+        "options": [
+          "Set error interrupt",
+          "Set enable interrupts",
+          "System error indication",
+          "Serial enable interface"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "sei() sets the global interrupt enable flag in SREG."
+      },
+      {
+        "question": "Which AVR memory type retains data after power-off?",
+        "options": [
+          "SRAM",
+          "Registers",
+          "Flash and EEPROM",
+          "Stack memory"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "Flash and EEPROM are non-volatile."
+      },
+      {
+        "question": "What is the width of each ATmega328P port register?",
+        "options": [
+          "4 bits",
+          "8 bits",
+          "16 bits",
+          "32 bits"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      },
+      {
+        "question": "What is bit manipulation?",
+        "options": [
+          "Changing clock",
+          "Operating on individual bits using bitwise operators",
+          "Binary to decimal",
+          "Memory allocation"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      }
+    ],
+    "procedure": [
+      "Configure UBRR0 for your serial baud rate (e.g., 9600).",
+      "Enable BOTH the Receiver (RXEN0) and the Transceiver (TXEN0) in UCSR0B.",
+      "Enable the Receiver Interrupt (RXCIE0) in UCSR0B.",
+      "Declare a `volatile unsigned char last_rx_char;` and a `volatile uint8_t char_ready;` flag globally.",
+      "Call sei(); to allow global interrupts to fire.",
+      "Write ISR(USART_RX_vect). Inside, read the incoming byte from UDR0 into `last_rx_char`, and set `char_ready = 1;`.",
+      "In your main loop, continuously check if `char_ready` is 1.",
+      "When `char_ready` is 1, clear it to 0, and transmit the received character back out so you can see it on the monitor (this is called Echoing)."
+    ],
+    "posttest": [
+      {
+        "question": "What happens if you never read UDR0 inside an enabled Receive Interrupt ISR?",
+        "options": [
+          "The ATmega328P resets",
+          "The ISR re-triggers instantly and endlessly, freezing the system",
+          "The memory overflows",
+          "It sends the character back to the computer automatically"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "The hardware keeps the RXC0 flag high until UDR0 is read. If the ISR exits without reading it, the interrupt mechanism instantly fires the ISR again."
+      },
+      {
+        "question": "Why is it good practice to use #define for pin numbers?",
+        "options": [
+          "Runs faster",
+          "More readable and maintainable",
+          "Reduces memory",
+          "Compiler requires it"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "#define creates named constants for self-documenting code."
+      },
+      {
+        "question": "What tool converts C source to .hex for AVR?",
+        "options": [
+          "avr-gcc toolchain",
+          "Python interpreter",
+          "Node.js",
+          "Arduino IDE only"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "avr-gcc compiles C to AVR machine code."
+      },
+      {
+        "question": "What is the difference between PORTB and PINB?",
+        "options": [
+          "No difference",
+          "PORTB writes output; PINB reads actual pin voltages",
+          "PINB configures direction",
+          "PORTB is input only"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      },
+      {
+        "question": "What happens to SRAM when power is removed?",
+        "options": [
+          "Saved to EEPROM",
+          "Lost immediately",
+          "Persists for 1 hour",
+          "Backed up to Flash"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SRAM is volatile memory."
+      },
+      {
+        "question": "What is the stack used for in AVR?",
+        "options": [
+          "Global variables",
+          "Return addresses and local variables",
+          "Program counter only",
+          "Flash management"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "Stack stores return addresses and local variables."
+      },
+      {
+        "question": "Which is NOT a valid ATmega328P port?",
+        "options": [
+          "PORTA",
+          "PORTB",
+          "PORTC",
+          "PORTD"
+        ],
+        "correct_answer_index": 0,
+        "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      },
+      {
+        "question": "What is a watchdog timer used for?",
+        "options": [
+          "Timing PWM",
+          "Temperature",
+          "Resetting MCU if software hangs",
+          "Audio tones"
+        ],
+        "correct_answer_index": 2,
+        "explanation": "WDT auto-resets MCU when not periodically fed."
+      },
+      {
+        "question": "What does the SREG register contain?",
+        "options": [
+          "Serial rate",
+          "Status Register with CPU flags",
+          "Servo control",
+          "SPI rate"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      },
+      {
+        "question": "In an ISR, interrupts are automatically:",
+        "options": [
+          "Left enabled",
+          "Disabled until ISR returns",
+          "Slowed by half",
+          "Redirected to main()"
+        ],
+        "correct_answer_index": 1,
+        "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      }
+    ],
+    "feedback": "Outstanding asynchronous code. This non-blocking reception technique is the core behind Bluetooth, GPS, and Wi-Fi modules communicating with arduinos."
+  }
+}

@@ -13,9 +13,17 @@ const cloneWorkspace = (items = []) => items.map((item) => ({
   pins: item.pins ? { ...item.pins } : undefined,
 }));
 
+const RENDERABLE_TYPES = new Set([
+  "LED_RED", "LED_GREEN", "LED_YELLOW", "LED",
+  "RESISTOR", "BUTTON", "RGB_LED", "SERVO", "SEVEN_SEG",
+  "CAPACITOR", "NPN_TRANSISTOR", "PNP_TRANSISTOR",
+  "TIMER_555", "SHIFT_REGISTER", "CUSTOM_DIGITAL_IC", "WASM_IC",
+  "BUZZER",
+]);
+
 const deriveComponents = (workspaceItems = []) => {
   return workspaceItems
-    .filter((item) => ["LED_RED", "LED_GREEN", "LED_YELLOW", "LED", "RESISTOR", "BUTTON", "RGB_LED", "SERVO", "SEVEN_SEG"].includes(item.type))
+    .filter((item) => RENDERABLE_TYPES.has(item.type))
     .map((item, index) => {
       const pin = item.pins?.main ?? item.pin ?? null;
       const componentType = item.type.startsWith("LED") ? "LED" : item.type;
@@ -26,6 +34,7 @@ const deriveComponents = (workspaceItems = []) => {
         metadata: {
           color: LED_COLORS[item.type] || LED_COLORS["LED"],
           index,
+          ...(item.metadata || {}),
         },
         resistance: item.resistance,
         x: item.x,

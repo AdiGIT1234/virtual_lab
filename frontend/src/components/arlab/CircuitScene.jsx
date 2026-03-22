@@ -12,6 +12,11 @@ import Wire3D from "./Wire3D";
 import Resistor3D from "./Resistor3D";
 import GroundPlane from "./GroundPlane";
 import Servo3D from "./Servo3D";
+import Capacitor3D from "./Capacitor3D";
+import Transistor3D from "./Transistor3D";
+import Timer555_3D from "./Timer555_3D";
+import DipIC3D from "./DipIC3D";
+import Buzzer3D from "./Buzzer3D";
 
 const getComponentPosition = (component, index) => {
   if (component.x != null && component.y != null) {
@@ -120,6 +125,72 @@ export default function CircuitScene({ highlightedComponentId, componentStyles =
                    toggleInputPin(component.pin);
                  }
                }}
+             />
+           );
+         } else if (component.type === "CAPACITOR") {
+           element = (
+             <Capacitor3D
+               id={component.id}
+               capacitance={component.metadata?.capacitance || 100}
+               unit={component.metadata?.unit || "nF"}
+               position={component.position}
+               rotation={component.rotation}
+               highlighted={isHighlighted}
+             />
+           );
+         } else if (component.type === "NPN_TRANSISTOR" || component.type === "PNP_TRANSISTOR") {
+           const pinLevel = outputs[component.pin] ?? 0;
+           element = (
+             <Transistor3D
+               id={component.id}
+               type={component.type === "PNP_TRANSISTOR" ? "PNP" : "NPN"}
+               position={component.position}
+               rotation={component.rotation}
+               highlighted={isHighlighted}
+               active={pinLevel > 0.1}
+               baseBias={pinLevel}
+             />
+           );
+         } else if (component.type === "TIMER_555") {
+           const outLevel = outputs[component.pin] ?? 0;
+           element = (
+             <Timer555_3D
+               id={component.id}
+               position={component.position}
+               rotation={component.rotation}
+               highlighted={isHighlighted}
+               outputActive={outLevel > 0.1}
+             />
+           );
+         } else if (component.type === "SHIFT_REGISTER" || component.type === "CUSTOM_DIGITAL_IC" || component.type === "WASM_IC") {
+           const icLabels = {
+             SHIFT_REGISTER: "74HC595",
+             CUSTOM_DIGITAL_IC: "Custom IC",
+             WASM_IC: "WASM IC",
+           };
+           const icPinCount = {
+             SHIFT_REGISTER: 16,
+             CUSTOM_DIGITAL_IC: 14,
+             WASM_IC: 8,
+           };
+           element = (
+             <DipIC3D
+               id={component.id}
+               label={icLabels[component.type] || "IC"}
+               pinCount={icPinCount[component.type] || 14}
+               position={component.position}
+               rotation={component.rotation}
+               highlighted={isHighlighted}
+             />
+           );
+         } else if (component.type === "BUZZER") {
+           const buzzerLevel = outputs[component.pin] ?? 0;
+           element = (
+             <Buzzer3D
+               position={component.position}
+               rotation={component.rotation}
+               highlighted={isHighlighted}
+               active={buzzerLevel > 0.1}
              />
            );
          }
