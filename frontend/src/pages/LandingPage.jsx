@@ -244,11 +244,12 @@ function FeatureCard({ feature, index }) {
 /* ── Auth Dock ── */
 function AuthDock() {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "", confirmPassword: "", otp: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup, resetPassword, verifyResetOtp, updatePassword } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -270,20 +271,40 @@ function AuthDock() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.email || !form.password || (mode === "signup" && !form.name)) {
-      setError("Fill all required fields");
-      return;
-    }
-    if (mode === "signup") {
-      if (!allPwValid) {
-        setError("Password does not meet all requirements");
+    setSuccess("");
+
+    if (mode === "login" || mode === "signup") {
+      if (!form.email || !form.password || (mode === "signup" && !form.name)) {
+        setError("Fill all required fields");
         return;
       }
-      if (!passwordsMatch) {
-        setError("Passwords do not match");
-        return;
+      if (mode === "signup") {
+        if (!allPwValid) {
+          setError("Password does not meet all requirements");
+          return;
+        }
+        if (!passwordsMatch) {
+          setError("Passwords do not match");
+          return;
+        }
       }
+      } else if (mode === "forgot_email") {
+        if (!form.email) {
+          setError("Please enter your email");
+          return;
+        }
+      } else if (mode === "forgot_code") {
+        if (!form.otp || form.otp.length !== 6) {
+          setError("Please enter the 6-digit code");
+          return;
+        }
+      } else if (mode === "forgot_reset") {
+        if (!form.password || !passwordsMatch) {
+          setError("Passwords must be valid and match");
+          return;
+        }
     }
+
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -293,10 +314,20 @@ function AuthDock() {
           name: form.name,
           institute: form.institute,
         });
-        // Stay on page
-      } else {
+      } else if (mode === "login") {
         await login({ email: form.email, password: form.password });
-        // Stay on page
+      } else if (mode === "forgot_email") {
+        await resetPassword(form.email);
+        setSuccess("We just sent a 6-digit code to your email.");
+        setMode("forgot_code");
+      } else if (mode === "forgot_code") {
+        await verifyResetOtp({ email: form.email, token: form.otp });
+        setSuccess("Code verified! You can now change your password (optional).");
+        setMode("forgot_reset");
+      } else if (mode === "forgot_reset") {
+        await updatePassword(form.password);
+        setSuccess("Password updated successfully!");
+        setTimeout(() => setMode("login"), 2000);
       }
     } catch (err) {
       setError(err.message || "Authentication failed");
@@ -307,6 +338,9 @@ function AuthDock() {
 
   const inputClass =
     "w-full bg-transparent border border-(--lp-border) px-4 py-3 text-sm text-(--lp-text-main) placeholder-[#64748B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]";
+
+  const isForgotMode = mode.startsWith("forgot");
+  const dockTitle = isForgotMode ? "Account Recovery" : mode === "login" ? "Secure Access" : "Create Access";
 
   return (
     <motion.div
@@ -319,27 +353,30 @@ function AuthDock() {
     >
       <div className="flex items-center gap-2 mb-4 text-[11px] tracking-[0.2em] font-mono text-(--lp-text-low) uppercase">
         <span className="w-1.5 h-1.5 rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]" />
-        <span>{mode === "login" ? "Secure Access" : "Create Access"}</span>
+        <span>{dockTitle}</span>
       </div>
 
-      <div className="flex mb-6 border border-(--lp-border)">
-        {["login", "signup"].map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.2em] ${mode === tab ? "text-[#050505]" : "text-(--lp-text-mid)"}`}
-            style={{
-              background: mode === tab ? "linear-gradient(135deg, #00F2FF, #7000FF)" : "transparent",
-              transition: "all 0.2s ease",
-            }}
-            onClick={() => setMode(tab)}
-          >
-            {tab === "login" ? "Login" : "Signup"}
-          </button>
-        ))}
-      </div>
+      {!isForgotMode && (
+        <div className="flex mb-6 border border-(--lp-border)">
+          {["login", "signup"].map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.2em] ${mode === tab ? "text-[#050505]" : "text-(--lp-text-mid)"}`}
+              style={{
+                background: mode === tab ? "linear-gradient(135deg, #00F2FF, #7000FF)" : "transparent",
+                transition: "all 0.2s ease",
+              }}
+              onClick={() => setMode(tab)}
+            >
+              {tab === "login" ? "Login" : "Signup"}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {/* Name / Institute for Signup */}
         {mode === "signup" && (
           <>
             <div>
@@ -352,17 +389,43 @@ function AuthDock() {
             </div>
           </>
         )}
-        <div>
-          <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Email *</label>
-          <input type="email" name="email" value={form.email} onChange={handleChange} className={inputClass} placeholder="aditya@lab.ai" />
-        </div>
-        <div>
-          <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Password *</label>
-          <input type="password" name="password" value={form.password} onChange={handleChange} className={inputClass} placeholder="••••••••" />
-        </div>
 
-        {/* Password requirements checklist (signup only) */}
-        {mode === "signup" && pw.length > 0 && (
+        {/* Email Field for Login/Signup/Forgot1/Forgot2 */}
+        {(mode === "login" || mode === "signup" || mode === "forgot_email" || mode === "forgot_code") && (
+          <div>
+            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Email *</label>
+            <input type="email" name="email" value={form.email} onChange={handleChange} disabled={mode === "forgot_code"} className={`${inputClass} disabled:opacity-50`} placeholder="aditya@lab.ai" />
+            {mode === "forgot_email" && (
+              <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
+                We&apos;ll email a 6-digit access code you can use to log in or reset your password.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* OTP Field for Forgot Code */}
+        {mode === "forgot_code" && (
+          <div>
+            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">6-Digit Code *</label>
+            <input type="text" maxLength={6} name="otp" value={form.otp} onChange={handleChange} className={inputClass} placeholder="123456" />
+            <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
+              Enter the code from your inbox to unlock your session instantly.
+            </p>
+          </div>
+        )}
+
+        {/* Password Field */}
+        {(mode === "login" || mode === "signup" || mode === "forgot_reset") && (
+          <div>
+            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">
+              {mode === "forgot_reset" ? "New Password *" : "Password *"}
+            </label>
+            <input type="password" name="password" value={form.password} onChange={handleChange} className={inputClass} placeholder="••••••••" />
+          </div>
+        )}
+
+        {/* Password Requirements Checklist */}
+        {(mode === "signup" || mode === "forgot_reset") && pw.length > 0 && (
           <div className="space-y-1 pl-1">
             {pwChecks.map((check) => (
               <div key={check.label} className="flex items-center gap-2 text-[11px] font-mono">
@@ -375,11 +438,16 @@ function AuthDock() {
           </div>
         )}
 
-        {/* Password confirmation (signup only) */}
-        {mode === "signup" && (
+        {/* Password Confirmation */}
+        {(mode === "signup" || mode === "forgot_reset") && (
           <div>
-            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Password Confirmation</label>
+            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Confirm Password *</label>
             <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} className={inputClass} placeholder="••••••••" />
+            {mode === "forgot_reset" && (
+              <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
+                Updating is optional—skip below if you just wanted to log in with the code.
+              </p>
+            )}
             {form.confirmPassword.length > 0 && (
               <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono">
                 <span style={{ color: passwordsMatch ? "#00FFB2" : "#ff3366", fontSize: "12px" }}>
@@ -393,25 +461,61 @@ function AuthDock() {
           </div>
         )}
 
-        {error && (
-          <div className="text-[11px] text-[#ff3366] font-mono tracking-wider">{error}</div>
-        )}
+        {error && <div className="text-[11px] text-[#ff3366] font-mono tracking-wider">{error}</div>}
+        {success && <div className="text-[11px] text-[#00FFB2] font-mono tracking-wider">{success}</div>}
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 text-xs font-black tracking-[0.25em] uppercase border-0 text-[#050505] disabled:opacity-60"
+          className="w-full py-3.5 text-xs font-black tracking-[0.25em] uppercase border-0 text-[#050505] disabled:opacity-60 cursor-pointer"
           style={{
             background: "linear-gradient(135deg, #00F2FF, #00FFB2)",
             clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
           }}
         >
-          {loading ? "Initializing…" : mode === "login" ? "Login" : "Create Account"}
+          {loading ? "Processing…" : 
+           mode === "login" ? "Login" : 
+           mode === "signup" ? "Create Account" : 
+           mode === "forgot_email" ? "Send Code" :
+           mode === "forgot_code" ? "Verify Code" : "Update Password"}
         </button>
+
+        {mode === "forgot_reset" && (
+          <button
+            type="button"
+            className="w-full py-2.5 mt-2 text-xs font-bold tracking-[0.25em] uppercase border border-[#00F2FF] text-[#00F2FF] cursor-pointer"
+            onClick={() => {
+              setSuccess("Skipped! You are logged in.");
+              setTimeout(() => setMode("login"), 1000); 
+              // Once verified OTP, Supabase session is established
+              // We can just redirect them or clear this. Wait, we should just let them close or stay?
+              // The user is actually logged in. 
+              window.location.reload(); 
+            }}
+          >
+            Skip (Keep old password)
+          </button>
+        )}
       </form>
 
-      <div className="mt-4 text-[11px] text-(--lp-text-low) font-mono tracking-widest">
-        {mode === "login" ? "New here? Toggle to signup." : "Have credentials? Toggle to login."}
-      </div>
+      {!isForgotMode && (
+        <div className="mt-4 flex justify-between items-center text-[11px] text-(--lp-text-low) font-mono tracking-widest">
+          <span>{mode === "login" ? "New here?" : "Have credentials?"}</span>
+          {mode === "login" && (
+            <button type="button" onClick={() => setMode("forgot_email")} className="text-[#00F2FF] hover:underline bg-transparent border-0 cursor-pointer text-[11px] uppercase tracking-widest font-mono p-0">
+              Forgot Password?
+            </button>
+          )}
+        </div>
+      )}
+      
+      {isForgotMode && mode !== "forgot_reset" && (
+        <div className="mt-4 text-center">
+          <button type="button" onClick={() => { setMode("login"); setError(""); setSuccess(""); }} className="text-[#00F2FF] hover:underline bg-transparent border-0 cursor-pointer text-[11px] uppercase tracking-widest font-mono">
+            ← Back to Login
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 }

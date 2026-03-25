@@ -88,6 +88,7 @@ void loop() {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [activeOutputTab, setActiveOutputTab] = useState("waveforms");
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
 
@@ -1201,7 +1202,7 @@ void loop() {
           </div>
 
           {displayTimeline.length > 0 ? (
-            <>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <SimulationControls
                 totalSteps={displayTimeline.length}
                 currentStep={displayStep}
@@ -1209,11 +1210,35 @@ void loop() {
                 isPlaying={liveMode ? true : isPlaying}
                 setIsPlaying={liveMode ? () => { stopSimulation(); setIsPlaying(false); } : setIsPlaying}
               />
-              <SerialMonitor timeline={displayTimeline} currentStep={displayStep} />
-              <LogicAnalyzer timeline={displayTimeline} currentStep={displayStep} initialPins={[13, 2]} />
-              <MemoryViewer memory={currentMemory} />
-              <ExecutionTrace timeline={displayTimeline} currentStep={displayStep} />
-            </>
+              <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', borderBottom: '1px solid #333' }}>
+                  <button 
+                    onClick={() => setActiveOutputTab('waveforms')} 
+                    style={{ ...styles.tabBtn, opacity: activeOutputTab === 'waveforms' ? 1 : 0.5, borderBottom: activeOutputTab === 'waveforms' ? '2px solid #00F2FF' : 'none', color: activeOutputTab === 'waveforms' ? '#00F2FF' : '#fff' }}>
+                    Waveforms (DSO)
+                  </button>
+                  <button 
+                    onClick={() => setActiveOutputTab('serial')} 
+                    style={{ ...styles.tabBtn, opacity: activeOutputTab === 'serial' ? 1 : 0.5, borderBottom: activeOutputTab === 'serial' ? '2px solid #00F2FF' : 'none', color: activeOutputTab === 'serial' ? '#00F2FF' : '#fff' }}>
+                    Serial Monitor
+                  </button>
+                  <button 
+                    onClick={() => setActiveOutputTab('memory')} 
+                    style={{ ...styles.tabBtn, opacity: activeOutputTab === 'memory' ? 1 : 0.5, borderBottom: activeOutputTab === 'memory' ? '2px solid #00F2FF' : 'none', color: activeOutputTab === 'memory' ? '#00F2FF' : '#fff' }}>
+                    Memory
+                  </button>
+                  <button 
+                    onClick={() => setActiveOutputTab('trace')} 
+                    style={{ ...styles.tabBtn, opacity: activeOutputTab === 'trace' ? 1 : 0.5, borderBottom: activeOutputTab === 'trace' ? '2px solid #00F2FF' : 'none', color: activeOutputTab === 'trace' ? '#00F2FF' : '#fff' }}>
+                    Trace
+                  </button>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px' }}>
+                {activeOutputTab === 'waveforms' && <LogicAnalyzer timeline={displayTimeline} currentStep={displayStep} initialPins={[13, 2]} />}
+                {activeOutputTab === 'serial' && <SerialMonitor timeline={displayTimeline} currentStep={displayStep} />}
+                {activeOutputTab === 'memory' && <MemoryViewer memory={currentMemory} />}
+                {activeOutputTab === 'trace' && <ExecutionTrace timeline={displayTimeline} currentStep={displayStep} />}
+              </div>
+            </div>
           ) : (
             <div style={styles.emptyState}>Run simulation to view outputs</div>
           )}
@@ -1500,6 +1525,15 @@ function getStyles(theme, isCompact) {
       fontFamily: "monospace",
       textAlign: "center",
       padding: 20,
+    },
+    tabBtn: {
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      fontSize: "13px",
+      fontWeight: "bold",
+      paddingBottom: "6px",
+      transition: "all 0.2s",
     },
   };
 }

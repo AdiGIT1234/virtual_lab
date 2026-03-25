@@ -111,6 +111,36 @@ export function AuthProvider({ children }) {
     setProfile(null);
   }, []);
 
+  /* ── Password Reset Flow ── */
+  const resetPassword = useCallback(async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        data: { intent: "password-recovery" },
+      },
+    });
+    if (error) throw error;
+  }, []);
+
+  const verifyResetOtp = useCallback(async ({ email, token }) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+    if (error) throw error;
+    return data;
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    if (error) throw error;
+    return data;
+  }, []);
+
   /* ── Update profile ── */
   const updateProfile = useCallback(
     async (updates) => {
@@ -201,6 +231,9 @@ export function AuthProvider({ children }) {
       login,
       loginWithGoogle,
       logout,
+      resetPassword,
+      verifyResetOtp,
+      updatePassword,
       // Profile actions
       updateProfile,
       fetchProfile: user ? () => fetchProfile(user.id) : () => {},
@@ -217,6 +250,9 @@ export function AuthProvider({ children }) {
       login,
       loginWithGoogle,
       logout,
+      resetPassword,
+      verifyResetOtp,
+      updatePassword,
       updateProfile,
       fetchProfile,
       saveExperiment,
