@@ -589,20 +589,19 @@ void loop() {
           code: code,
           resultJson: payload
         });
-        alert("Workspace saved securely to your account!");
+        console.log("Workspace saved securely to your account!");
       } catch (err) {
         console.error("Cloud save failed:", err);
-        alert("Saved locally, but cloud save failed.");
       }
     } else {
-      alert("Workspace saved to local storage!");
+      console.log("Workspace saved to local storage!");
     }
   };
 
   const handleLoadWorkspace = () => {
     const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
     if (!raw) {
-      alert("No saved workspace found.");
+      console.warn("No saved workspace found.");
       return;
     }
     try {
@@ -633,10 +632,9 @@ void loop() {
           });
       }
       setWires(loadedWires || []);
-      alert("Workspace loaded successfully!");
+      console.log("Workspace loaded successfully!");
     } catch (e) {
       console.warn("Failed to parse workspace JSON", e);
-      alert("Failed to load workspace.");
     }
   };
 
@@ -903,14 +901,17 @@ void loop() {
 
         <div style={styles.chipColumn}>
           {is3DMode ? (
-            <div style={{
-              flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%",
-              borderRadius: 14, overflow: "hidden",
-              border: "1px solid rgba(0,210,255,0.15)",
-              background: "linear-gradient(135deg, #010307 0%, #020810 100%)",
-              boxShadow: "inset 0 0 60px rgba(0,210,255,0.03), 0 0 40px rgba(0,0,0,0.5)",
-            }}>
-              <ARLabCanvas highlightedId={null} componentStyles={{}} />
+            <div 
+              style={{
+                flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%",
+                borderRadius: 14, overflow: "hidden",
+                border: "1px solid rgba(0,210,255,0.15)",
+                background: "linear-gradient(135deg, #010307 0%, #020810 100%)",
+                boxShadow: "inset 0 0 60px rgba(0,210,255,0.03), 0 0 40px rgba(0,0,0,0.5)",
+              }}
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <ARLabCanvas highlightedId={null} componentStyles={{}} wires={wires} />
 
               {/* Bottom-left status badge */}
               <div style={{

@@ -7,11 +7,11 @@ import CircuitScene from "./CircuitScene";
 
 const showStats = import.meta.env.DEV;
 
-export default function ARLabCanvas({ highlightedId, componentStyles }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [] }) {
   return (
     <Canvas
       shadows
-      camera={{ position: [1.5, 3.5, 3.5], fov: 42, near: 0.1, far: 60 }}
+      camera={{ position: [1.0, 2.2, 2.2], fov: 40, near: 0.1, far: 60 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
     >
@@ -22,7 +22,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles }) {
       <Stars radius={20} depth={40} count={1500} factor={3} saturation={0.2} fade speed={0.5} />
 
       <Suspense fallback={null}>
-        <CircuitScene highlightedComponentId={highlightedId} componentStyles={componentStyles} />
+        <CircuitScene highlightedComponentId={highlightedId} componentStyles={componentStyles} wires={wires} />
         <EffectComposer disableNormalPass multisampling={8}>
           <Bloom
             luminanceThreshold={0.3}
@@ -43,11 +43,11 @@ export default function ARLabCanvas({ highlightedId, componentStyles }) {
         enableDamping
         dampingFactor={0.08}
         enablePan
-        target={[0.5, 0, 0]}
-        maxPolarAngle={Math.PI / 2.3}
-        minPolarAngle={0.15}
-        minDistance={1.5}
-        maxDistance={8.0}
+        target={[0.2, 0, 0]}
+        maxPolarAngle={Math.PI / 2.2}
+        minPolarAngle={0.1}
+        minDistance={0.8}
+        maxDistance={12.0}
         rotateSpeed={0.6}
         zoomSpeed={0.7}
       />

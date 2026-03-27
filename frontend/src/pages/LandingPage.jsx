@@ -945,14 +945,14 @@ export default function LandingPage() {
           </motion.div>
 
           {/* ── LEFT HUD PANEL ── */}
-          <div className="absolute left-4 md:left-8 lg:left-12 top-1/2 -translate-y-1/2 z-10 hidden md:flex flex-col gap-5 max-w-[300px]">
+          <div className="absolute left-4 md:left-8 lg:left-12 top-1/2 -translate-y-1/2 z-5 hidden md:flex flex-col gap-5 max-w-[300px] pointer-events-none">
             {LEFT_SPECS.map((info, i) => (
               <HudInfoItem key={i} info={info} phase={deconstructPhase} side="left" index={i} />
             ))}
           </div>
 
           {/* ── RIGHT HUD PANEL ── */}
-          <div className="absolute right-4 md:right-8 lg:right-12 top-1/2 -translate-y-1/2 z-10 hidden md:flex flex-col gap-5 max-w-[300px]">
+          <div className="absolute right-4 md:right-8 lg:right-12 top-1/2 -translate-y-1/2 z-5 hidden md:flex flex-col gap-5 max-w-[300px] pointer-events-none">
             {RIGHT_SPECS.map((info, i) => (
               <HudInfoItem key={i} info={info} phase={deconstructPhase} side="right" index={i} />
             ))}

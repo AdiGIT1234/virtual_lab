@@ -15,33 +15,56 @@ export default function Resistor3D({ id, resistance = 330, position = [0, 0, 0],
 
   return (
     <group position={position} rotation={rotation}>
-      <mesh 
-        castShadow 
-        onPointerDown={(e) => { e.stopPropagation(); setEditing(!editing); }}
-      >
-        <cylinderGeometry args={[0.015, 0.015, 0.24, 18]} />
+      {/* Resistor Body with subtle beveling/curving */}
+      <mesh castShadow onPointerDown={(e) => { e.stopPropagation(); setEditing(!editing); }}>
+        <cylinderGeometry args={[0.022, 0.022, 0.16, 24]} />
         <meshStandardMaterial
-          color={highlighted ? "#ffe3b5" : "#d4af8c"}
+          color={highlighted ? "#e8d0a0" : "#d8c090"}
           roughness={0.4}
-          metalness={0.25}
-          emissive={highlighted ? "#ffc48a" : "#000000"}
-          emissiveIntensity={highlighted ? 0.08 : 0}
+          metalness={0.1}
+          emissive={highlighted ? "#ffcc99" : "#000000"}
+          emissiveIntensity={highlighted ? 0.12 : 0}
         />
       </mesh>
-      {["#6c3f1f", "#2f7b52", "#2f3f7b"].map((bandColor, idx) => (
-        <mesh key={bandColor} position={[0, 0.06 - idx * 0.06, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.02, 0.0025, 12, 32]} />
-          <meshStandardMaterial color={bandColor} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.15, 0]}>
-        <cylinderGeometry args={[0.005, 0.005, 0.26, 12]} />
-        <meshStandardMaterial color="#dfe7ef" roughness={0.3} metalness={0.9} />
+      
+      {/* End caps */}
+      <mesh position={[0, 0.075, 0]}>
+        <cylinderGeometry args={[0.024, 0.022, 0.02, 24]} />
+        <meshStandardMaterial color={highlighted ? "#e8d0a0" : "#d8c090"} />
       </mesh>
-      <mesh position={[0, -0.15, 0]}>
-        <cylinderGeometry args={[0.005, 0.005, 0.26, 12]} />
+      <mesh position={[0, -0.075, 0]}>
+        <cylinderGeometry args={[0.022, 0.024, 0.02, 24]} />
+        <meshStandardMaterial color={highlighted ? "#e8d0a0" : "#d8c090"} />
+      </mesh>
+
+      {/* Color Bands (Standard 4-band for 330 ohm: Orange, Orange, Brown, Gold) */}
+      <mesh position={[0, 0.04, 0]}>
+        <cylinderGeometry args={[0.0225, 0.0225, 0.012, 24]} />
+        <meshStandardMaterial color="#ff6600" />
+      </mesh>
+      <mesh position={[0, 0.015, 0]}>
+        <cylinderGeometry args={[0.0225, 0.0225, 0.012, 24]} />
+        <meshStandardMaterial color="#ff6600" />
+      </mesh>
+      <mesh position={[0, -0.01, 0]}>
+        <cylinderGeometry args={[0.0225, 0.0225, 0.012, 24]} />
+        <meshStandardMaterial color="#663300" />
+      </mesh>
+      <mesh position={[0, -0.045, 0]}>
+        <cylinderGeometry args={[0.0225, 0.0225, 0.012, 24]} />
+        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
+      </mesh>
+
+      {/* Leads */}
+      <mesh position={[0, 0.18, 0]}>
+        <cylinderGeometry args={[0.005, 0.005, 0.2, 8]} />
         <meshStandardMaterial color="#aab1bb" roughness={0.3} metalness={0.9} />
       </mesh>
+      <mesh position={[0, -0.18, 0]}>
+        <cylinderGeometry args={[0.005, 0.005, 0.2, 8]} />
+        <meshStandardMaterial color="#aab1bb" roughness={0.3} metalness={0.9} />
+      </mesh>
+
       {editing && (
         <Html position={[0, 0.25, 0]} center>
           <div style={{ background: "rgba(0,0,0,0.8)", padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", gap: 4 }}>

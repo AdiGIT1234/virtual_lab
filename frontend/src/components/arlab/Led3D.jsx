@@ -15,40 +15,61 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
 
   return (
     <group position={position} rotation={rotation}>
+      {/* LED Main Lens/Body */}
       <mesh castShadow receiveShadow ref={glowRef}>
-        <cylinderGeometry args={[0.03, 0.03, 0.18, 28]} />
+        <cylinderGeometry args={[0.032, 0.032, 0.16, 28]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
           emissiveIntensity={0.2}
-          roughness={0.15}
-          metalness={0.2}
+          roughness={0.1}
+          metalness={0.1}
+          transparent
+          opacity={0.85}
         />
       </mesh>
-      <mesh position={[0, 0.1, 0]} ref={lensRef}>
-        <sphereGeometry args={[0.03, 24, 24]} />
+
+      {/* Flat bottom rim (Anode/Cathode indicator) */}
+      <mesh position={[0, -0.08, 0]}>
+        <cylinderGeometry args={[0.036, 0.036, 0.015, 28]} />
+        <meshStandardMaterial color={color} roughness={0.2} />
+      </mesh>
+
+      {/* Domed Top */}
+      <mesh position={[0, 0.08, 0]} ref={lensRef}>
+        <sphereGeometry args={[0.032, 24, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshPhysicalMaterial
           color={color}
           transparent
-          opacity={0.25}
+          opacity={0.6}
           roughness={0}
-          metalness={0}
           transmission={0.9}
-          thickness={0.03}
+          thickness={0.05}
         />
       </mesh>
-      <mesh position={[0, -0.1, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.18, 12]} />
-        <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.8} />
+
+      {/* LED internal structure (Cathode/Anode flags) */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[0.015, 0.06, 0.005]} />
+        <meshStandardMaterial color="#dfe7ef" metalness={0.9} roughness={0.1} />
       </mesh>
-      <mesh position={[0.03, -0.1, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.17, 12]} />
-        <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.8} />
+
+      {/* Long Lead (Anode) */}
+      <mesh position={[0.012, -0.2, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 0.4, 8]} />
+        <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.9} />
       </mesh>
+
+      {/* Short Lead (Cathode) */}
+      <mesh position={[-0.012, -0.16, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 0.32, 8]} />
+        <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
+      </mesh>
+
       {highlighted && (
         <mesh position={[0, 0.05, 0]}>
-          <sphereGeometry args={[0.05, 24, 24]} />
-          <meshBasicMaterial color={color} opacity={0.2} transparent blending={THREE.AdditiveBlending} />
+          <sphereGeometry args={[0.06, 24, 24]} />
+          <meshBasicMaterial color={color} opacity={0.15} transparent blending={THREE.AdditiveBlending} />
         </mesh>
       )}
     </group>
