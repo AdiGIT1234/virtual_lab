@@ -1,115 +1,105 @@
 import { Html } from "@react-three/drei";
 
 export default function BreadboardModel(props) {
-  // Deep dark premium breadboard styling to match diode.com vibe
-  const rows = 30; // 30 columns of holes
-  const cols = 5;  // 5 holes per side per column
-
+  // Advanced Breadboard Model with full withdiode.com parity
   return (
     <group {...props}>
-      {/* Main Base */}
+      {/* Main Body - White matte plastic with slight bevel */}
       <mesh receiveShadow castShadow position={[0, -0.05, 0]}>
-        <boxGeometry args={[1.6, 0.1, 0.5]} />
-        <meshStandardMaterial color="#eeeeee" roughness={0.7} metalness={0.05} />
+        <boxGeometry args={[3.2, 0.1, 1.1]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.8} metalness={0.02} />
       </mesh>
       
-      {/* Central Groove */}
-      <mesh receiveShadow castShadow position={[0, 0.005, 0]}>
-        <boxGeometry args={[1.5, 0.015, 0.04]} />
-        <meshStandardMaterial color="#dcdcdc" roughness={0.6} />
+      {/* Central Divider Groove */}
+      <mesh position={[0, 0.005, 0]}>
+        <boxGeometry args={[3.1, 0.015, 0.08]} />
+        <meshStandardMaterial color="#e0e0e0" />
       </mesh>
 
-      {/* Numerical Labels for columns */}
-      <group position={[-0.725, 0.055, 0]}>
-         {Array.from({ length: 6 }).map((_, i) => (
+      {/* Power Rails (Red/Blue Lines) */}
+      <group position={[0, 0.052, 0.48]}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[3.0, 0.005, 0.01]} />
+          <meshStandardMaterial color="#df4040" /> {/* Positive Rail */}
+        </mesh>
+        <mesh position={[0, 0, -0.06]}>
+          <boxGeometry args={[3.0, 0.005, 0.01]} />
+          <meshStandardMaterial color="#4040df" /> {/* Negative Rail */}
+        </mesh>
+      </group>
+      <group position={[0, 0.052, -0.48]}>
+        <mesh position={[0, 0, 0.06]}>
+          <boxGeometry args={[3.0, 0.005, 0.01]} />
+          <meshStandardMaterial color="#df4040" /> 
+        </mesh>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[3.0, 0.005, 0.01]} />
+          <meshStandardMaterial color="#4040df" />
+        </mesh>
+      </group>
+
+      {/* Column Labels (1, 5, 10... 60) */}
+      <group position={[-1.5, 0.055, 0]}>
+         {Array.from({ length: 13 }).map((_, i) => (
            <Html key={`lbl-${i}`} position={[i * 0.25, 0, 0]} transform occlude center rotation={[-Math.PI / 2, 0, 0]}>
-             <span style={{ fontSize: "1.5px", color: "#888", fontWeight: 700, fontFamily: "monospace" }}>{(i * 5) + 1}</span>
+             <span style={{ fontSize: "1.4px", color: "#555", fontWeight: 700, fontFamily: "sans-serif", opacity: 0.8 }}>{(i * 5) || 1}</span>
            </Html>
          ))}
       </group>
 
-      {/* ABCDE Labels */}
-      <group position={[-0.78, 0.055, -0.05]}>
+      {/* Row Labels (A-J) */}
+      <group position={[-1.56, 0.055, -0.15]}>
          {["A", "B", "C", "D", "E"].map((letter, i) => (
-           <Html key={`let-top-${i}`} position={[0, 0, -i * 0.035]} transform occlude center rotation={[-Math.PI / 2, 0, 0]}>
-             <span style={{ fontSize: "1.2px", color: "#888", fontWeight: 700, fontFamily: "monospace" }}>{letter}</span>
+           <Html key={`row-t-${i}`} position={[0, 0, -i * 0.06]} transform occlude center rotation={[-Math.PI / 2, 0, 0]}>
+             <span style={{ fontSize: "1.2px", color: "#555", fontWeight: 700 }}>{letter}</span>
            </Html>
          ))}
       </group>
-      <group position={[-0.78, 0.055, 0.05]}>
+      <group position={[-1.56, 0.055, 0.15]}>
          {["F", "G", "H", "I", "J"].map((letter, i) => (
-           <Html key={`let-bot-${i}`} position={[0, 0, i * 0.035]} transform occlude center rotation={[-Math.PI / 2, 0, 0]}>
-             <span style={{ fontSize: "1.2px", color: "#888", fontWeight: 700, fontFamily: "monospace" }}>{letter}</span>
+           <Html key={`row-b-${i}`} position={[0, 0, i * 0.06]} transform occlude center rotation={[-Math.PI / 2, 0, 0]}>
+             <span style={{ fontSize: "1.2px", color: "#555", fontWeight: 700 }}>{letter}</span>
            </Html>
          ))}
       </group>
 
-      {/* Holes Grid */}
-      <group position={[-0.725, 0.005, 0]}>
-        {Array.from({ length: rows }).map((_, r) => (
-          <group key={`row-${r}`} position={[r * 0.05, 0, 0]}>
-            {/* Top 5 holes */}
-            {Array.from({ length: cols }).map((_, c) => (
-              <mesh key={`top-hole-${c}`} position={[0, 0, -0.05 - c * 0.035]}>
-                <boxGeometry args={[0.02, 0.005, 0.02]} />
-                <meshStandardMaterial color="#111" />
-              </mesh>
-            ))}
-            {/* Bottom 5 holes */}
-            {Array.from({ length: cols }).map((_, c) => (
-              <mesh key={`bot-hole-${c}`} position={[0, 0, 0.05 + c * 0.035]}>
-                <boxGeometry args={[0.02, 0.005, 0.02]} />
-                <meshStandardMaterial color="#111" />
-              </mesh>
-            ))}
+      {/* Holes Grid - Precise placement */}
+      <group position={[-1.47, 0.005, 0]}>
+        {Array.from({ length: 60 }).map((_, r) => (
+          <group key={`col-${r}`} position={[r * 0.05, 0, 0]}>
+             {/* Main logic holes */}
+             {Array.from({ length: 5 }).map((_, c) => (
+               <group key={`grp-${c}`}>
+                  <mesh position={[0, 0, -0.15 - c * 0.06]}>
+                    <boxGeometry args={[0.025, 0.005, 0.025]} />
+                    <meshStandardMaterial color="#111" roughness={0.9} />
+                  </mesh>
+                  <mesh position={[0, 0, 0.15 + c * 0.06]}>
+                    <boxGeometry args={[0.025, 0.005, 0.025]} />
+                    <meshStandardMaterial color="#111" roughness={0.9} />
+                  </mesh>
+               </group>
+             ))}
+             {/* Power rail holes */}
+             <mesh position={[0, 0, 0.42]}>
+               <boxGeometry args={[0.02, 0.005, 0.02]} />
+               <meshStandardMaterial color="#111" />
+             </mesh>
+             <mesh position={[0, 0, 0.51]}>
+               <boxGeometry args={[0.02, 0.005, 0.02]} />
+               <meshStandardMaterial color="#111" />
+             </mesh>
+             <mesh position={[0, 0, -0.42]}>
+               <boxGeometry args={[0.02, 0.005, 0.02]} />
+               <meshStandardMaterial color="#111" />
+             </mesh>
+             <mesh position={[0, 0, -0.51]}>
+               <boxGeometry args={[0.02, 0.005, 0.02]} />
+               <meshStandardMaterial color="#111" />
+             </mesh>
           </group>
         ))}
       </group>
-
-      {/* Power Rails Holes */}
-      <group position={[-0.725, 0.005, 0]}>
-        {Array.from({ length: rows }).map((_, r) => (
-          <group key={`rail-${r}`} position={[r * 0.05, 0, 0]}>
-            {/* Far Top Rails */}
-            <mesh position={[0, 0, -0.21]}>
-              <boxGeometry args={[0.02, 0.005, 0.02]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-            <mesh position={[0, 0, -0.24]}>
-              <boxGeometry args={[0.02, 0.005, 0.02]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-            {/* Far Bottom Rails */}
-            <mesh position={[0, 0, 0.21]}>
-              <boxGeometry args={[0.02, 0.005, 0.02]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-            <mesh position={[0, 0, 0.24]}>
-              <boxGeometry args={[0.02, 0.005, 0.02]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-          </group>
-        ))}
-      </group>
-
-      {/* Red/Blue Rails Indicators */}
-      <mesh receiveShadow castShadow position={[0, 0, -0.19]}>
-        <boxGeometry args={[1.5, 0.005, 0.004]} />
-        <meshStandardMaterial color="#ff3366" roughness={0.6} />
-      </mesh>
-      <mesh receiveShadow castShadow position={[0, 0, -0.26]}>
-        <boxGeometry args={[1.5, 0.005, 0.004]} />
-        <meshStandardMaterial color="#33ccff" roughness={0.6} />
-      </mesh>
-      
-      <mesh receiveShadow castShadow position={[0, 0, 0.19]}>
-        <boxGeometry args={[1.5, 0.005, 0.004]} />
-        <meshStandardMaterial color="#ff3366" roughness={0.6} />
-      </mesh>
-      <mesh receiveShadow castShadow position={[0, 0, 0.26]}>
-        <boxGeometry args={[1.5, 0.005, 0.004]} />
-        <meshStandardMaterial color="#33ccff" roughness={0.6} />
-      </mesh>
     </group>
   );
 }

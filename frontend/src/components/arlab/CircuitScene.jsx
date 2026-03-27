@@ -19,28 +19,27 @@ import DipIC3D from "./DipIC3D";
 import Buzzer3D from "./Buzzer3D";
 import SevenSegment3D from "./SevenSegment3D";
 
-const getComponentPosition = (component, index) => {
-  if (component.x != null && component.y != null) {
-      return [
-        (component.x - 450) * 0.005, 
-        0.05, 
-        (component.y - 300) * 0.005
-      ];
-  }
-  const column = index % 3;
-  const row = Math.floor(index / 3);
-  return [-0.5 + column * 0.4, 0.05, -0.6 + row * 0.4];
-};
-
-export default function CircuitScene({ highlightedComponentId, componentStyles = {}, wires = [] }) {
+export default function CircuitScene({ 
+  highlightedComponentId, 
+  componentStyles = {}, 
+  wires = [],
+  onDragStart,
+  onDragEnd,
+  selectedId,
+  onSelect
+}) {
   const components = useCircuitStore((state) => state.components);
   const outputs = useCircuitStore((state) => state.outputs);
   const inputs = useCircuitStore((state) => state.inputs);
   const toggleInputPin = useCircuitStore((state) => state.toggleInputPin);
 
   const sceneComponents = useMemo(() => {
-    return components.map((component, index) => {
-      const position = getComponentPosition(component, index);
+    return components.map((component) => {
+      const position = [
+        (component.x - 450) * 0.005, 
+        0.05, 
+        (component.y - 300) * 0.005
+      ];
       const boardPin = component.pin != null ? getPinCoord(component.pin) : null;
       let wirePoints = null;
       if (boardPin) {
@@ -64,21 +63,13 @@ export default function CircuitScene({ highlightedComponentId, componentStyles =
     <group position={[-1.0, -0.05, 0]}>
        <SceneLighting />
        <Environment preset="city" intensity={0.5} />
-       <Grid
-          infiniteGrid
-          fadeDistance={15}
-          sectionSize={1.5}
-          sectionThickness={1}
-          sectionColor="#00F2FF"
-          guideColor="#004455"
-          guideThickness={0.5}
-          cellColor="#002233"
-          position={[0, -0.01, 0]}
-        />
+       
        <Backdrop floor={2} segments={30} receiveShadow position={[0, -0.02, -5]} scale={[80, 20, 10]}>
-         <meshStandardMaterial color="#020408" roughness={1} />
+         <meshStandardMaterial color="#f0f0f0" roughness={1} />
        </Backdrop>
-       <ContactShadows opacity={0.6} blur={2} far={5} resolution={1024} color="#000" position={[0, -0.01, 0]} />
+       
+       <ContactShadows opacity={0.2} blur={2.5} far={5} resolution={1024} color="#000" position={[0, -0.01, 0]} />
+
       {/* Arduino Uno - Aligned to default 2D position (260, 180) */}
       <group position={[(260 - 450) * 0.005, 0.01, (180 - 300) * 0.005]} rotation={[0, 0, 0]}>
         <BoardModel />
@@ -86,13 +77,13 @@ export default function CircuitScene({ highlightedComponentId, componentStyles =
       </group>
       
       {/* Breadboard - Aligned to common 2D workspace area (approx 600, 300) */}
-      <group position={[(600 - 450) * 0.005, 0.01, (300 - 300) * 0.005]} rotation={[0, 0, 0]}>
-        <BreadboardModel scale={1.2} />
+      <group position={[0.75, 0.01, 0]} rotation={[0, 0, 0]}>
+        <BreadboardModel />
       </group>
 
        {sceneComponents.map((component) => {
          const styleOverride = componentStyles[component.id] || {};
-         const isHighlighted = component.id === highlightedComponentId;
+         const isHighlighted = component.id === highlightedComponentId || component.id === selectedId;
          let element = null;
 
          if (component.type === "LED") {
@@ -226,8 +217,23 @@ export default function CircuitScene({ highlightedComponentId, componentStyles =
 
          if (element) {
              return (
-               <DragControls key={component.id}>
-                 {element}
+               <DragControls 
+                 key={component.id}
+                 onDragStart={onDragStart}
+                 onDragEnd={onDragEnd}
+                 onDrag={() => {
+                    // Logic for snapping during drag can be complex with DragControls matrix
+                 }}
+               >
+                 <group onClick={(e) => { e.stopPropagation(); onSelect(component.id); }}>
+                    {element}
+                    {isHighlighted && (
+                      <mesh scale={1.1}>
+                        <boxGeometry args={[0.2, 0.2, 0.2]} />
+                        <meshBasicMaterial color="#ff4444" wireframe transparent opacity={0.3} />
+                      </mesh>
+                    )}
+                 </group>
                </DragControls>
              );
          }
@@ -240,15 +246,15 @@ export default function CircuitScene({ highlightedComponentId, componentStyles =
            <Wire3D
               key={`${component.id}-wire`}
               points={component.wirePoints}
-              color={component.id === highlightedComponentId ? "#4dfdff" : component.type === "LED" ? "#00ffd5" : "#6cc9ff"}
+              color={component.id === highlightedComponentId ? "#ff4444" : component.type === "LED" ? "#00ffd5" : "#6cc9ff"}
               glow={component.id === highlightedComponentId}
             />
          ))}
 
        {wires.map((wire, idx) => {
-         const p1 = [(wire.x1 - 100) * 0.005, 0.04, (wire.y1 - 200) * 0.005 - 0.1];
-         const p2 = [(wire.x2 - 100) * 0.005, 0.04, (wire.y2 - 200) * 0.005 - 0.1];
-         const mid = [(p1[0] + p2[0]) / 2, 0.2, (p1[2] + p2[2]) / 2];
+         const p1 = [(wire.x1 - 450) * 0.005, 0.04, (wire.y1 - 300) * 0.005];
+         const p2 = [(wire.x2 - 450) * 0.005, 0.04, (wire.y2 - 300) * 0.005];
+         const mid = [(p1[0] + p2[0]) / 2, 0.15, (p1[2] + p2[2]) / 2];
          return (
            <Wire3D key={`wire-${idx}`} points={[p1, mid, p2]} color={wire.color || "#00ffd5"} />
          );
