@@ -314,6 +314,9 @@ function AuthDock() {
           name: form.name,
           institute: form.institute,
         });
+        setMode("signup_confirm");
+        setSuccess("");
+        setError("");
       } else if (mode === "login") {
         await login({ email: form.email, password: form.password });
       } else if (mode === "forgot_email") {
@@ -340,7 +343,8 @@ function AuthDock() {
     "w-full bg-transparent border border-(--lp-border) px-4 py-3 text-sm text-(--lp-text-main) placeholder-[#64748B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F2FF]";
 
   const isForgotMode = mode.startsWith("forgot");
-  const dockTitle = isForgotMode ? "Account Recovery" : mode === "login" ? "Secure Access" : "Create Access";
+  const isSignupConfirm = mode === "signup_confirm";
+  const dockTitle = isForgotMode ? "Account Recovery" : isSignupConfirm ? "Verify Email" : mode === "login" ? "Secure Access" : "Create Access";
 
   return (
     <motion.div
@@ -356,7 +360,7 @@ function AuthDock() {
         <span>{dockTitle}</span>
       </div>
 
-      {!isForgotMode && (
+      {!isForgotMode && !isSignupConfirm && (
         <div className="flex mb-6 border border-(--lp-border)">
           {["login", "signup"].map((tab) => (
             <button
@@ -375,6 +379,35 @@ function AuthDock() {
         </div>
       )}
 
+      {/* Signup confirmation screen */}
+      {isSignupConfirm && (
+        <div className="text-center py-4">
+          <div className="text-5xl mb-4">📧</div>
+          <h3 className="text-(--lp-text-main) text-lg font-bold mb-3 tracking-tight">
+            Check Your Email
+          </h3>
+          <p className="text-(--lp-text-mid) text-sm leading-relaxed mb-2">
+            We sent a verification link to
+          </p>
+          <p className="text-[#00F2FF] text-sm font-bold font-mono mb-4">
+            {form.email}
+          </p>
+          <p className="text-(--lp-text-low) text-[12px] leading-relaxed mb-6">
+            Click the link in your inbox to activate your account instantly. No codes needed — one tap and you're in.
+          </p>
+          <div className="border-t border-(--lp-border) pt-4 mt-4">
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
+              className="text-[#00F2FF] hover:underline bg-transparent border-0 cursor-pointer text-[11px] uppercase tracking-widest font-mono"
+            >
+              ← Back to Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isSignupConfirm && (
       <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Name / Institute for Signup */}
         {mode === "signup" && (
@@ -487,9 +520,6 @@ function AuthDock() {
             onClick={() => {
               setSuccess("Skipped! You are logged in.");
               setTimeout(() => setMode("login"), 1000); 
-              // Once verified OTP, Supabase session is established
-              // We can just redirect them or clear this. Wait, we should just let them close or stay?
-              // The user is actually logged in. 
               window.location.reload(); 
             }}
           >
@@ -497,8 +527,9 @@ function AuthDock() {
           </button>
         )}
       </form>
+      )}
 
-      {!isForgotMode && (
+      {!isForgotMode && !isSignupConfirm && (
         <div className="mt-4 flex justify-between items-center text-[11px] text-(--lp-text-low) font-mono tracking-widest">
           <span>{mode === "login" ? "New here?" : "Have credentials?"}</span>
           {mode === "login" && (

@@ -1,11 +1,28 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 
 const presetOptions = Object.values(CIRCUIT_PRESETS);
-const LED_PALETTE = ["#ff5b5b", "#ffb347", "#fffb91", "#6dffb1", "#5bc0ff", "#d084ff"];
+
+// Component library for the sidebar — like diode's "Insert Part"
+const INSERT_PARTS = [
+  { id: "arduino", label: "Arduino Uno", icon: "🔲", type: "BOARD" },
+  { id: "wire", label: "Wire", icon: "⟋", type: "WIRE" },
+  { id: "resistor", label: "Resistor", icon: "═╤═", type: "RESISTOR" },
+  { id: "led", label: "Led", icon: "💡", type: "LED" },
+  { id: "motor", label: "Motor", icon: "⚙️", type: "SERVO" },
+  { id: "timer555", label: "555 Timer", icon: "▣", type: "TIMER_555" },
+  { id: "chip8", label: "8 Pin Custom Chip", icon: "▤", type: "CUSTOM_DIGITAL_IC" },
+  { id: "button", label: "Tactile Switch", icon: "⬜", type: "BUTTON" },
+  { id: "capacitor", label: "Capacitor", icon: "⏚", type: "CAPACITOR" },
+  { id: "npn", label: "NPN Transistor", icon: "⊿", type: "NPN_TRANSISTOR" },
+  { id: "pnp", label: "PNP Transistor", icon: "⊾", type: "PNP_TRANSISTOR" },
+  { id: "buzzer", label: "Buzzer", icon: "🔈", type: "BUZZER" },
+  { id: "sevenseg", label: "7-Segment", icon: "8.", type: "SEVEN_SEG" },
+  { id: "servo", label: "Servo Motor", icon: "↻", type: "SERVO" },
+];
 
 export default function ARLabPage() {
   const navigate = useNavigate();
@@ -15,61 +32,60 @@ export default function ARLabPage() {
 
   const loadPreset = useCircuitStore((state) => state.loadPreset);
   const presetMeta = useCircuitStore((state) => state.presetMeta);
-  const components = useCircuitStore((state) => state.components);
-  const outputs = useCircuitStore((state) => state.outputs);
-  const setOutputLevel = useCircuitStore((state) => state.setOutputLevel);
+  const addComponent = useCircuitStore((state) => state.addComponent);
 
-  const [selectedId, setSelectedId] = useState(null);
-  const [styleOverrides, setStyleOverrides] = useState({});
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [occupiedHoles, setOccupiedHoles] = useState(new Set());
+  const [hoveredPart, setHoveredPart] = useState(null);
 
   useEffect(() => {
     loadPreset(presetParam);
-    setStyleOverrides({});
-    setSelectedId(null);
   }, [presetParam, loadPreset]);
 
-  useEffect(() => {
-    if (components.length && !selectedId) {
-      setSelectedId(components[0].id);
+  const handleHoleClick = useCallback((holeId) => {
+    setOccupiedHoles(prev => {
+      const next = new Set(prev);
+      if (next.has(holeId)) {
+        next.delete(holeId);
+      } else {
+        next.add(holeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleInsertPart = useCallback((part) => {
+    if (addComponent && part.type !== "BOARD" && part.type !== "WIRE") {
+      addComponent({
+        id: `${part.type.toLowerCase()}-${Date.now()}`,
+        type: part.type,
+        pin: null,
+        pins: { main: null },
+        x: 400 + Math.random() * 100,
+        y: 200 + Math.random() * 100,
+      });
     }
-  }, [components, selectedId]);
-
-  const selectedComponent = useMemo(() => components.find((c) => c.id === selectedId), [components, selectedId]);
-
-  const currentLevel = selectedComponent && selectedComponent.pin != null
-    ? styleOverrides[selectedComponent.id]?.level ?? outputs[selectedComponent.pin] ?? 0
-    : 0;
-
-  const handleColorPick = (color) => {
-    if (!selectedComponent) return;
-    setStyleOverrides((prev) => ({
-      ...prev,
-      [selectedComponent.id]: { ...prev[selectedComponent.id], color },
-    }));
-  };
-
-  const handleLevelChange = (value) => {
-    if (!selectedComponent || selectedComponent.pin == null) return;
-    const level = Number(value);
-    setStyleOverrides((prev) => ({
-      ...prev,
-      [selectedComponent.id]: { ...prev[selectedComponent.id], level },
-    }));
-    setOutputLevel(selectedComponent.pin, level);
-  };
+  }, [addComponent]);
 
   return (
     <div style={styles.page}>
-      <header style={styles.heroBar}>
-        <button style={styles.backBtn} onClick={() => navigate(-1)}>← Back</button>
-        <div>
-          <p style={styles.heroKicker}>Immersive Circuit Preview</p>
-          <h1 style={styles.heroTitle}>ATmega328P 3D Lab</h1>
+      {/* Header Bar */}
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <button style={styles.logoBtn} onClick={() => navigate("/")} title="Home">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+              <hexagon cx="12" cy="12" r="10" />
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            </svg>
+          </button>
+          <span style={styles.headerTitle}>Virtual Lab</span>
+          <span style={styles.headerDivider}>|</span>
+          <span style={styles.headerLink} onClick={() => navigate("/")}>Explore</span>
         </div>
-        <div style={styles.presetCluster}>
-          <label style={styles.presetLabel}>Preset</label>
+
+        <div style={styles.headerCenter}>
           <select
-            style={styles.presetSelect}
+            style={styles.presetDropdown}
             value={presetParam}
             onChange={(e) => navigate(`/arlab?preset=${e.target.value}`)}
           >
@@ -79,302 +95,290 @@ export default function ARLabPage() {
               </option>
             ))}
           </select>
+          <span style={styles.presetArrow}>▾</span>
+        </div>
+
+        <div style={styles.headerRight}>
+          <button style={styles.headerBtn} onClick={() => navigate("/sandbox")}>
+            2D Workbench
+          </button>
+          <button style={styles.simulateBtn}>
+            ● Simulate
+          </button>
         </div>
       </header>
 
-      <main style={styles.layout}>
-        <section style={styles.previewPanel}>
-          <div style={styles.canvasFrame}>
-            <ARLabCanvas highlightedId={selectedId} componentStyles={styleOverrides} />
-            <div style={styles.previewHud}>
-              <div>
-                <p style={styles.hudLabel}>Preset</p>
-                <h3 style={styles.hudTitle}>{presetMeta?.name}</h3>
-                <p style={styles.hudBody}>{presetMeta?.description}</p>
-              </div>
-              <div>
-                <p style={styles.hudLabel}>Camera Controls</p>
-                <ul style={styles.hudList}>
-                  <li>Orbit: drag left mouse</li>
-                  <li>Pan: shift + drag</li>
-                  <li>Zoom: scroll</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <aside style={styles.sidePanel}>
-          <div style={styles.componentShelf}>
-            <div style={styles.sectionHeader}>
-              <h2>Active Components</h2>
-              <span>{components.length} items</span>
-            </div>
-            <div style={styles.componentGrid}>
-              {components.map((component) => (
-                <button
-                  key={component.id}
-                  style={{
-                    ...styles.componentCard,
-                    borderColor: component.id === selectedId ? "#00ffd5" : "rgba(255,255,255,0.08)",
-                    boxShadow: component.id === selectedId ? "0 15px 30px rgba(0,255,204,0.15)" : "none",
-                  }}
-                  onClick={() => setSelectedId(component.id)}
-                >
-                  <div style={styles.componentType}>{component.type}</div>
-                  <div style={styles.componentPin}>Pin {component.pin ?? "—"}</div>
-                </button>
-              ))}
-            </div>
+      {/* Main Content */}
+      <div style={styles.main}>
+        {/* Sidebar — Insert Part panel (like Diode) */}
+        <aside style={{
+          ...styles.sidebar,
+          width: sidebarOpen ? 180 : 0,
+          padding: sidebarOpen ? "16px 0" : 0,
+          opacity: sidebarOpen ? 1 : 0,
+          overflow: sidebarOpen ? "auto" : "hidden",
+        }}>
+          <div style={styles.sidebarHeader}>
+            <span style={styles.sidebarLabel}>
+              {presetMeta?.name || "Circuit"}
+            </span>
+            <span style={styles.sidebarDate}>
+              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
           </div>
 
-          {selectedComponent && (
-            <div style={styles.detailPanel}>
-              <p style={styles.detailLabel}>Selected</p>
-              <h3 style={styles.detailTitle}>{selectedComponent.type}</h3>
-              <p style={styles.detailMeta}>Pin {selectedComponent.pin ?? "—"}</p>
+          <div style={styles.sidebarSection}>
+            <h3 style={styles.sidebarTitle}>Insert Part</h3>
+          </div>
 
-              {selectedComponent.type === "LED" && (
-                <div style={styles.paletteRow}>
-                  {LED_PALETTE.map((swatch) => (
-                    <button
-                      key={swatch}
-                      style={{
-                        ...styles.swatch,
-                        background: swatch,
-                        outline: styleOverrides[selectedComponent.id]?.color === swatch ? "2px solid #fff" : "none",
-                      }}
-                      onClick={() => handleColorPick(swatch)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {selectedComponent.pin != null && (
-                <div style={styles.sliderBlock}>
-                  <label style={styles.sliderLabel}>Drive Level</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={currentLevel}
-                    onChange={(e) => handleLevelChange(e.target.value)}
-                    style={styles.slider}
-                  />
-                </div>
-              )}
-
-              <p style={styles.detailHint}>Adjust color and intensity to preview how the sandbox wiring will glow in the immersive scene.</p>
-            </div>
-          )}
+          <div style={styles.partsList}>
+            {INSERT_PARTS.map((part) => (
+              <button
+                key={part.id}
+                style={{
+                  ...styles.partItem,
+                  background: hoveredPart === part.id ? "rgba(0,0,0,0.04)" : "transparent",
+                }}
+                onMouseEnter={() => setHoveredPart(part.id)}
+                onMouseLeave={() => setHoveredPart(null)}
+                onClick={() => handleInsertPart(part)}
+              >
+                <span style={styles.partIcon}>{part.icon}</span>
+                <span style={styles.partLabel}>{part.label}</span>
+              </button>
+            ))}
+          </div>
         </aside>
-      </main>
+
+        {/* Toggle sidebar button */}
+        <button
+          style={styles.sidebarToggle}
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        >
+          {sidebarOpen ? "◀" : "▶"}
+        </button>
+
+        {/* 3D Canvas — full viewport */}
+        <div style={styles.canvasContainer}>
+          <ARLabCanvas
+            highlightedId={null}
+            componentStyles={{}}
+            occupiedHoles={occupiedHoles}
+            onHoleClick={handleHoleClick}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
 const styles = {
   page: {
-    minHeight: "100vh",
-    background: "radial-gradient(circle at 20% 20%, rgba(0,255,208,0.1), #02040a 65%)",
-    color: "#e8f8ff",
-    fontFamily: "'Space Grotesk', 'Inter', sans-serif",
-    padding: "32px",
+    height: "100vh",
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
-  },
-  heroBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: "24px",
-  },
-  backBtn: {
-    border: "1px solid rgba(255,255,255,0.2)",
-    borderRadius: "999px",
-    padding: "10px 16px",
-    background: "transparent",
-    color: "#9ad9ff",
-    cursor: "pointer",
-  },
-  heroKicker: {
-    margin: 0,
-    textTransform: "uppercase",
-    letterSpacing: "0.4em",
-    fontSize: 12,
-    color: "#7efbe4",
-  },
-  heroTitle: {
-    margin: 0,
-    fontSize: 32,
-  },
-  presetCluster: {
-    marginLeft: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 200,
-  },
-  presetLabel: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: "0.3em",
-    color: "#7fa1b3",
-  },
-  presetSelect: {
-    padding: "10px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.2)",
-    background: "rgba(0,0,0,0.35)",
-    color: "#f6ffff",
-  },
-  layout: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 2fr) minmax(320px, 0.9fr)",
-    gap: 24,
-    flex: 1,
-  },
-  previewPanel: {
-    position: "relative",
-  },
-  canvasFrame: {
-    width: "100%",
-    minHeight: 600,
-    borderRadius: 32,
-    border: "1px solid rgba(255,255,255,0.1)",
+    background: "#f0f0f0",
+    fontFamily: "'Inconsolata', 'Inter', monospace, sans-serif",
     overflow: "hidden",
-    boxShadow: "0 40px 80px rgba(0,0,0,0.5)",
-    position: "relative",
   },
-  previewHud: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
+
+  // Header
+  header: {
+    height: 48,
     display: "flex",
-    justifyContent: "space-between",
-    background: "linear-gradient(180deg, transparent, rgba(1,2,4,0.85))",
-  },
-  hudLabel: {
-    textTransform: "uppercase",
-    letterSpacing: "0.3em",
-    fontSize: 11,
-    color: "#76e8ff",
-    margin: 0,
-  },
-  hudTitle: {
-    margin: "6px 0 4px",
-    fontSize: 20,
-  },
-  hudBody: {
-    margin: 0,
-    maxWidth: 280,
-    color: "#bfd8e4",
-    fontSize: 14,
-  },
-  hudList: {
-    margin: "6px 0 0",
-    paddingLeft: 18,
-    color: "#bfd8e4",
-    fontSize: 14,
-  },
-  sidePanel: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  componentShelf: {
-    padding: 20,
-    borderRadius: 24,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(3,8,14,0.85)",
-    boxShadow: "0 30px 60px rgba(0,0,0,0.35)",
-  },
-  sectionHeader: {
-    display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "space-between",
+    padding: "0 16px",
+    background: "#fff",
+    borderBottom: "1px solid #e0e0e0",
+    flexShrink: 0,
+    zIndex: 100,
   },
-  componentGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
     gap: 12,
   },
-  componentCard: {
-    padding: 12,
-    borderRadius: 18,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    color: "inherit",
-    textAlign: "left",
-    cursor: "pointer",
-  },
-  componentType: {
-    fontSize: 12,
-    letterSpacing: "0.2em",
-    textTransform: "uppercase",
-    color: "#8fbdd2",
-  },
-  componentPin: {
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  detailPanel: {
-    padding: 20,
-    borderRadius: 24,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(5,12,18,0.9)",
-    minHeight: 200,
-  },
-  detailLabel: {
-    margin: 0,
-    textTransform: "uppercase",
-    letterSpacing: "0.3em",
-    fontSize: 11,
-    color: "#7efbe4",
-  },
-  detailTitle: {
-    margin: "6px 0",
-    fontSize: 22,
-  },
-  detailMeta: {
-    margin: 0,
-    color: "#9fbacd",
-  },
-  paletteRow: {
-    display: "flex",
-    gap: 8,
-    margin: "18px 0",
-  },
-  swatch: {
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
+  logoBtn: {
+    background: "none",
     border: "none",
     cursor: "pointer",
+    padding: 4,
+    display: "flex",
+    alignItems: "center",
   },
-  sliderBlock: {
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#333",
+  },
+  headerDivider: {
+    color: "#ccc",
+    fontSize: 16,
+  },
+  headerLink: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#555",
+    cursor: "pointer",
+    textDecoration: "none",
+  },
+  headerCenter: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+  },
+  presetDropdown: {
+    appearance: "none",
+    background: "transparent",
+    border: "none",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#333",
+    cursor: "pointer",
+    fontFamily: "'Inconsolata', monospace",
+    textAlign: "center",
+  },
+  presetArrow: {
+    fontSize: 10,
+    color: "#888",
+  },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerBtn: {
+    padding: "6px 14px",
+    fontSize: 12,
+    fontWeight: 600,
+    border: "1px solid #ddd",
+    borderRadius: 6,
+    background: "#fff",
+    color: "#333",
+    cursor: "pointer",
+    fontFamily: "'Inconsolata', monospace",
+  },
+  simulateBtn: {
+    padding: "6px 16px",
+    fontSize: 12,
+    fontWeight: 700,
+    border: "none",
+    borderRadius: 6,
+    background: "#ff4444",
+    color: "#fff",
+    cursor: "pointer",
+    fontFamily: "'Inconsolata', monospace",
+  },
+
+  // Main
+  main: {
+    flex: 1,
+    display: "flex",
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  // Sidebar
+  sidebar: {
+    background: "#fff",
+    borderRight: "1px solid #e0e0e0",
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    flexShrink: 0,
+    transition: "all 0.25s ease",
+    overflowY: "auto",
+    overflowX: "hidden",
+  },
+  sidebarHeader: {
+    padding: "0 16px 12px",
+    borderBottom: "1px solid #eee",
     marginBottom: 12,
   },
-  sliderLabel: {
-    textTransform: "uppercase",
+  sidebarLabel: {
+    display: "block",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#333",
+    marginBottom: 2,
+  },
+  sidebarDate: {
     fontSize: 11,
-    letterSpacing: "0.3em",
-    color: "#7fadff",
+    color: "#999",
+    fontFamily: "'Inconsolata', monospace",
   },
-  slider: {
+  sidebarSection: {
+    padding: "0 16px 8px",
+  },
+  sidebarTitle: {
+    margin: 0,
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#333",
+    letterSpacing: "0.02em",
+  },
+  partsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+  },
+  partItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 16px",
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "background 0.1s",
     width: "100%",
-    accentColor: "#00ffd5",
   },
-  detailHint: {
-    fontSize: 12,
-    color: "#9fbacd",
-    lineHeight: 1.4,
+  partIcon: {
+    width: 28,
+    height: 28,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 16,
+    flexShrink: 0,
+    borderRadius: 6,
+    background: "#f5f5f5",
+    border: "1px solid #eee",
+  },
+  partLabel: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#333",
+    fontFamily: "'Inconsolata', monospace",
+    whiteSpace: "nowrap",
+  },
+
+  sidebarToggle: {
+    position: "absolute",
+    left: 0,
+    top: "50%",
+    transform: "translateY(-50%)",
+    zIndex: 50,
+    width: 20,
+    height: 48,
+    border: "1px solid #ddd",
+    borderLeft: "none",
+    borderRadius: "0 6px 6px 0",
+    background: "#fff",
+    color: "#888",
+    cursor: "pointer",
+    fontSize: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Canvas
+  canvasContainer: {
+    flex: 1,
+    position: "relative",
+    minHeight: 0,
   },
 };

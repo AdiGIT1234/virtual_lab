@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import EditorPanel from "../components/EditorPanel";
 import Chip from "../components/Chip";
 import SimulationControls from "../components/SimulationControls";
@@ -36,6 +36,7 @@ import { useCircuitStore } from "../state/useCircuitStore";
 import { useAuth } from "../context/useAuth";
 import ProtectedFeature from "../components/ProtectedFeature";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
+import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
@@ -52,6 +53,7 @@ const normalizeTerminals = (terminals = []) => {
 
 export default function SandboxPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme, toggleTheme } = useTheme();
   const { saveExperiment } = useAuth();
   const isCompact = useMediaQuery("(max-width: 1200px)");
@@ -111,6 +113,7 @@ void loop() {
   const defaultWorkspace = useMemo(() => [], []);
 
   const [workspaceItems, internalSetWorkspaceItems] = useState(() => defaultWorkspace);
+  const [experimentLoaded, setExperimentLoaded] = useState(null);
 
   const setWorkspaceItems = useCallback((updater, source = "sandbox") => {
     internalSetWorkspaceItems((prev) => {
@@ -127,6 +130,25 @@ void loop() {
       internalSetWorkspaceItems(storedWorkspaceItems);
     }
   }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
+
+  // Auto-load experiment preset from URL query param
+  useEffect(() => {
+    const expId = searchParams.get("experiment");
+    if (expId && expId !== experimentLoaded && EXPERIMENT_PRESETS[expId]) {
+      const preset = EXPERIMENT_PRESETS[expId];
+      setExperimentLoaded(expId);
+      // Load workspace components
+      if (preset.workspace) {
+        setWorkspaceItems(preset.workspace, "experiment");
+      }
+      // Load starter code
+      if (preset.code) {
+        setCode(preset.code);
+      }
+      // Open the code editor so they can see the pre-loaded code
+      setIsEditorOpen(true);
+    }
+  }, [searchParams, experimentLoaded, setWorkspaceItems]);
 
   const [viewScale, setViewScale] = useState(1);
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
@@ -1131,12 +1153,17 @@ void loop() {
               if (!renderedContent) {
                 renderedContent = (
                   <ComponentPlaceholder
+                    id={item.id}
                     label={componentMeta?.label || item.metadata?.label || item.type}
                     status={componentMeta?.status || item.metadata?.status || "visual"}
                     category={componentMeta?.category || item.metadata?.category}
                     wokwiTag={componentMeta?.wokwiTag || item.metadata?.wokwiTag}
                     docSlug={componentMeta?.docSlug || item.metadata?.docSlug}
                     imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl}
+                    terminals={terminals}
+                    pins={item.pins || {}}
+                    onTerminalDragStart={startWire}
+                    highlighted={false}
                   />
                 );
               }

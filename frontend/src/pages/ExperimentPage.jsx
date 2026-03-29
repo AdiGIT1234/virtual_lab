@@ -209,10 +209,10 @@ export default function ExperimentPage() {
                 The interactive ATmega328P simulator will be embedded here.
               </p>
               <div style={styles.simCtas}>
-                <button style={styles.heroBtn} onClick={() => navigate("/sandbox")}>
+                <button style={styles.heroBtn} onClick={() => navigate(`/sandbox?experiment=${experimentId}`)}>
                   Open Sandbox Simulator →
                 </button>
-                <button style={styles.secondaryBtn} onClick={() => navigate("/arlab?preset=blink")}>View 3D Lab Preview →</button>
+                <button style={styles.secondaryBtn} onClick={() => navigate(`/arlab?preset=blink&experiment=${experimentId}`)}>View 3D Lab Preview →</button>
               </div>
             </div>
             <button style={styles.nextBtn} onClick={() => setActiveTab("posttest")}>

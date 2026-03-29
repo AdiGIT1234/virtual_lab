@@ -168,4 +168,15 @@ export const useCircuitStore = create((set) => ({
       };
     });
   },
+  addComponent: (component, source = "arlab") => {
+    set((state) => {
+      const nextItems = [...state.workspaceItems, component];
+      return {
+        workspaceItems: nextItems,
+        workspaceVersion: state.workspaceVersion + 1,
+        lastUpdatedBy: source,
+        components: deriveComponents(nextItems),
+      };
+    });
+  },
 }));
