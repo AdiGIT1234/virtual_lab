@@ -2,13 +2,12 @@
   <img src="https://img.shields.io/badge/Virtual%20Lab-NextGen%20EdTech-00F2FF?style=for-the-badge&logoColor=black" alt="Virtual Lab Badge"/>
   <h1 align="center">Hardware Virtual Lab & Simulation Engine</h1>
   <p align="center">
-    <strong>A high-fidelity, 3D interactive electronics sandbox and machine-learning-powered IDE for microcontrollers.</strong>
+    <strong>A high-fidelity, 3D interactive electronics sandbox and IDE for microcontrollers.</strong>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=flat-square&logo=react&logoColor=black" />
     <img src="https://img.shields.io/badge/3D%20Engine-Three.js%20(R3F)-000000?style=flat-square&logo=three.js&logoColor=white" />
     <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
-    <img src="https://img.shields.io/badge/Machine%20Learning-Isolation%20Forest-FF3366?style=flat-square&logo=scikit-learn&logoColor=white" />
     <img src="https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=black" />
   </p>
 </div>
@@ -20,8 +19,6 @@
 ### 🔌 Live Interactive 3D Sandbox
 Experience electronics in true 3D using `react-three-fiber`. Connect components visually on realistic breadboards. Real-time zooming, panning, and rendering power a full hardware assembly experience directly in the browser—no downloads required.
 
-### 🧠 Machine Learning Anomaly Detection
-Every sensor and wire in the Sandbox talks to our **FastAPI** Python backend. Our trained **Isolation Forest** model evaluates real-time telemetry (like clock drift, overvoltage, or missing I2C connections) and instantly triggers fault-flags to users if their circuits stray from healthy operational bounds.
 
 ### 🖥️ Built-In Code Execution (Pyodide & AVR)
 Write logic directly in the embedded code editor. The Virtual Lab supports simulated code execution for core Arduino AVR structures and tracks hardware registers, converting C++ microcontroller architectures directly into visual actions (like servo sweeps or blinking LEDs).
@@ -38,7 +35,6 @@ Managed through Supabase, users can save their circuits ("Experiments") to the c
 
 * **Frontend:** React.js powered by Vite, utilizing Framer Motion for premium UI transitions, and Three.js for 3D lab rendering.
 * **Backend:** Scalable FastAPI application structure managing the simulation bridge and hardware telemetry endpoints.
-* **AI/ML Engine:** Scikit-Learn utilizing custom synthetically trained data to run Isolation Forest bounds checking against live sandbox voltages, currents, and component states.
 * **Auth & DB:** Supabase handles secure row-level-secured Postgres tables and robust User Auth.
 
 ---
@@ -65,7 +61,7 @@ npm run dev
 ```
 *Frontend will typically launch on `http://localhost:5173`.*
 
-### 4. Setup the Backend (FastAPI / ML)
+### 4. Setup the Backend (FastAPI)
 Open a new terminal session and navigate to the backend directory:
 ```bash
 cd backend
