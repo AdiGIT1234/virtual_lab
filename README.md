@@ -5,10 +5,10 @@
     <strong>A high-fidelity, 3D interactive electronics sandbox and IDE for microcontrollers.</strong>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=flat-square&logo=react&logoColor=black" />
-    <img src="https://img.shields.io/badge/3D%20Engine-Three.js%20(R3F)-000000?style=flat-square&logo=three.js&logoColor=white" />
-    <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
-    <img src="https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=black" />
+    <a href="https://react.dev/"><img src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React" /></a>
+    <a href="https://threejs.org/"><img src="https://img.shields.io/badge/3D%20Engine-Three.js%20(R3F)-000000?style=flat-square&logo=three.js&logoColor=white" alt="Three.js" /></a>
+    <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" /></a>
+    <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=black" alt="Supabase" /></a>
   </p>
 </div>
 
