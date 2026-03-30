@@ -190,6 +190,11 @@ code, pre {
   }
 }
 
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 /* Utility classes */
 .glass {
   background: rgba(17, 24, 39, 0.6);

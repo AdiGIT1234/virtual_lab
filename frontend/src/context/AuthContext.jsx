@@ -226,6 +226,7 @@ export function AuthProvider({ children }) {
       profile,
       loading,
       isAuthenticated: !!user,
+      isAdmin: user?.email === "aditya26047@gmail.com",
       // Auth actions
       signup,
       login,

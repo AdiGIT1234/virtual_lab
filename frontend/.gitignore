@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Datasheets (Downloaded dynamically)
+public/datasheets/
+*.pdf
