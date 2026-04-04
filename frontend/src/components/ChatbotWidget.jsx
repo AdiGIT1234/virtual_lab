@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import { MessageSquare, X, Send, Bot, User, Minimize2, Maximize2 } from "lucide-react";
 import "./ChatbotWidget.css";
 
-const BACKEND_URL = "http://localhost:8000"; // Assuming backend is on port 8000
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function ChatbotWidget({ context = "sandbox" }) {
   const [isOpen, setIsOpen] = useState(false);
