@@ -121,12 +121,13 @@ export function AuthProvider({ children }) {
 
   /* ── Password Reset Flow ── */
   const resetPassword = useCallback(async (email) => {
-    const hostedUrl = import.meta.env.VITE_APP_URL || "https://virtual-lab-zeta-six.vercel.app";
-    const redirectTo = typeof window !== "undefined" && window.location.hostname === "localhost"
-      ? `${window.location.origin}/`
-      : `${hostedUrl.replace(/\/$/, "")}/`;
-    const options = redirectTo ? { redirectTo } : {};
-    const { error } = await supabase.auth.resetPasswordForEmail(email, options);
+    const baseFromEnv = (import.meta.env.VITE_APP_URL || "").trim();
+    const hasWindow = typeof window !== "undefined";
+    const fallbackBase = hasWindow ? window.location.origin : "https://virtual-lab-zeta-six.vercel.app";
+    const isLocalhost = hasWindow && window.location.hostname === "localhost";
+    const normalizedBase = (isLocalhost ? fallbackBase : baseFromEnv || fallbackBase).replace(/\/$/, "");
+    const redirectTo = `${normalizedBase}/`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   }, []);
 

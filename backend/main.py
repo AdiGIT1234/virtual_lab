@@ -65,6 +65,8 @@ class ChatInput(BaseModel):
     context: Optional[str] = None  # e.g. 'sandbox' or 'experiment'
 
 
+
+
 # -------------------------
 # Routes
 # -------------------------
@@ -227,6 +229,8 @@ def chat(payload: ChatInput):
             "sources": [],
             "has_context": False
         }
+
+
 
 
 @app.get("/api/admin/users")
