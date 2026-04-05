@@ -187,7 +187,14 @@ function ComponentCard({ item }) {
         onMouseLeave={handleMouseLeave}
       >
         <div style={cardStyles.cardMedia}>
-          {item.imageTag ? (
+          {item.docSlug || item.imageUrl ? (
+            <HardwarePreview
+              docSlug={item.docSlug}
+              imageUrl={item.imageUrl}
+              size="medium"
+              style={cardStyles.previewFrame}
+            />
+          ) : item.imageTag ? (
             <HardwarePreview
               tag={item.imageTag}
               size="medium"

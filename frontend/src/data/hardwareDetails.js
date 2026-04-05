@@ -1,3 +1,19 @@
+const encodedSvg = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+const ledIcon = (color) =>
+  encodedSvg(`<?xml version="1.0" encoding="UTF-8"?>
+  <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="120" rx="18" fill="rgba(10,12,16,0.92)" />
+    <circle cx="60" cy="50" r="28" fill="${color}" stroke="#ffffff22" stroke-width="3" />
+    <rect x="50" y="78" width="8" height="32" fill="#e2e8f0" opacity="0.8" />
+    <rect x="62" y="78" width="8" height="32" fill="#94a3b8" opacity="0.6" />
+  </svg>`);
+
+const LED_ICONS = {
+  red: ledIcon("#ff5562"),
+  green: ledIcon("#34d399"),
+  yellow: ledIcon("#facc15"),
+};
+
 export const HARDWARE_DETAILS = {
   chips: [
     {
@@ -722,6 +738,7 @@ export const HARDWARE_DETAILS = {
       pins: "R, G, B, COM.",
       usage: "Drive each color with PWM and add current-limiting resistors.",
       imageTag: "wokwi-rgb-led",
+      docSlug: "wokwi-rgb-led",
       datasheet: {
         manufacturer: "Various (Kingbright, Chanzon, generic)",
         partNumber: "5mm Diffused RGB LED (Common Anode / Common Cathode)",
@@ -846,6 +863,7 @@ export const HARDWARE_DETAILS = {
       pins: "Anode (+), Cathode (−).",
       usage: "Place a series resistor (typically 220 Ω @ 5V) and drive via GPIO or transistor.",
       imageTag: "wokwi-led",
+      imageUrl: LED_ICONS.red,
       datasheet: {
         manufacturer: "Kingbright",
         partNumber: "WP7113ID",
@@ -866,6 +884,7 @@ export const HARDWARE_DETAILS = {
       pins: "Anode (+), Cathode (−).",
       usage: "Use 330 Ω series resistor for 5V logic to stay within 15 mA.",
       imageTag: "wokwi-led",
+      imageUrl: LED_ICONS.green,
       datasheet: {
         manufacturer: "Kingbright",
         partNumber: "WP7113SGC",
@@ -885,6 +904,7 @@ export const HARDWARE_DETAILS = {
       pins: "Anode (+), Cathode (−).",
       usage: "Shares resistor calculations with red diodes; pair with PWM for dimming.",
       imageTag: "wokwi-led",
+      imageUrl: LED_ICONS.yellow,
       datasheet: {
         manufacturer: "Kingbright",
         partNumber: "WP7113YD",
@@ -1345,3 +1365,11 @@ export const HARDWARE_DETAILS = {
     },
   ],
 };
+
+Object.values(HARDWARE_DETAILS).forEach((group) => {
+  group.forEach((item) => {
+    if (!item.docSlug && item.imageTag && item.imageTag.startsWith("wokwi-")) {
+      item.docSlug = item.imageTag;
+    }
+  });
+});

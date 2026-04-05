@@ -31,23 +31,24 @@ export default function HardwarePreview({ tag, docSlug, imageUrl, size = "medium
 
   return (
     <div style={previewStyle}>
-      {tag
-        ? createElement(tag, {
-            style: {
-              width: "100%",
-              height: "100%",
-              transform: `scale(${scale})`,
-              transformOrigin: "center",
-            },
-          })
-        : resolvedImage && (
-            <img
-              src={resolvedImage}
-              alt="Component preview"
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-              loading="lazy"
-            />
-          )}
+      {resolvedImage ? (
+        <img
+          src={resolvedImage}
+          alt="Component preview"
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          loading="lazy"
+        />
+      ) : (
+        tag &&
+        createElement(tag, {
+          style: {
+            width: "100%",
+            height: "100%",
+            transform: `scale(${scale})`,
+            transformOrigin: "center",
+          },
+        })
+      )}
     </div>
   );
 }
