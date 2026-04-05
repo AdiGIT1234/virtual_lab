@@ -9,7 +9,11 @@ const SECTION_ORDER = [
   { key: "sensors", title: "Sensors", icon: "◈" },
   { key: "inputs", title: "Input Devices", icon: "◉" },
   { key: "outputs", title: "Outputs & Actuators", icon: "⬡" },
-  { key: "modules", title: "Modules & Tools", icon: "⧉" },
+  { key: "analog", title: "Analog Controls", icon: "⚙" },
+  { key: "passives", title: "Passive & Support Components", icon: "◇" },
+  { key: "modules", title: "Modules & Interfaces", icon: "⧉" },
+  { key: "tools", title: "Lab Tools & Diagnostics", icon: "⌁" },
+  { key: "power", title: "Power & Wiring", icon: "⊕" },
 ];
 
 /* ─── Spec-label formatting helper ─── */

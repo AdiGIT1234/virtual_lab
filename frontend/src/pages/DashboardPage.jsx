@@ -158,6 +158,7 @@ export default function DashboardPage() {
     user,
     profile,
     isAuthenticated,
+    isAdmin,
     loading: authLoading,
     logout,
     getSavedExperiments,
@@ -277,6 +278,16 @@ export default function DashboardPage() {
           >
             Open Sandbox →
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => navigate("/admin")}
+              className="hidden sm:block px-5 py-2 text-xs font-bold tracking-wider uppercase cursor-pointer border border-white/20 text-[#E2E8F0] hover:text-[#00F2FF] hover:border-[#00F2FF] transition"
+              style={{ clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))" }}
+            >
+              Admin Controls
+            </button>
+          )}
 
           <div className="flex items-center gap-2.5 px-3 py-1.5 border border-white/8 bg-white/3">
             <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#00F2FF] to-[#7000FF] flex items-center justify-center text-[#050505] text-xs font-black">

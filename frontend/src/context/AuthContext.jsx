@@ -143,6 +143,7 @@ export function AuthProvider({ children }) {
     setNeedsPasswordReset(false);
   }, []);
 
+
   /* ── Update profile ── */
   const updateProfile = useCallback(
     async (updates) => {

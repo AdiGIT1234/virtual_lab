@@ -5,6 +5,7 @@ import SandboxPage from "./pages/SandboxPage";
 import ARLabPage from "./pages/ARLabPage";
 import ReferencePage from "./pages/ReferencePage";
 import DashboardPage from "./pages/DashboardPage";
+import AdminControls from "./pages/AdminControls";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 
@@ -16,6 +17,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/admin" element={<AdminControls />} />
             <Route path="/experiment/:experimentId" element={<ExperimentPage />} />
             <Route path="/sandbox" element={<SandboxPage />} />
             <Route path="/arlab" element={<ARLabPage />} />

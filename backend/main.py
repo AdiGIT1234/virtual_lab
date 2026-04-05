@@ -5,13 +5,19 @@ from experiments.led_basic import LED_BASIC_EXPERIMENT  # type: ignore
 from engine.experiment_runner import ExperimentRunner  # type: ignore
 from engine.validator import Validator  # type: ignore
 from engine.clock import VirtualClock  # type: ignore
-from fastapi import FastAPI, HTTPException  # type: ignore
+from fastapi import FastAPI, HTTPException, Header  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from pydantic import BaseModel  # type: ignore
 from typing import Dict, Optional
 import json
 import os
 import glob
+
+from services.admin_portal import (
+    ensure_admin_email,
+    fetch_all_profiles,
+    fetch_user_from_token,
+)
 
 from engine.gpio import GPIO  # type: ignore
 from engine.parser import parse_code  # type: ignore
@@ -31,11 +37,17 @@ def get_rag_engine():
 # -------------------------
 # App initialization
 # -------------------------
+allowed_origins_env = os.getenv("FRONTEND_ORIGINS", "*")
+if allowed_origins_env.strip() == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -216,3 +228,13 @@ def chat(payload: ChatInput):
             "has_context": False
         }
 
+
+@app.get("/api/admin/users")
+async def list_admin_users(authorization: Optional[str] = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    profiles = await fetch_all_profiles()
+    return {"users": profiles}
