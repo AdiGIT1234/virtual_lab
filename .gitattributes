@@ -1,1 +1,2 @@
-*.mp4 filter=lfs diff=lfs merge=lfs -text
+Video Explanation.mp4 filter=lfs diff=lfs merge=lfs -text
+frontend/src/assets/WhatsApp Video 2026-03-05 at 00.15.12.mp4 filter=lfs diff=lfs merge=lfs -text
