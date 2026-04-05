@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/useTheme";
 import { useAuth } from "../context/useAuth";
+import { supabase } from "../lib/supabase";
 import heroVideo from "../assets/hero-video.mp4";
 import {
   motion,
@@ -261,13 +262,34 @@ function AuthDock() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
+    if (!hash || !hash.includes("type=recovery")) return;
+
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+
+    const handleRecovery = () => {
       setMode("forgot_reset");
       setError("");
       setSuccess("Secure recovery link confirmed. Set a new password to finish logging in.");
       recoveryNoticeRef.current = true;
       const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       window.history.replaceState({}, document.title, cleanUrl);
+    };
+
+    if (accessToken && refreshToken) {
+      supabase.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          if (error) {
+            console.error("Failed to establish recovery session", error);
+            setError("Recovery link expired. Please request a new email.");
+            return;
+          }
+          handleRecovery();
+        });
+    } else {
+      handleRecovery();
     }
   }, []);
 
