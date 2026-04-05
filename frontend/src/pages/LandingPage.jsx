@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/useTheme";
 import { useAuth } from "../context/useAuth";
+import heroVideo from "../assets/hero-video.mp4";
 import {
   motion,
   useScroll,
@@ -864,7 +865,7 @@ export default function LandingPage() {
           {/* Video background */}
           <video
             ref={videoRef}
-            src="/hero-video.mp4"
+            src={heroVideo}
             muted
             playsInline
             preload="auto"
