@@ -244,17 +244,44 @@ function FeatureCard({ feature, index }) {
 /* ── Auth Dock ── */
 function AuthDock() {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "", confirmPassword: "", otp: "" });
+  const [form, setForm] = useState({ name: "", institute: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
-  const { login, signup, resetPassword, verifyResetOtp, updatePassword } = useAuth();
+  const { login, signup, resetPassword, updatePassword, needsPasswordReset, clearPasswordRecovery } = useAuth();
+  const recoveryNoticeRef = useRef(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (hash && hash.includes("type=recovery")) {
+      setMode("forgot_reset");
+      setError("");
+      setSuccess("Secure recovery link confirmed. Set a new password to finish logging in.");
+      recoveryNoticeRef.current = true;
+      const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!needsPasswordReset) {
+      recoveryNoticeRef.current = false;
+      return;
+    }
+    setMode("forgot_reset");
+    setError("");
+    if (!recoveryNoticeRef.current) {
+      setSuccess("Secure recovery link confirmed. Set a new password to finish logging in.");
+      recoveryNoticeRef.current = true;
+    }
+  }, [needsPasswordReset]);
 
   // Password requirement checks
   const pw = form.password;
@@ -293,11 +320,6 @@ function AuthDock() {
           setError("Please enter your email");
           return;
         }
-      } else if (mode === "forgot_code") {
-        if (!form.otp || form.otp.length !== 6) {
-          setError("Please enter the 6-digit code");
-          return;
-        }
       } else if (mode === "forgot_reset") {
         if (!form.password || !passwordsMatch) {
           setError("Passwords must be valid and match");
@@ -321,15 +343,11 @@ function AuthDock() {
         await login({ email: form.email, password: form.password });
       } else if (mode === "forgot_email") {
         await resetPassword(form.email);
-        setSuccess("We just sent a 6-digit code to your email.");
-        setMode("forgot_code");
-      } else if (mode === "forgot_code") {
-        await verifyResetOtp({ email: form.email, token: form.otp });
-        setSuccess("Code verified! You can now change your password (optional).");
-        setMode("forgot_reset");
+        setSuccess("Secure one-tap link sent! Tap the button in your inbox to continue.");
       } else if (mode === "forgot_reset") {
         await updatePassword(form.password);
         setSuccess("Password updated successfully!");
+        clearPasswordRecovery();
         setTimeout(() => setMode("login"), 2000);
       }
     } catch (err) {
@@ -424,26 +442,15 @@ function AuthDock() {
         )}
 
         {/* Email Field for Login/Signup/Forgot1/Forgot2 */}
-        {(mode === "login" || mode === "signup" || mode === "forgot_email" || mode === "forgot_code") && (
+        {(mode === "login" || mode === "signup" || mode === "forgot_email") && (
           <div>
             <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Email *</label>
-            <input type="email" name="email" value={form.email} onChange={handleChange} disabled={mode === "forgot_code"} className={`${inputClass} disabled:opacity-50`} placeholder="aditya@lab.ai" />
+            <input type="email" name="email" value={form.email} onChange={handleChange} className={inputClass} placeholder="aditya@lab.ai" />
             {mode === "forgot_email" && (
               <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
-                We&apos;ll email a 6-digit access code you can use to log in or reset your password.
+                We&apos;ll email a one-tap login link — no codes to type, just tap the button in your inbox.
               </p>
             )}
-          </div>
-        )}
-
-        {/* OTP Field for Forgot Code */}
-        {mode === "forgot_code" && (
-          <div>
-            <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">6-Digit Code *</label>
-            <input type="text" maxLength={6} name="otp" value={form.otp} onChange={handleChange} className={inputClass} placeholder="123456" />
-            <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
-              Enter the code from your inbox to unlock your session instantly.
-            </p>
           </div>
         )}
 
@@ -509,8 +516,7 @@ function AuthDock() {
           {loading ? "Processing…" : 
            mode === "login" ? "Login" : 
            mode === "signup" ? "Create Account" : 
-           mode === "forgot_email" ? "Send Code" :
-           mode === "forgot_code" ? "Verify Code" : "Update Password"}
+           mode === "forgot_email" ? "Send Magic Link" : "Update Password"}
         </button>
 
         {mode === "forgot_reset" && (
@@ -519,6 +525,7 @@ function AuthDock() {
             className="w-full py-2.5 mt-2 text-xs font-bold tracking-[0.25em] uppercase border border-[#00F2FF] text-[#00F2FF] cursor-pointer"
             onClick={() => {
               setSuccess("Skipped! You are logged in.");
+              clearPasswordRecovery();
               setTimeout(() => setMode("login"), 1000); 
               window.location.reload(); 
             }}

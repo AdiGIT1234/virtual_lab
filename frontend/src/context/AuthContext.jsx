@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
 
   /* ── Fetch user profile from profiles table ── */
   const fetchProfile = useCallback(async (userId) => {
@@ -40,13 +41,19 @@ export function AuthProvider({ children }) {
     // Subscribe to auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
         fetchProfile(currentUser.id);
       } else {
         setProfile(null);
+      }
+      if (event === "PASSWORD_RECOVERY") {
+        setNeedsPasswordReset(true);
+      }
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        setNeedsPasswordReset(false);
       }
       setLoading(false);
     });
@@ -109,28 +116,18 @@ export function AuthProvider({ children }) {
     if (error) throw error;
     setUser(null);
     setProfile(null);
+    setNeedsPasswordReset(false);
   }, []);
 
   /* ── Password Reset Flow ── */
   const resetPassword = useCallback(async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: false,
-        data: { intent: "password-recovery" },
-      },
-    });
+    const hostedUrl = import.meta.env.VITE_APP_URL || "https://virtual-lab-zeta-six.vercel.app";
+    const redirectTo = typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? `${window.location.origin}/`
+      : `${hostedUrl.replace(/\/$/, "")}/`;
+    const options = redirectTo ? { redirectTo } : {};
+    const { error } = await supabase.auth.resetPasswordForEmail(email, options);
     if (error) throw error;
-  }, []);
-
-  const verifyResetOtp = useCallback(async ({ email, token }) => {
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "recovery",
-    });
-    if (error) throw error;
-    return data;
   }, []);
 
   const updatePassword = useCallback(async (newPassword) => {
@@ -138,7 +135,12 @@ export function AuthProvider({ children }) {
       password: newPassword
     });
     if (error) throw error;
+    setNeedsPasswordReset(false);
     return data;
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => {
+    setNeedsPasswordReset(false);
   }, []);
 
   /* ── Update profile ── */
@@ -233,8 +235,9 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       logout,
       resetPassword,
-      verifyResetOtp,
       updatePassword,
+      needsPasswordReset,
+      clearPasswordRecovery,
       // Profile actions
       updateProfile,
       fetchProfile: user ? () => fetchProfile(user.id) : () => {},
@@ -252,8 +255,9 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       logout,
       resetPassword,
-      verifyResetOtp,
       updatePassword,
+      needsPasswordReset,
+      clearPasswordRecovery,
       updateProfile,
       fetchProfile,
       saveExperiment,
