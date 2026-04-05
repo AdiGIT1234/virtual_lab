@@ -808,7 +808,7 @@ function TerminalFooter() {
 export default function LandingPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, needsPasswordReset } = useAuth();
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const statsRef = useRef(null);
@@ -989,7 +989,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="w-full max-w-sm">
-                  {!isAuthenticated ? (
+                  {!isAuthenticated || needsPasswordReset ? (
                     <AuthDock />
                   ) : (
                     <div className="border border-(--lp-border) bg-(--lp-auth-bg) backdrop-blur-xl p-8 text-center" style={{ clipPath: "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px))" }}>
