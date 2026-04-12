@@ -9,6 +9,7 @@ const DraggableWrapper = ({
   onStartWire,
   onDelete,
   terminals,
+  renderExternalTerminals = true,
   configPanel,
   children,
   workspaceRef,
@@ -216,12 +217,12 @@ const DraggableWrapper = ({
       </div>
 
       {/* Actual Component Graphics */}
-      <div style={{ pointerEvents: 'none' }}>
+      <div>
         {children}
       </div>
 
       {/* Wire Terminal Nodes */}
-      <div style={{
+      {renderExternalTerminals && <div style={{
           position: 'absolute',
           bottom: -15, // Below the component
           left: '50%',
@@ -265,8 +266,8 @@ const DraggableWrapper = ({
             />
             <span style={styles.terminalLabel}>{term.label || term.id}</span>
           </div>
-        ))}
-      </div>
+          ))}
+      </div>}
     </div>
   );
 };

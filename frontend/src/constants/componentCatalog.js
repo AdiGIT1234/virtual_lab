@@ -1,4 +1,4 @@
-const thumbFromSlug = (slug) => (slug ? `https://thumbs.wokwi.com/docs/parts/${slug}.html/thumbnail.png` : null);
+import { resolveHardwareDetail } from "../data/hardwareDetails";
 
 const REFERENCE_PART_METADATA = {
   LCD1602: { wokwiTag: "wokwi-lcd1602", docSlug: "wokwi-lcd1602" },
@@ -36,14 +36,14 @@ const REFERENCE_PART_METADATA = {
   STEPPER_MOTOR: { wokwiTag: "wokwi-stepper-motor", docSlug: "wokwi-stepper-motor" },
   BUZZER: { wokwiTag: "wokwi-buzzer", docSlug: "wokwi-buzzer" },
   DIAL: { wokwiTag: "wokwi-potentiometer", docSlug: "wokwi-potentiometer" },
-  SLIDE_POT: { wokwiTag: "wokwi-slide-potentiometer", docSlug: "wokwi-slide-potentiometer" },
+  SLIDE_POT: { wokwiTag: "vlab-slide-potentiometer", docSlug: "wokwi-slide-potentiometer" },
   SLIDE_SWITCH: { wokwiTag: "wokwi-slide-switch", docSlug: "wokwi-slide-switch" },
   IR_RECEIVER: { wokwiTag: "wokwi-ir-receiver", docSlug: "wokwi-ir-receiver" },
   IR_REMOTE: { wokwiTag: "wokwi-ir-remote", docSlug: "wokwi-ir-remote" },
   DS1307_RTC: { wokwiTag: "wokwi-ds1307", docSlug: "wokwi-ds1307" },
   MICROSD_MODULE: { wokwiTag: "wokwi-microsd-card", docSlug: "wokwi-microsd-card" },
   RESISTOR: { wokwiTag: "wokwi-resistor", docSlug: "wokwi-resistor" },
-  SHIFT_REGISTER: { docSlug: "wokwi-74hc595" },
+  SHIFT_REGISTER: { wokwiTag: "vlab-74hc595", docSlug: "wokwi-74hc595" },
   LOGIC_ANALYZER_TOOL: { docSlug: "wokwi-logic-analyzer" },
   RELAY_MODULE: { wokwiTag: "wokwi-relay-module", docSlug: "wokwi-relay-module" },
   KEYPAD_MATRIX: { wokwiTag: "wokwi-membrane-keypad", docSlug: "wokwi-membrane-keypad" },
@@ -424,9 +424,9 @@ export const COMPONENT_CATEGORIES = [
         id: "slide_pot",
         label: "Slide Potentiometer",
         workspaceType: "SLIDE_POT",
-        status: "visual",
+        status: "simulated",
         icon: "SLIDE",
-        description: "Linear slider pot placeholder.",
+        description: "Linear slider potentiometer with draggable wiper.",
         terminals: ["VCC", "WIPER", "GND"],
       },
       {
@@ -609,6 +609,9 @@ export const COMPONENT_CATEGORIES = [
         icon: "SHIFT",
         description: "8-bit serial-in parallel-out placeholder.",
         terminals: ["VCC", "GND", "SER", "SRCLK", "RCLK", "OE", "MR", "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7"],
+        datasheet: {
+          datasheetUrl: "https://www.ti.com/lit/ds/symlink/sn74hc595.pdf",
+        },
       },
       {
         id: "logic_analyzer",
@@ -722,12 +725,18 @@ COMPONENT_CATEGORIES.forEach((category) => {
   category.components = category.components.map((component) => {
     const idKey = typeof component.id === "string" ? component.id.toUpperCase() : undefined;
     const lookup = REFERENCE_PART_METADATA[component.workspaceType] || (idKey ? REFERENCE_PART_METADATA[idKey] : undefined);
+    const hardwareDetail = resolveHardwareDetail(component.workspaceType, component.id, component.wokwiTag, lookup?.wokwiTag, component.docSlug, lookup?.docSlug);
+    const wokwiTag = component.wokwiTag || lookup?.wokwiTag || hardwareDetail?.imageTag || null;
     const docSlug = component.docSlug || lookup?.docSlug || null;
+
     return {
       ...component,
-      wokwiTag: component.wokwiTag || lookup?.wokwiTag || null,
+      wokwiTag,
       docSlug,
-      imageUrl: component.imageUrl || thumbFromSlug(docSlug),
+      imageUrl: component.imageUrl || hardwareDetail?.imageUrl || null,
+      hardwareId: hardwareDetail?.id || null,
+      summary: component.summary || hardwareDetail?.summary || null,
+      datasheet: component.datasheet || hardwareDetail?.datasheet || null,
     };
   });
 });

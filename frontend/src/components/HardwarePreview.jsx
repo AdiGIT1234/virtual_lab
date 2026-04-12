@@ -1,6 +1,5 @@
-import { createElement, useMemo } from "react";
-
-const buildThumbUrl = (docSlug) => (docSlug ? `https://thumbs.wokwi.com/docs/parts/${docSlug}.html/thumbnail.png` : null);
+import { useMemo } from "react";
+import { NativeComponents } from "./NativePreviews";
 
 const SIZE_MAP = {
   small: { width: 120, height: 95 },
@@ -8,8 +7,9 @@ const SIZE_MAP = {
   large: { width: 360, height: 260 },
 };
 
-export default function HardwarePreview({ tag, docSlug, imageUrl, size = "medium", style }) {
-  const resolvedImage = imageUrl || buildThumbUrl(docSlug);
+export default function HardwarePreview({ tag, imageUrl, size = "medium", style }) {
+  // If we have an exact imageUrl, we can still use it (though we plan to not use it much).
+  const resolvedImage = imageUrl;
   const scale = size === "small" ? 0.8 : size === "large" ? 1.2 : 1;
   const dims = SIZE_MAP[size] || SIZE_MAP.medium;
 
@@ -29,6 +29,9 @@ export default function HardwarePreview({ tag, docSlug, imageUrl, size = "medium
 
   if (!tag && !resolvedImage) return null;
 
+  // Determine if we have a native component mapped for this tag
+  const NativeSvgCmp = tag ? (NativeComponents[tag] || NativeComponents["generic"]) : null;
+
   return (
     <div style={previewStyle}>
       {resolvedImage ? (
@@ -39,15 +42,16 @@ export default function HardwarePreview({ tag, docSlug, imageUrl, size = "medium
           loading="lazy"
         />
       ) : (
-        tag &&
-        createElement(tag, {
-          style: {
-            width: "100%",
-            height: "100%",
-            transform: `scale(${scale})`,
-            transformOrigin: "center",
-          },
-        })
+        NativeSvgCmp && (
+          <NativeSvgCmp
+            style={{
+              width: "100%",
+              height: "100%",
+              transform: `scale(${scale})`,
+              transformOrigin: "center",
+            }}
+          />
+        )
       )}
     </div>
   );

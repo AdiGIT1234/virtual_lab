@@ -9,6 +9,7 @@ import ExternalLED from "../components/ExternalLED";
 import Resistor from "../components/Resistor";
 import PushButton from "../components/PushButton";
 import Dial from "../components/Dial";
+import SlidePotentiometer from "../components/SlidePotentiometer";
 import Multimeter from "../components/Multimeter";
 import RGB_LED from "../components/RGB_LED";
 import Servo from "../components/Servo";
@@ -290,15 +291,18 @@ void loop() {
       y: 150 + Math.random() * 100,
       scale: 1,
       ...(type === "RESISTOR" ? { resistance: 330 } : {}),
-      metadata: catalogMeta
+      ...(type === "SLIDE_POT" ? { value: 512 } : {}),
+          metadata: catalogMeta
         ? {
             label: catalogMeta.label,
             status: catalogMeta.status,
             category: catalogMeta.category,
             description: catalogMeta.description,
+            summary: catalogMeta.summary,
             wokwiTag: catalogMeta.wokwiTag,
             docSlug: catalogMeta.docSlug,
             imageUrl: catalogMeta.imageUrl,
+            datasheet: catalogMeta.datasheet,
           }
         : undefined,
     };
@@ -857,11 +861,11 @@ void loop() {
         </div>
         <div style={styles.workspaceActions}>
           <ProtectedFeature compact action="save your workspace">
-            <button onClick={handleSaveWorkspace}>💾 Save</button>
+            <button style={styles.actionBtn} onClick={handleSaveWorkspace}>💾 Save</button>
           </ProtectedFeature>
-          <button onClick={handleLoadWorkspace}>↺ Load</button>
+          <button style={styles.actionBtn} onClick={handleLoadWorkspace}>↺ Load</button>
           <ProtectedFeature compact action="export workspaces">
-            <button onClick={handleExportWorkspace}>⤴ Export</button>
+            <button style={styles.actionBtn} onClick={handleExportWorkspace}>⤴ Export</button>
           </ProtectedFeature>
           <select 
             style={{...styles.componentSelect, marginLeft: "10px", width: "140px"}}
@@ -1116,6 +1120,20 @@ void loop() {
                 renderedContent = (
                   <Dial value={inputs[resolvedMain.pin] || 0} onChange={(val) => setAnalogInput(resolvedMain.pin, val)} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
                 );
+              } else if (item.type === "SLIDE_POT") {
+                const wiperConnection = resolveConnection(item.id, "WIPER");
+                renderedContent = (
+                  <SlidePotentiometer
+                    value={item.value ?? 512}
+                    onChange={(val) => {
+                      updateComponentSettings(item.id, { value: val });
+                      if (wiperConnection.pin != null) {
+                        setAnalogInput(wiperConnection.pin, val);
+                      }
+                    }}
+                    label={wiperConnection.pin != null ? `Pin ${wiperConnection.pin}` : "Unwired"}
+                  />
+                );
               } else if (item.type === "MULTIMETER") {
                 renderedContent = (
                   <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin} Rdg` : "Unwired"} />
@@ -1150,16 +1168,20 @@ void loop() {
                 renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
               }
 
+              let usesEmbeddedTerminals = false;
               if (!renderedContent) {
+                usesEmbeddedTerminals = true;
                 renderedContent = (
                   <ComponentPlaceholder
                     id={item.id}
                     label={componentMeta?.label || item.metadata?.label || item.type}
                     status={componentMeta?.status || item.metadata?.status || "visual"}
                     category={componentMeta?.category || item.metadata?.category}
+                    summary={componentMeta?.summary || item.metadata?.summary}
                     wokwiTag={componentMeta?.wokwiTag || item.metadata?.wokwiTag}
                     docSlug={componentMeta?.docSlug || item.metadata?.docSlug}
                     imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl}
+                    datasheet={componentMeta?.datasheet || item.metadata?.datasheet}
                     terminals={terminals}
                     pins={item.pins || {}}
                     onTerminalDragStart={startWire}
@@ -1176,6 +1198,7 @@ void loop() {
                   initialY={item.y}
                   scale={item.scale || 1}
                   terminals={terminals}
+                  renderExternalTerminals={!usesEmbeddedTerminals}
                   onStartWire={startWire}
                   onDelete={deleteComponent}
                   configPanel={configPanel}
@@ -1406,6 +1429,20 @@ function getStyles(theme, isCompact) {
     workspaceActions: {
       display: "flex",
       gap: 8,
+    },
+    actionBtn: {
+      background: "rgba(0, 242, 255, 0.08)",
+      color: "#00F2FF",
+      border: "1px solid rgba(0, 242, 255, 0.2)",
+      borderRadius: 8,
+      padding: "6px 14px",
+      fontWeight: 600,
+      cursor: "pointer",
+      fontFamily: "monospace",
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      transition: "all 0.2s ease"
     },
     zoomControls: {
       display: "flex",

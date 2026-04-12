@@ -181,6 +181,7 @@ export function AuthProvider({ children }) {
             title,
             code,
             result_json: resultJson || null,
+            updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id,experiment_id" }
         )

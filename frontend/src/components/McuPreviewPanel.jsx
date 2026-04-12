@@ -4,12 +4,11 @@ export default function McuPreviewPanel({ mcu }) {
   if (!mcu) return null;
 
   const specs = mcu.features || [];
-  const docUrl = mcu.docSlug ? `https://docs.wokwi.com/parts/${mcu.docSlug}` : null;
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.previewShell}>
-        <HardwarePreview tag={mcu.wokwiTag} docSlug={mcu.docSlug} size="large" style={{ width: "100%" }} />
+        <HardwarePreview tag={mcu.wokwiTag} size="large" style={{ width: "100%" }} />
       </div>
       <div style={styles.specBlock} data-chip-node="interactive">
         <div style={styles.specHeader}>{mcu.name}</div>
@@ -19,11 +18,6 @@ export default function McuPreviewPanel({ mcu }) {
             <li key={line}>{line}</li>
           ))}
         </ul>
-        {docUrl && (
-          <a href={docUrl} target="_blank" rel="noreferrer" style={styles.docLink}>
-            View reference ↗
-          </a>
-        )}
       </div>
     </div>
   );
@@ -70,12 +64,5 @@ const styles = {
     fontSize: 12,
     display: "grid",
     gap: 2,
-  },
-  docLink: {
-    display: "inline-flex",
-    marginTop: 10,
-    fontSize: 12,
-    color: "var(--accent, #00d8b4)",
-    textDecoration: "none",
   },
 };

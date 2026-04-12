@@ -3,7 +3,7 @@ import HardwarePreview from "./HardwarePreview";
 
 const STATUS_LABELS = {
   simulated: "Simulated",
-  visual: "Visual placeholder",
+  visual: "Ready to wire",
   tool: "Lab tool",
 };
 
@@ -43,7 +43,7 @@ export default function ComponentCatalogPanel({ categories = [], onAdd, onClose 
         <div style={styles.header}>
           <div>
             <div style={styles.title}>Component Library</div>
-            <div style={styles.subtitle}>Browse every supported module, including visual placeholders.</div>
+            <div style={styles.subtitle}>Browse every supported module with richer shells, pinouts, and datasheet access.</div>
           </div>
           <button style={styles.closeBtn} onClick={onClose}>Close</button>
         </div>
@@ -77,7 +77,13 @@ export default function ComponentCatalogPanel({ categories = [], onAdd, onClose 
                   {category.components.map((component) => {
                     const statusStyle = STATUS_STYLES[component.status] || STATUS_STYLES.visual;
                     const disableAdd = component.status === "tool" || !component.workspaceType;
-                    const buttonLabel = component.status === "simulated" ? "Add to workspace" : component.status === "visual" ? "Add placeholder" : "Already available";
+                    const buttonLabel = component.status === "tool" ? "Already available" : "Add to workspace";
+                    const datasheetHref = component.datasheet?.datasheetUrl || component.datasheet?.referenceUrl || null;
+                    const datasheetLabel = component.datasheet?.datasheetUrl
+                      ? component.datasheet?.linkLabel || "Datasheet PDF"
+                      : datasheetHref
+                      ? component.datasheet?.linkLabel || "Reference URL"
+                      : null;
                     return (
                       <div key={component.id} style={styles.card}>
                         <HardwarePreview tag={component.wokwiTag} docSlug={component.docSlug} imageUrl={component.imageUrl} size="small" style={styles.cardPreview} />
@@ -88,14 +94,21 @@ export default function ComponentCatalogPanel({ categories = [], onAdd, onClose 
                           </span>
                         </div>
                         <div style={styles.cardLabel}>{component.label}</div>
-                        {component.description && <p style={styles.cardDesc}>{component.description}</p>}
-                        <button
-                          style={disableAdd ? styles.cardButtonDisabled : styles.cardButton}
-                          disabled={disableAdd}
-                          onClick={() => handleAdd(component)}
-                        >
-                          {buttonLabel}
-                        </button>
+                        {(component.summary || component.description) && <p style={styles.cardDesc}>{component.summary || component.description}</p>}
+                        <div style={styles.cardActions}>
+                          <button
+                            style={disableAdd ? styles.cardButtonDisabled : styles.cardButton}
+                            disabled={disableAdd}
+                            onClick={() => handleAdd(component)}
+                          >
+                            {buttonLabel}
+                          </button>
+                          {datasheetHref ? (
+                            <a href={datasheetHref} target="_blank" rel="noopener noreferrer" style={styles.cardLink}>
+                              {datasheetLabel}
+                            </a>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   })}
@@ -256,8 +269,13 @@ const styles = {
     margin: 0,
     flex: 1,
   },
-  cardButton: {
+  cardActions: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
     marginTop: "auto",
+  },
+  cardButton: {
     borderRadius: 10,
     border: "none",
     padding: "8px 12px",
@@ -267,13 +285,19 @@ const styles = {
     cursor: "pointer",
   },
   cardButtonDisabled: {
-    marginTop: "auto",
     borderRadius: 10,
     border: "1px solid var(--border, #333)",
     padding: "8px 12px",
     background: "rgba(255,255,255,0.04)",
     color: "var(--text-muted, #777)",
     cursor: "not-allowed",
+  },
+  cardLink: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#67e8f9",
+    textDecoration: "none",
+    letterSpacing: "0.03em",
   },
   emptyState: {
     textAlign: "center",

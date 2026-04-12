@@ -1,19 +1,17 @@
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import HardwarePreview from "./HardwarePreview";
 
-/**
- * Functional Component — replaces visual-only placeholders.
- * Every terminal/pin is visible, named, and accessible for wiring.
- */
+const resolvePinStyle = ({ palette, isConnected, isHovered }) => ({
+  ...styles.pinLead,
+  background: isConnected ? palette.pinColor : isHovered ? "#dbe4ef" : "#a8b4c7",
+  boxShadow: isConnected ? `0 0 10px ${palette.pinColor}55` : isHovered ? "0 0 6px rgba(255,255,255,0.25)" : "none",
+  borderColor: isConnected ? `${palette.pinColor}aa` : "rgba(255,255,255,0.16)",
+});
+
 export default function ComponentPlaceholder({
   id,
-  label,
   status = "visual",
-  // eslint-disable-next-line no-unused-vars
-  description,
-  category,
   wokwiTag,
-  docSlug,
   imageUrl,
   terminals = [],
   pins = {},
@@ -24,49 +22,47 @@ export default function ComponentPlaceholder({
   const [hoveredPin, setHoveredPin] = useState(null);
   const containerRef = useRef(null);
 
-  const statusText =
-    status === "simulated"
-      ? "Active"
-      : status === "tool"
-      ? "Built-in"
-      : "Functional";
-
   const palette =
     status === "simulated"
-      ? { bg: "rgba(34,197,94,0.15)", border: "rgba(34,197,94,0.5)", text: "#22c55e", pinColor: "#22c55e" }
+      ? { pinColor: "#22c55e" }
       : status === "tool"
-      ? { bg: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.4)", text: "#3b82f6", pinColor: "#3b82f6" }
-      : { bg: "rgba(0,242,255,0.15)", border: "rgba(0,242,255,0.4)", text: "#00F2FF", pinColor: "#00F2FF" };
+      ? { pinColor: "#3b82f6" }
+      : { pinColor: "#22d3ee" };
 
-  // Normalize terminals to array of { id, label }
-  const normalizedTerminals = terminals.map((t) =>
-    typeof t === "string" ? { id: t, label: t } : t
+  const normalizedTerminals = terminals.map((terminal) =>
+    typeof terminal === "string" ? { id: terminal, label: terminal } : terminal
   );
 
   const halfCount = Math.ceil(normalizedTerminals.length / 2);
   const leftPins = normalizedTerminals.slice(0, halfCount);
-  const rightPins = normalizedTerminals.slice(halfCount);
+  const rightPins = normalizedTerminals.slice(halfCount).reverse();
+  const previewAvailable = Boolean(wokwiTag || imageUrl);
 
   const handlePinMouseDown = useCallback(
-    (e, termId) => {
-      e.stopPropagation();
-      e.preventDefault();
+    (event, termId) => {
+      event.stopPropagation();
+      event.preventDefault();
+
+      if (window.getActiveWire && window.getActiveWire()) {
+        if (window.onCompleteComponentWire) {
+          window.onCompleteComponentWire(id, termId);
+        }
+        return;
+      }
+
       if (onTerminalDragStart) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        onTerminalDragStart(id, termId, cx, cy);
+        const rect = event.currentTarget.getBoundingClientRect();
+        onTerminalDragStart(id, termId, rect.left + rect.width / 2, rect.top + rect.height / 2);
       } else if (onTerminalClick) {
         onTerminalClick(id, termId);
       }
     },
-    [id, onTerminalDragStart, onTerminalClick]
+    [id, onTerminalClick, onTerminalDragStart]
   );
 
   const handlePinMouseUp = useCallback(
-    (e, termId) => {
-      e.stopPropagation();
-      // Complete wire to this component's terminal
+    (event, termId) => {
+      event.stopPropagation();
       if (window.onCompleteComponentWire) {
         window.onCompleteComponentWire(id, termId);
       }
@@ -74,316 +70,185 @@ export default function ComponentPlaceholder({
     [id]
   );
 
-  const connectedPin = (termId) => {
-    const val = pins[termId];
-    if (val != null && val !== "" && val !== undefined) return true;
-    return false;
-  };
+  const isConnectedPin = (termId) => pins[termId] != null && pins[termId] !== "";
 
-  const hasPins = normalizedTerminals.length > 0;
+  const renderPinRow = (term, visualIndex, side) => {
+    const isRight = side === "right";
+    const pinKey = `${side}-${visualIndex}`;
+    const isHovered = hoveredPin === pinKey;
+    const isConnected = isConnectedPin(term.id);
+    const pinNumber = isRight ? normalizedTerminals.length - visualIndex : visualIndex + 1;
+
+    return (
+      <div
+        key={`${side}-${term.id || visualIndex}`}
+        style={{ ...styles.pinRow, flexDirection: isRight ? "row-reverse" : "row" }}
+        onMouseEnter={() => setHoveredPin(pinKey)}
+        onMouseLeave={() => setHoveredPin(null)}
+      >
+        <div
+          id={`comp-terminal-${id}-${term.id}`}
+          data-type="terminal"
+          data-comp-id={id}
+          data-term-id={term.id}
+          title={term.label || term.id}
+          data-chip-node="interactive"
+          style={resolvePinStyle({ palette, isConnected, isHovered })}
+          onMouseDown={(event) => handlePinMouseDown(event, term.id)}
+          onMouseUp={(event) => handlePinMouseUp(event, term.id)}
+        />
+        <span style={{ ...styles.pinLabel, textAlign: isRight ? "right" : "left", color: isConnected ? palette.pinColor : isHovered ? "#eef4fb" : "#8ea0b7" }}>
+          {term.label || term.id}
+        </span>
+        <span style={styles.pinNumber}>{pinNumber}</span>
+      </div>
+    );
+  };
 
   return (
     <div
       ref={containerRef}
       style={{
-        ...styles.shell,
-        borderColor: highlighted ? palette.pinColor : "var(--border, #333)",
-        borderStyle: "solid",
-        boxShadow: highlighted ? `0 0 12px ${palette.pinColor}30` : "none",
+        ...styles.wrapper,
+        boxShadow: highlighted ? `0 0 0 1px ${palette.pinColor}55, 0 16px 30px rgba(0,0,0,0.3)` : "0 14px 28px rgba(0,0,0,0.26)",
       }}
     >
-      {/* Header row */}
-      <div style={styles.headerRow}>
-        <div style={styles.titleArea}>
-          <div style={styles.title}>{label || "Component"}</div>
-          {category && <div style={styles.category}>{category}</div>}
+      <div style={styles.chipBody}>
+        <div style={styles.notch} />
+
+        <div style={styles.pinColumn}>
+          {leftPins.map((term, index) => renderPinRow(term, index, "left"))}
         </div>
+
         <div
           style={{
-            ...styles.badge,
-            background: palette.bg,
-            borderColor: palette.border,
-            color: palette.text,
+            ...styles.centerBody,
+            borderColor: highlighted ? `${palette.pinColor}55` : "rgba(255,255,255,0.06)",
           }}
         >
-          {statusText}
+          {previewAvailable ? (
+            <HardwarePreview tag={wokwiTag} imageUrl={imageUrl} size="small" style={styles.preview} />
+          ) : (
+            <div style={styles.previewFallback} />
+          )}
+        </div>
+
+        <div style={styles.pinColumn}>
+          {rightPins.map((term, index) => renderPinRow(term, index, "right"))}
         </div>
       </div>
 
-      {/* Preview (if available) */}
-      {(wokwiTag || imageUrl || docSlug) && (
-        <HardwarePreview
-          tag={wokwiTag}
-          docSlug={docSlug}
-          imageUrl={imageUrl}
-          size="medium"
-          style={styles.preview}
-        />
-      )}
-
-      {/* IC-style pin layout */}
-      {hasPins && (
-        <div style={styles.icBody}>
-          {/* Notch indicator */}
-          <div style={styles.notch} />
-
-          {/* Left-side pins */}
-          <div style={styles.pinColumnLeft}>
-            {leftPins.map((term, idx) => {
-              const isConnected = connectedPin(term.id);
-              const isHovered = hoveredPin === `L-${idx}`;
-              return (
-                <div
-                  key={`L-${idx}`}
-                  style={styles.pinRow}
-                  onMouseEnter={() => setHoveredPin(`L-${idx}`)}
-                  onMouseLeave={() => setHoveredPin(null)}
-                >
-                  {/* Pin lead */}
-                  <div
-                    data-chip-node="interactive"
-                    style={{
-                      ...styles.pinLead,
-                      background: isConnected
-                        ? palette.pinColor
-                        : isHovered
-                        ? "#aaa"
-                        : "#666",
-                      boxShadow: isConnected
-                        ? `0 0 6px ${palette.pinColor}`
-                        : isHovered
-                        ? "0 0 4px #aaa"
-                        : "none",
-                    }}
-                    onMouseDown={(e) => handlePinMouseDown(e, term.id)}
-                    onMouseUp={(e) => handlePinMouseUp(e, term.id)}
-                  />
-                  {/* Pin label */}
-                  <span
-                    style={{
-                      ...styles.pinLabel,
-                      color: isConnected ? palette.pinColor : isHovered ? "#ddd" : "#888",
-                      fontWeight: isConnected ? 700 : 400,
-                    }}
-                  >
-                    {term.label || term.id}
-                  </span>
-                  {/* Pin number */}
-                  <span style={styles.pinNumber}>{idx + 1}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* IC chip body center */}
-          <div style={styles.icCenter}>
-            <span style={styles.icLabel}>{label || "IC"}</span>
-          </div>
-
-          {/* Right-side pins */}
-          <div style={styles.pinColumnRight}>
-            {rightPins.map((term, idx) => {
-              const isConnected = connectedPin(term.id);
-              const isHovered = hoveredPin === `R-${idx}`;
-              return (
-                <div
-                  key={`R-${idx}`}
-                  style={{ ...styles.pinRow, flexDirection: "row-reverse" }}
-                  onMouseEnter={() => setHoveredPin(`R-${idx}`)}
-                  onMouseLeave={() => setHoveredPin(null)}
-                >
-                  {/* Pin lead */}
-                  <div
-                    data-chip-node="interactive"
-                    style={{
-                      ...styles.pinLead,
-                      background: isConnected
-                        ? palette.pinColor
-                        : isHovered
-                        ? "#aaa"
-                        : "#666",
-                      boxShadow: isConnected
-                        ? `0 0 6px ${palette.pinColor}`
-                        : isHovered
-                        ? "0 0 4px #aaa"
-                        : "none",
-                    }}
-                    onMouseDown={(e) => handlePinMouseDown(e, term.id)}
-                    onMouseUp={(e) => handlePinMouseUp(e, term.id)}
-                  />
-                  {/* Pin label */}
-                  <span
-                    style={{
-                      ...styles.pinLabel,
-                      color: isConnected ? palette.pinColor : isHovered ? "#ddd" : "#888",
-                      fontWeight: isConnected ? 700 : 400,
-                      textAlign: "right",
-                    }}
-                  >
-                    {term.label || term.id}
-                  </span>
-                  {/* Pin number */}
-                  <span style={styles.pinNumber}>{normalizedTerminals.length - idx}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tooltip for hovered pin */}
-      {hoveredPin != null && (
-        <div style={styles.tooltip}>
-          Click and drag to wire this pin
-        </div>
-      )}
+      {hoveredPin != null ? <div style={styles.tooltip}>Drag from pin to wire</div> : null}
     </div>
   );
 }
 
 const styles = {
-  shell: {
-    minWidth: 200,
-    borderRadius: 8,
-    border: "1px solid var(--border, #333)",
-    padding: 0,
-    background: "rgba(10,10,10,0.95)",
-    display: "flex",
-    flexDirection: "column",
-    color: "var(--text-primary, #f7f7f7)",
-    fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
-    overflow: "hidden",
+  wrapper: {
     position: "relative",
+    overflow: "visible",
   },
-  headerRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: "10px 12px 6px 12px",
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
-  },
-  titleArea: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-  },
-  category: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    color: "var(--text-muted, #666)",
-    letterSpacing: "0.1em",
-  },
-  badge: {
-    flexShrink: 0,
-    borderRadius: 999,
-    border: "1px solid",
-    padding: "2px 8px",
-    fontSize: 9,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    fontWeight: 600,
-  },
-  preview: {
-    width: "100%",
-    height: 80,
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
-  },
-  icBody: {
-    display: "flex",
-    padding: "8px 4px",
-    gap: 4,
+  chipBody: {
     position: "relative",
+    minWidth: 260,
+    minHeight: 180,
+    display: "flex",
+    alignItems: "stretch",
+    gap: 10,
+    padding: "14px 12px 12px",
+    borderRadius: 20,
+    background: "linear-gradient(145deg, #1b2230, #0c121b)",
+    border: "1px solid rgba(255,255,255,0.08)",
   },
   notch: {
     position: "absolute",
-    top: 8,
+    top: 0,
     left: "50%",
     transform: "translateX(-50%)",
-    width: 12,
-    height: 6,
-    borderRadius: "0 0 6px 6px",
-    background: "rgba(255,255,255,0.08)",
+    width: 48,
+    height: 14,
+    background: "rgba(255,255,255,0.06)",
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
   },
-  pinColumnLeft: {
+  pinColumn: {
     display: "flex",
     flexDirection: "column",
-    gap: 3,
-    flex: 1,
-  },
-  pinColumnRight: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-    flex: 1,
-  },
-  icCenter: {
-    width: 50,
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
     justifyContent: "center",
-    background: "rgba(255,255,255,0.02)",
-    borderLeft: "1px solid rgba(255,255,255,0.06)",
-    borderRight: "1px solid rgba(255,255,255,0.06)",
-  },
-  icLabel: {
-    fontSize: 7,
-    color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: "0.15em",
-    writingMode: "vertical-rl",
-    textOrientation: "mixed",
+    gap: 8,
+    flex: 1,
+    minWidth: 64,
   },
   pinRow: {
     display: "flex",
     alignItems: "center",
-    gap: 4,
-    padding: "2px 4px",
-    borderRadius: 3,
-    cursor: "crosshair",
-    transition: "background 0.15s",
+    gap: 7,
+    minHeight: 20,
   },
   pinLead: {
-    width: 16,
-    height: 8,
-    borderRadius: 2,
-    flexShrink: 0,
+    width: 22,
+    height: 10,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.16)",
     cursor: "crosshair",
+    flexShrink: 0,
     transition: "all 0.15s ease",
-    border: "1px solid rgba(255,255,255,0.1)",
   },
   pinLabel: {
-    fontSize: 9,
-    letterSpacing: "0.05em",
     flex: 1,
-    transition: "color 0.15s",
+    fontSize: 9,
+    lineHeight: 1.15,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    overflowWrap: "anywhere",
     userSelect: "none",
   },
   pinNumber: {
+    width: 12,
     fontSize: 8,
-    color: "#444",
-    width: 14,
+    color: "#5b6b80",
     textAlign: "center",
     flexShrink: 0,
   },
+  centerBody: {
+    width: 132,
+    minHeight: 154,
+    borderRadius: 18,
+    background: "linear-gradient(145deg, #161d2a, #0d131d)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    boxShadow: "inset 0 8px 16px rgba(255,255,255,0.03), inset 0 -12px 20px rgba(0,0,0,0.4)",
+  },
+  preview: {
+    width: "100%",
+    height: "100%",
+    background: "transparent",
+    border: "none",
+    padding: 0,
+  },
+  previewFallback: {
+    width: 84,
+    height: 84,
+    borderRadius: 14,
+    background: "linear-gradient(180deg, #243041, #121926)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
   tooltip: {
     position: "absolute",
-    bottom: -24,
     left: "50%",
+    bottom: -28,
     transform: "translateX(-50%)",
-    background: "#000",
-    border: "1px solid #333",
-    borderRadius: 4,
-    padding: "3px 8px",
+    borderRadius: 999,
+    background: "rgba(2,6,23,0.98)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    padding: "5px 10px",
     fontSize: 9,
-    color: "#aaa",
+    color: "#cbd5e1",
     whiteSpace: "nowrap",
-    zIndex: 10,
+    zIndex: 20,
     pointerEvents: "none",
   },
 };

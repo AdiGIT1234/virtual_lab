@@ -68,8 +68,11 @@ function DatasheetTooltip({ item, anchorRect, onMouseEnter, onMouseLeave }) {
   if (!item) return null;
 
   const data = item.datasheet;
-  const entries = data ? Object.entries(data).filter(([k]) => k !== "datasheetUrl") : [];
+  const entries = data ? Object.entries(data).filter(([key]) => !["datasheetUrl", "referenceUrl", "linkLabel"].includes(key)) : [];
   const datasheetUrl = data ? data.datasheetUrl : null;
+  const referenceUrl = data ? data.referenceUrl : null;
+  const linkHref = datasheetUrl || referenceUrl;
+  const linkLabel = datasheetUrl ? data?.linkLabel || "Download PDF" : referenceUrl ? data?.linkLabel || "Reference URL" : null;
 
   return (
     <div
@@ -108,15 +111,15 @@ function DatasheetTooltip({ item, anchorRect, onMouseEnter, onMouseLeave }) {
         </div>
       )}
 
-      {datasheetUrl && (
+      {linkHref && (
         <a
-          href={datasheetUrl}
+          href={linkHref}
           target="_blank"
           rel="noopener noreferrer"
           style={tooltipStyles.datasheetLink}
         >
           <span style={{ marginRight: 6 }}>📄</span>
-          View Full Datasheet (PDF)
+          {linkLabel}
           <span style={{ marginLeft: 6, opacity: 0.6 }}>↗</span>
         </a>
       )}
@@ -187,9 +190,8 @@ function ComponentCard({ item }) {
         onMouseLeave={handleMouseLeave}
       >
         <div style={cardStyles.cardMedia}>
-          {item.docSlug || item.imageUrl ? (
+          {item.imageUrl ? (
             <HardwarePreview
-              docSlug={item.docSlug}
               imageUrl={item.imageUrl}
               size="medium"
               style={cardStyles.previewFrame}
@@ -275,7 +277,7 @@ export default function ReferencePage() {
           <div style={styles.orbitGlow} />
           <div style={styles.orbitCore}>
             <span style={{ fontSize: 48 }}>⬢</span>
-            <span style={styles.orbitLabel}>Live Knowledge Grid</span>
+            <span style={styles.orbitLabel}>Independent Device Atlas</span>
           </div>
         </div>
       </section>
@@ -462,21 +464,25 @@ const cardStyles = {
     color: "#8ef5ff",
     fontSize: 13,
     margin: 0,
+    overflowWrap: "anywhere",
   },
   cardSummary: {
     color: "#cdd6df",
     fontSize: 13,
     margin: 0,
+    overflowWrap: "anywhere",
   },
   cardPins: {
     fontSize: 12,
     color: "#aab6c4",
     margin: 0,
+    overflowWrap: "anywhere",
   },
   cardUsage: {
     fontSize: 12,
     color: "#8fa3bc",
     margin: 0,
+    overflowWrap: "anywhere",
   },
   hoverBadge: {
     position: "absolute",
@@ -500,7 +506,7 @@ const tooltipStyles = {
   wrapper: {
     position: "fixed",
     zIndex: 9999,
-    width: 380,
+    width: "min(380px, calc(100vw - 24px))",
     maxHeight: "80vh",
     overflowY: "auto",
     background: "rgba(8, 10, 18, 0.97)",
@@ -514,6 +520,12 @@ const tooltipStyles = {
     /* Custom scrollbar */
     scrollbarWidth: "thin",
     scrollbarColor: "rgba(0,255,208,0.3) transparent",
+  },
+  generalInfo: {
+    padding: "14px 18px 6px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
   },
   glowBar: {
     height: 3,
@@ -568,6 +580,8 @@ const tooltipStyles = {
     textAlign: "right",
     lineHeight: 1.45,
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
+    maxWidth: "60%",
   },
   datasheetLink: {
     display: "flex",

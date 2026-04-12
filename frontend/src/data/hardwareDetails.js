@@ -14,7 +14,53 @@ const LED_ICONS = {
   yellow: ledIcon("#facc15"),
 };
 
-export const HARDWARE_DETAILS = {
+const STORED_DATASHEET_PREFIX = "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/";
+
+const normalizeLookupKey = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+const isPdfUrl = (url) => /\.pdf(?:$|[?#])/i.test(url);
+
+const extractStoredDatasheetUrl = (url) => {
+  if (!url) return null;
+  const storedIndex = url.indexOf(STORED_DATASHEET_PREFIX);
+  return storedIndex >= 0 ? url.slice(storedIndex) : null;
+};
+
+const normalizeDatasheet = (datasheet) => {
+  if (!datasheet) return null;
+
+  const rawLink = typeof datasheet.datasheetUrl === "string" ? datasheet.datasheetUrl.trim() : "";
+  const explicitReferenceUrl = typeof datasheet.referenceUrl === "string" ? datasheet.referenceUrl.trim() : "";
+  const storedPdfUrl = extractStoredDatasheetUrl(rawLink);
+  const downloadableUrl = storedPdfUrl || (isPdfUrl(rawLink) ? rawLink : null);
+  const referenceUrl = explicitReferenceUrl || (downloadableUrl ? null : rawLink || null);
+
+  return {
+    ...datasheet,
+    datasheetUrl: downloadableUrl,
+    referenceUrl,
+    linkLabel:
+      datasheet.linkLabel ||
+      (downloadableUrl ? (storedPdfUrl ? "Stored PDF" : "Download PDF") : referenceUrl ? "Reference URL" : null),
+  };
+};
+
+const normalizeHardwareSections = (sections) =>
+  Object.fromEntries(
+    Object.entries(sections).map(([sectionKey, items]) => [
+      sectionKey,
+      items.map((item) => ({
+        ...item,
+        datasheet: normalizeDatasheet(item.datasheet),
+      })),
+    ])
+  );
+
+const RAW_HARDWARE_DETAILS = {
   chips: [
     {
       id: "atmega328p",
@@ -41,7 +87,7 @@ export const HARDWARE_DETAILS = {
         operatingTemp: "−40°C to +85°C (Industrial)",
         package: "28-pin PDIP / 32-pin TQFP / 32-pad QFN",
         maxCurrentPerPin: "40 mA (absolute max)",
-        datasheetUrl: "/datasheets/atmega328p.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/atmega328p.pdf",
       },
     },
     {
@@ -98,7 +144,7 @@ export const HARDWARE_DETAILS = {
         package: "Module (18×25.5×3.1 mm)",
         maxCurrentPerPin: "40 mA (GPIO), 1.2 A peak (module RF TX)",
         extras: "USB OTG, 14× Touch sensors, AI acceleration (vector instructions)",
-        datasheetUrl: "/datasheets/esp32s3.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/esp32s3.pdf",
       },
     },
   ],
@@ -125,7 +171,7 @@ export const HARDWARE_DETAILS = {
         cgram: "8 user-defined characters (64 bytes CGRAM)",
         responseTime: "~37 µs (command), ~1.52 ms (clear/home)",
         operatingTemp: "−20°C to +70°C",
-        datasheetUrl: "/datasheets/lcd2004.pdf",
+        datasheetUrl: "https://www.sparkfun.com/datasheets/LCD/HD44780.pdf",
       },
     },
     {
@@ -176,7 +222,7 @@ export const HARDWARE_DETAILS = {
         refreshRate: "Up to ~60 FPS",
         operatingTemp: "−40°C to +85°C",
         viewingAngle: ">160° (self-emissive)",
-        datasheetUrl: "/datasheets/ssd1306.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/ssd1306.pdf",
       },
     },
     {
@@ -201,7 +247,7 @@ export const HARDWARE_DETAILS = {
         refreshRate: "~60 Hz typical",
         touchController: "XPT2046 resistive (on touch-enabled modules)",
         operatingTemp: "−30°C to +85°C",
-        datasheetUrl: "/datasheets/ili9341.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/ili9341.pdf",
       },
     },
     {
@@ -224,7 +270,7 @@ export const HARDWARE_DETAILS = {
         luminousIntensity: "6 – 18 mcd @ 20 mA (Red)",
         multiplexing: "Use transistor/MOSFET drivers (e.g., BC547/2N2222) for multi-digit displays",
         operatingTemp: "−40°C to +85°C",
-        datasheetUrl: "/datasheets/seven_segment.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/seven_segment.pdf",
       },
     },
     {
@@ -243,7 +289,8 @@ export const HARDWARE_DETAILS = {
         luminousIntensity: "5 – 15 mcd per segment",
         package: "20-pin DIP (25.4 mm length)",
         operatingTemp: "−40°C to +85°C",
-        datasheetUrl: "https://www.sparkfun.com/datasheets/Components/LED/COM-09935.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.sparkfun.com/10-segment-led-bar-graph-red.html",
       },
     },
     {
@@ -301,7 +348,8 @@ export const HARDWARE_DETAILS = {
         standbyCurrent: "< 5 µA",
         interface: "4-wire SPI",
         operatingTemp: "0°C to 50°C",
-        datasheetUrl: "https://cdn-learn.adafruit.com/assets/assets/000/036/962/original/gooddisplay_GDEH029A1.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.good-display.com/companyfile/32.html",
       },
     },
     {
@@ -320,7 +368,9 @@ export const HARDWARE_DETAILS = {
         chromaSubcarrier: "3.58 MHz (NTSC)",
         syncLevels: "−0.3 V sync, 0.7 V video",
         termination: "75 Ω coax",
-        datasheetUrl: "https://www.nxp.com/docs/en/application-note/AN050218.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://en.wikipedia.org/wiki/Composite_video",
+        linkLabel: "Reference URL",
       },
     },
   ],
@@ -348,7 +398,7 @@ export const HARDWARE_DETAILS = {
         pullUpResistor: "4.7 kΩ – 10 kΩ on DATA line",
         operatingTemp: "−40°C to +80°C",
         responseTime: "~2 s (1/e, 63%)",
-        datasheetUrl: "/datasheets/dht22.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/dht22.pdf",
       },
     },
     {
@@ -398,7 +448,7 @@ export const HARDWARE_DETAILS = {
         blockingTime: "~2.5 s after trigger",
         operatingTemp: "−20°C to +80°C",
         warmUpTime: "~60 s after power-on",
-        datasheetUrl: "/datasheets/pir.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/pir.pdf",
       },
     },
     {
@@ -425,7 +475,7 @@ export const HARDWARE_DETAILS = {
         operatingCurrent: "3.9 mA (all axes active)",
         operatingTemp: "−40°C to +85°C",
         package: "QFN-24 (4×4×0.9 mm)",
-        datasheetUrl: "/datasheets/mpu6050.pdf",
+        datasheetUrl: "https://components101.com/sites/default/files/component_datasheet/MPU6050-DataSheet.pdf",
       },
     },
     {
@@ -477,7 +527,7 @@ export const HARDWARE_DETAILS = {
         operatingTemp: "−30°C to +70°C",
         lightRange: "1 – 10,000 lux",
         circuitNote: "Use in voltage divider with fixed 10 kΩ resistor; feed midpoint to ADC",
-        datasheetUrl: "/datasheets/ldr.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/ldr.pdf",
       },
     },
     {
@@ -497,7 +547,8 @@ export const HARDWARE_DETAILS = {
         timeConstant: "< 10 s",
         maxPower: "250 mW",
         operatingVoltage: "Analog passive element",
-        datasheetUrl: "https://cdn-shop.adafruit.com/datasheets/NTC-Thermistor.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.adafruit.com/product/372",
       },
     },
     {
@@ -516,7 +567,8 @@ export const HARDWARE_DETAILS = {
         analogOutput: "0 – 5V proportional to flame intensity",
         digitalOutput: "LM393 comparator (active HIGH/LOW configurable)",
         operatingCurrent: "< 15 mA",
-        datasheetUrl: "https://www.sunrom.com/p/files/1263717433.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://docs.cirkitdesigner.com/component/cf37ebb8-6463-2f14-d4c9-2574d0fdbcc6/flame-sensor",
       },
     },
     {
@@ -535,7 +587,8 @@ export const HARDWARE_DETAILS = {
         wavelength: "525 nm green LED",
         samplingRate: "Recommend 500 Hz",
         operatingTemp: "0°C to 60°C",
-        datasheetUrl: "https://cdn-learn.adafruit.com/assets/assets/000/036/577/original/PulseSensorAmped_UsersGuide.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://pulsesensor.com/pages/getting-advanced",
       },
     },
     {
@@ -553,7 +606,8 @@ export const HARDWARE_DETAILS = {
         operatingVoltage: "3.3V – 5V",
         quiescentCurrent: "4 – 6 mA",
         outputType: "Analog envelope + digital threshold",
-        datasheetUrl: "https://cdn.sparkfun.com/datasheets/Sensors/Sound/Sound_Sensor_Module.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://learn.sparkfun.com/tutorials/sound-detector-hookup-guide/all",
       },
     },
   ],
@@ -603,7 +657,8 @@ export const HARDWARE_DETAILS = {
         lifespan: "~1,000,000 presses per key",
         connectorType: "8-pin 2.54mm pitch header (R1, R2, R3, R4, C1, C2, C3, C4)",
         operatingTemp: "−20°C to +50°C",
-        datasheetUrl: "/datasheets/keypad.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.parallax.com/product/4x4-matrix-membrane-keypad/",
       },
     },
     {
@@ -651,7 +706,7 @@ export const HARDWARE_DETAILS = {
         pushForce: "~1.6 N for switch activation",
         lifespan: "~200,000 cycles",
         operatingTemp: "−20°C to +70°C",
-        datasheetUrl: "/datasheets/joystick.pdf",
+        datasheetUrl: "https://components101.com/sites/default/files/component_datasheet/Joystick%20Module.pdf",
       },
     },
     {
@@ -690,7 +745,8 @@ export const HARDWARE_DETAILS = {
         insulationResistance: "100 MΩ",
         travel: "2.0 mm",
         operatingTemp: "−40°C to +85°C",
-        datasheetUrl: "https://cdn.sparkfun.com/datasheets/Components/Switches/mini_slide.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.sparkfun.com/spdt-slide-switch.html",
       },
     },
     {
@@ -708,7 +764,8 @@ export const HARDWARE_DETAILS = {
         contactResistance: "≤50 mΩ",
         insulationResistance: "1000 MΩ",
         operatingTemp: "−40°C to +85°C",
-        datasheetUrl: "https://cdn.sparkfun.com/datasheets/Components/Switches/dipSwitch.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.ctscorp.com/Products/Switches/DIP-Switches",
       },
     },
     {
@@ -726,7 +783,8 @@ export const HARDWARE_DETAILS = {
         contactResistance: "< 200 mΩ",
         returnSpringTime: "< 0.3 s",
         operatingTemp: "0°C to 50°C",
-        datasheetUrl: "https://telephonecollectors.info/index.php/browse/document-repository/all-repository-topics/bsp-bell-system-practices-by-doc/bsp-categories-by-letter-code/500-529-station-equipment-and-wiring/502-station-sets-common-circ/13566-502-600-100-i1-nov70-station-dials-rotary-type-description-and-operation/file",
+        datasheetUrl: null,
+        referenceUrl: "https://en.wikipedia.org/wiki/Rotary_dial",
       },
     },
   ],
@@ -752,7 +810,7 @@ export const HARDWARE_DETAILS = {
         colorMixing: "256³ = 16.7M colors via 8-bit PWM per channel",
         resistorCalc: "R = (VCC − Vf) / If (e.g., (5V − 2V) / 20mA = 150Ω for red)",
         operatingTemp: "−25°C to +85°C",
-        datasheetUrl: "/datasheets/rgb_led.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/rgb_led.pdf",
       },
     },
     {
@@ -804,7 +862,7 @@ export const HARDWARE_DETAILS = {
         gearMaterial: "Nylon (SG90) / Metal (MG90S)",
         weight: "~9 g",
         operatingTemp: "−30°C to +60°C",
-        datasheetUrl: "/datasheets/servo.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/servo.pdf",
       },
     },
     {
@@ -853,7 +911,7 @@ export const HARDWARE_DETAILS = {
         dutyCycle: "50% duty for maximum volume",
         operatingTemp: "−20°C to +70°C",
         toneNote: "Active buzzers produce a fixed ~2.7 kHz tone; for melodies use a passive buzzer with analogWrite() / tone()",
-        datasheetUrl: "/datasheets/buzzer.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/buzzer.pdf",
       },
     },
     {
@@ -944,7 +1002,7 @@ export const HARDWARE_DETAILS = {
       summary: "Linear travel pot for faders and throttle-style controls.",
       pins: "VCC, WIPER, GND (plus optional LED).",
       usage: "Ideal for robotics speed controls and UI sliders.",
-      imageTag: "wokwi-slide-potentiometer",
+      imageTag: "vlab-slide-potentiometer",
       datasheet: {
         manufacturer: "Bourns",
         partNumber: "PTA4543-2015CPB103",
@@ -974,7 +1032,8 @@ export const HARDWARE_DETAILS = {
         voltageRating: "250 V",
         temperatureCoeff: "±100 ppm/°C",
         operatingTemp: "−55°C to +155°C",
-        datasheetUrl: "https://www.yageo.com/upload/media/product/spec/mfr/mfr_25.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://yageogroup.com/",
       },
     },
     {
@@ -1028,7 +1087,8 @@ export const HARDWARE_DETAILS = {
         hFE: "100 – 300",
         package: "TO-92",
         transitionFreq: "250 MHz",
-        datasheetUrl: "https://www.onsemi.com/pdf/datasheet/p2n3906-d.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.onsemi.com/design/technical-documentation",
       },
     },
     {
@@ -1056,7 +1116,7 @@ export const HARDWARE_DETAILS = {
       summary: "Virtual USB-to-UART console for printf-style debugging.",
       pins: "Software tool (no pins).",
       usage: "Use Serial.begin() at 9600+ baud and read logs in the docked console.",
-      imageTag: null,
+      imageTag: "vlab-serial-monitor",
       datasheet: {
         manufacturer: "ATmega328P Virtual Lab",
         partNumber: "VLAB-SERIAL",
@@ -1064,7 +1124,8 @@ export const HARDWARE_DETAILS = {
         encoding: "8N1",
         bufferDepth: "512 bytes per direction",
         features: "Timestamping, auto-scroll, copy-to-clipboard",
-        datasheetUrl: "https://docs.wokwi.com/guides/serial-monitor",
+        datasheetUrl: null,
+        referenceUrl: "/docs/serial-monitor.html",
       },
     },
     {
@@ -1073,7 +1134,7 @@ export const HARDWARE_DETAILS = {
       summary: "8-channel logic analyzer integrated into the sandbox.",
       pins: "Software taps any MCU GPIO.",
       usage: "Attach to pins in the sidebar, press Record, and inspect timing relationships.",
-      imageTag: null,
+      imageTag: "vlab-logic-analyzer",
       datasheet: {
         manufacturer: "ATmega328P Virtual Lab",
         partNumber: "VLAB-LOGIC",
@@ -1081,7 +1142,8 @@ export const HARDWARE_DETAILS = {
         channels: "8",
         depth: "10,000 samples per capture",
         trigger: "Edge/level per channel",
-        datasheetUrl: "https://docs.wokwi.com/guides/logic-analyzer",
+        datasheetUrl: null,
+        referenceUrl: "/docs/logic-analyzer.html",
       },
     },
     {
@@ -1090,14 +1152,15 @@ export const HARDWARE_DETAILS = {
       summary: "API-backed digital IC placeholder for scripted behaviors.",
       pins: "Configurable via JSON descriptor (default 14).",
       usage: "Map JSON logic to pins or connect to remote simulations.",
-      imageTag: null,
+      imageTag: "vlab-custom-digital-chip",
       datasheet: {
         manufacturer: "Virtual Lab",
         partNumber: "VLAB-CUSTOM-DIG",
         ioCount: "Up to 32 virtual IOs",
         latency: "<1 ms intra-sim",
         scripting: "JavaScript / Python via API",
-        datasheetUrl: "https://docs.wokwi.com/parts/wokwi-custom-chip",
+        datasheetUrl: null,
+        referenceUrl: "/docs/custom-digital-chip.html",
       },
     },
     {
@@ -1106,14 +1169,15 @@ export const HARDWARE_DETAILS = {
       summary: "Experimental WASM-powered IC for uploading compiled cores.",
       pins: "User-defined",
       usage: "Compile to WebAssembly, upload, and map exported functions to pins.",
-      imageTag: null,
+      imageTag: "vlab-wasm-ic",
       datasheet: {
         manufacturer: "Virtual Lab",
         partNumber: "VLAB-WASM",
         runtime: "WASI subset",
         memory: "256 KB sandboxed",
         clock: "Virtual 1 MHz tick callback",
-        datasheetUrl: "https://docs.wokwi.com/guides/custom-peripherals",
+        datasheetUrl: null,
+        referenceUrl: "/docs/wasm-ic.html",
       },
     },
     {
@@ -1122,14 +1186,15 @@ export const HARDWARE_DETAILS = {
       summary: "On-screen voltage and continuity meter tied to the circuit nodes.",
       pins: "V+, COM virtual probes.",
       usage: "Drag probes to any nodes to read instantaneous voltage/resistance.",
-      imageTag: null,
+      imageTag: "vlab-multimeter",
       datasheet: {
         manufacturer: "Virtual Lab",
         partNumber: "VLAB-MULTI",
         measurementModes: "Voltage (DC), logic level, continuity",
         resolution: "1 mV steps",
         sampleRate: "~1 kHz",
-        datasheetUrl: "https://docs.wokwi.com/guides/multimeter",
+        datasheetUrl: null,
+        referenceUrl: "/docs/virtual-multimeter.html",
       },
     },
   ],
@@ -1147,7 +1212,8 @@ export const HARDWARE_DETAILS = {
         tiePoints: "400",
         material: "ABS with phosphor bronze contacts",
         ratedCurrent: "1.5 A",
-        datasheetUrl: "https://www.sparkfun.com/datasheets/Prototyping/Breadboard-400.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://busboard.com/BB400",
       },
     },
     {
@@ -1156,14 +1222,15 @@ export const HARDWARE_DETAILS = {
       summary: "Pre-cut jumpers/nodes for connecting breadboard points.",
       pins: "Male/Male",
       usage: "Route signals between components; color-code for organization.",
-      imageTag: null,
+      imageTag: "vlab-jumper-wires",
       datasheet: {
         manufacturer: "SparkFun",
         partNumber: "PRT-11026",
         lengths: "100 mm assorted",
         wireGauge: "22 AWG",
         insulation: "PVC",
-        datasheetUrl: "https://www.sparkfun.com/datasheets/Prototyping/Jumpers.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.sparkfun.com/jumper-wires-standard-7-m-m-30-awg-30-pack.html",
       },
     },
     {
@@ -1172,14 +1239,15 @@ export const HARDWARE_DETAILS = {
       summary: "Virtual +5V source rail for powering breadboard circuits.",
       pins: "+5V output.",
       usage: "Drop onto the canvas to spawn a regulated supply node shared across components.",
-      imageTag: null,
+      imageTag: "vlab-vcc-node",
       datasheet: {
         manufacturer: "Virtual Lab",
         partNumber: "VLAB-VCC",
         voltage: "Selectable 3.3V / 5V",
         current: "500 mA virtual limit",
         regulation: "Ideal source",
-        datasheetUrl: "https://www.ti.com/lit/an/slvaa82/slvaa82.pdf",
+        datasheetUrl: null,
+        referenceUrl: "/docs/vcc-node.html",
       },
     },
     {
@@ -1188,13 +1256,14 @@ export const HARDWARE_DETAILS = {
       summary: "Reference node that ties all circuit returns together.",
       pins: "0V reference.",
       usage: "Connect every module’s GND pin here to complete the circuit.",
-      imageTag: null,
+      imageTag: "vlab-ground-node",
       datasheet: {
         manufacturer: "Virtual Lab",
         partNumber: "VLAB-GND",
         impedance: "0 Ω ideal",
         notes: "Connect star-topology to avoid ground loops.",
-        datasheetUrl: "https://www.analog.com/media/en/technical-documentation/application-notes/an-1142.pdf",
+        datasheetUrl: null,
+        referenceUrl: "/docs/ground-node.html",
       },
     },
   ],
@@ -1222,7 +1291,7 @@ export const HARDWARE_DETAILS = {
         accuracy: "±2 ppm @ 25°C (DS3231 recommended for higher accuracy)",
         operatingTemp: "−40°C to +85°C",
         package: "8-pin SO (SOIC-8)",
-        datasheetUrl: "/datasheets/ds1307.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/ds1307.pdf",
       },
     },
     {
@@ -1246,7 +1315,8 @@ export const HARDWARE_DETAILS = {
         fileSystem: "FAT16 / FAT32 via Arduino SD.h or SdFat library",
         writeSpeed: "~200 KB/s typical (SPI mode, Class 4 card)",
         operatingTemp: "−25°C to +85°C",
-        datasheetUrl: "https://www.sdcard.org/downloads/pls/pdf/index.php",
+        datasheetUrl: null,
+        referenceUrl: "https://learn.sparkfun.com/tutorials/microsd-breakout-with-level-shifter-hookup-guide/all",
       },
     },
     {
@@ -1273,7 +1343,7 @@ export const HARDWARE_DETAILS = {
         temperatureDrift: "±6 nV/°C (Channel A)",
         operatingTemp: "−40°C to +85°C",
         package: "SOP-16",
-        datasheetUrl: "/datasheets/hx711.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/hx711.pdf",
       },
     },
     {
@@ -1324,7 +1394,7 @@ export const HARDWARE_DETAILS = {
         outputLoad: "Sink up to 5 mA",
         operatingTemp: "−25°C to +85°C",
         shielding: "Metal shielding case for EMI immunity",
-        datasheetUrl: "/datasheets/ir_receiver.pdf",
+        datasheetUrl: "https://acmidsiuimrfekwoiaje.supabase.co/storage/v1/object/public/datasheets/ir_receiver.pdf",
       },
     },
     {
@@ -1342,7 +1412,8 @@ export const HARDWARE_DETAILS = {
         supply: "CR2025 coin cell",
         emitAngle: "±25°",
         range: "> 5 m line of sight",
-        datasheetUrl: "https://cdn-learn.adafruit.com/assets/assets/000/006/491/original/mini_remote.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.adafruit.com/product/389",
       },
     },
     {
@@ -1360,16 +1431,82 @@ export const HARDWARE_DETAILS = {
         forwardCurrent: "20 mA per LED",
         multiplexing: "1/8 duty",
         operatingTemp: "−25°C to +85°C",
-        datasheetUrl: "https://www.sparkfun.com/datasheets/Components/LED/LTP-885.pdf",
+        datasheetUrl: null,
+        referenceUrl: "https://www.adafruit.com/product/555",
       },
     },
   ],
 };
 
-Object.values(HARDWARE_DETAILS).forEach((group) => {
-  group.forEach((item) => {
-    if (!item.docSlug && item.imageTag && item.imageTag.startsWith("wokwi-")) {
-      item.docSlug = item.imageTag;
+export const HARDWARE_DETAILS = normalizeHardwareSections(RAW_HARDWARE_DETAILS);
+
+const HARDWARE_DETAIL_ALIASES = {
+  button: "pushbutton",
+  oledssd1306: "ssd1306",
+  ili9341tft: "ili9341",
+  sevenseg: "seven_segment",
+  epaperbasic: "epaper",
+  ntcsensor: "ntc_temp",
+  photoresistor: "ldr",
+  pirsensor: "pir",
+  flamesensor: "flame",
+  gassensor: "gas",
+  heartbeatsensor: "heartbeat",
+  soundsensor: "sound",
+  hx711loadcell: "hx711",
+  hx711module: "hx711",
+  membranekeypad: "keypad",
+  keypadmatrix: "keypad",
+  analogjoystick: "joystick",
+  dipswitch8: "dip_switch",
+  ledring: "neopixel_ring",
+  steppermotor: "stepper",
+  ds1307rtc: "ds1307",
+  microsdmodule: "microsd",
+  relaymodule: "relay",
+  matrixled: "led_matrix",
+  dial: "potentiometer",
+  slidepot: "slide_pot",
+  timer555: "timer_555",
+  logicanalyzertool: "logic_analyzer",
+  serialmonitortool: "serial_monitor",
+  customdigitalic: "digital_chips",
+  analogtv: "analog_tv",
+};
+
+const registerLookupKey = (lookup, key, item) => {
+  const normalizedKey = normalizeLookupKey(key);
+  if (normalizedKey && !lookup.has(normalizedKey)) {
+    lookup.set(normalizedKey, item);
+  }
+};
+
+export const HARDWARE_DETAIL_LOOKUP = (() => {
+  const lookup = new Map();
+
+  Object.values(HARDWARE_DETAILS)
+    .flat()
+    .forEach((item) => {
+      registerLookupKey(lookup, item.id, item);
+      registerLookupKey(lookup, item.name, item);
+      registerLookupKey(lookup, item.imageTag, item);
+      registerLookupKey(lookup, item.docSlug, item);
+    });
+
+  Object.entries(HARDWARE_DETAIL_ALIASES).forEach(([alias, target]) => {
+    const targetItem = lookup.get(normalizeLookupKey(target));
+    if (targetItem) {
+      lookup.set(normalizeLookupKey(alias), targetItem);
     }
   });
-});
+
+  return lookup;
+})();
+
+export const resolveHardwareDetail = (...candidates) => {
+  for (const candidate of candidates) {
+    const match = HARDWARE_DETAIL_LOOKUP.get(normalizeLookupKey(candidate));
+    if (match) return match;
+  }
+  return null;
+};
