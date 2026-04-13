@@ -1,242 +1,144 @@
 {
   "id": "exp02_push_button",
-  "title": "Level 2: Reading Inputs (Push Button)",
+  "title": "Level 2: Push Button & Contact Debouncing",
   "difficulty": "Beginner",
-  "aim": "To write an Embedded C program to read the state of a push button and control an LED accordingly on the ATmega328P.",
-  "objective": "Understand GPIO input configuration using DDRx, PORTx, and PINx registers, including internal pull-up resistors and debouncing techniques.",
-  "theory": "<h3>Configuring Inputs</h3><p>When you want to read a digital signal on a GPIO pin, you configure it as an INPUT. In the ATmega328P, setting a bit in the <b>DDRx</b> register to <code>0</code> configures the corresponding pin as an input.</p><h3>The PINx Register</h3><p>To actually read the voltage state on an input pin (whether it is 5V or 0V), you must read the <b>PINx</b> (Port Input Pins) register. For example, if PD2 is set as an input, reading <code>PIND & (1 << 2)</code> will tell you if the pin is HIGH or LOW.</p><h3>Internal Pull-up Resistors</h3><p>A bare push button connected between a pin and Ground causes a problem when the button is NOT pressed: the pin is 'floating', and its voltage is unpredictable. To fix this, you enable the microcontroller's internal pull-up resistor. When the pin is an INPUT (DDRx is 0), writing a <code>1</code> to the corresponding bit in the <b>PORTx</b> register connects an internal 20k-50kΩ resistor to 5V (VCC). The pin will naturally read HIGH when unpressed, and LOW when pressed (connected to Ground).</p><h3>Debouncing</h3><p>Mechanical switches 'bounce' when pressed, meaning the metal contacts hit each other multiple times before settling. In software, this looks like multiple rapid button presses. A simple wait (delay) after the first state change helps ignore these bounces (software debouncing).</p>",
+  "aim": "To read the digital state of a push button connected to the ATmega328P and toggle an LED on each press, implementing software contact debouncing to eliminate mechanical switch bounce.",
+  "objective": "Understand internal pull-up resistors, active-low button logic, the PINx register for reading inputs, contact bounce phenomenon, and implement a time-based debounce algorithm in firmware.",
+  "theory": "<h3>Reading Digital Inputs with PINx</h3><p>While DDRx sets direction and PORTx drives outputs, the <strong>PINx register</strong> is used to <em>read</em> the current voltage on a pin set as input. Reading bit N from PINx returns <code>1</code> if the pin is at ≥ 2.0 V (logic HIGH) and <code>0</code> if it is at ≤ 0.8 V (logic LOW). You cannot control a pin's voltage by writing to PINx — you can only sample it.</p><h3>Internal Pull-Up Resistors</h3><p>When a pin is configured as input and nothing is connected, it <em>floats</em> at an undefined voltage, causing random logic readings. The ATmega328P includes built-in <strong>internal pull-up resistors</strong> (20–50 kΩ) on every GPIO pin. Enabling the pull-up for an input pin by writing <code>1</code> to its corresponding PORTx bit ties the pin through a resistor to VCC (+5 V). This guarantees a stable HIGH reading when the button is open.</p><h3>Active-Low Button Wiring</h3><p>The standard way to connect a button is <strong>active-low</strong>: one terminal goes to the MCU's GPIO pin (pull-up enabled), the other directly to GND. When the button is <strong>open</strong>, the pull-up holds the pin HIGH. When the button is <strong>pressed</strong>, it shorts the pin to GND, overcoming the pull-up and pulling the pin LOW. The firmware detects a press when it reads <code>0</code> (LOW) on the input pin. This is counterintuitive but is the industry-standard approach.</p><h3>Contact Bounce (The Problem)</h3><p>Mechanical push buttons and switches use two metal contacts that physically meet. This metal-on-metal contact is not instantaneous — the contacts bounce off each other many times in the first <strong>5–20 milliseconds</strong> before settling. From the MCU's perspective (running at 16 MHz), this looks like rapid, random HIGH/LOW transitions — it might think you pressed the button 50 times in one physical press. This is the <strong>contact bounce</strong> problem.</p><h3>Software Debouncing (The Fix)</h3><p>Once a button press edge is detected (HIGH → LOW transition), the firmware waits for a fixed <strong>debounce delay</strong> (typically 20–50 ms) before accepting the reading as valid. This filter window is longer than the bounce duration but short enough to not miss intentional fast presses. The algorithm: (1) detect falling edge, (2) wait 20 ms, (3) re-read pin — if still LOW, accept as genuine press. This is the simplest and most reliable approach for single buttons.</p><h3>Edge Detection</h3><p>To respond to each press exactly once, you need <strong>edge detection</strong>: store the previous button state and compare it with the current state. A transition from HIGH → LOW (prevState=1, currState=0) represents a <em>falling edge</em> (button pressed down). Acting only on this edge ensures each physical press triggers one action, regardless of how long the button is held.</p><h3>Key Registers</h3><ul><li><strong>DDRD</strong> — Set a bit to 0 to configure a pin as input. PD2 = bit 2 (Pin 2 on Arduino Uno).</li><li><strong>PORTD</strong> — Writing 1 to an input pin bit enables its pull-up resistor.</li><li><strong>PIND</strong> — Read this register to get the current logic level of each Port D pin.</li></ul>",
   "pretest": [
     {
-      "question": "Which register is used to READ the current logical state of an input pin on the ATmega328P?",
-      "options": [
-        "PORTB",
-        "PINB",
-        "DDRB",
-        "ADC"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "The PINx register contains the actual physical logic levels present on the pins."
-    },
-    {
-      "question": "How do you enable the internal pull-up resistor on pin PD2?",
-      "options": [
-        "Set DDRD bit 2 to 0, then clear PORTD bit 2 to 0",
-        "Set DDRD bit 2 to 1, then set PORTD bit 2 to 1",
-        "Set DDRD bit 2 to 0, then set PORTD bit 2 to 1",
-        "Set DDRD bit 2 to 1, then clear PORTD bit 2 to 0"
-      ],
+      "question": "Which register do you read to check the current state of an input pin?",
+      "options": ["DDRx", "PORTx", "PINx", "SREG"],
       "correct_answer_index": 2,
-      "explanation": "To enable the pull-up, set the direction to input (DDR bit = 0) and the port value to high (PORT bit = 1)."
+      "explanation": "PINx (Pin Input Register) reflects the actual voltage on each pin at the moment of reading. It is read-only for sensing pin state."
     },
     {
-      "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
-      "options": [
-        "To read pin values",
-        "To configure pins as input or output",
-        "To set pull-up resistors",
-        "To configure interrupts"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "DDR configures the direction of each GPIO pin."
-    },
-    {
-      "question": "Which header file provides basic I/O register definitions for AVR?",
-      "options": [
-        "<stdio.h>",
-        "<avr/io.h>",
-        "<string.h>",
-        "<math.h>"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
-    },
-    {
-      "question": "What does the volatile keyword tell the C compiler?",
-      "options": [
-        "Uses less memory",
-        "May change unexpectedly, so do not optimize reads",
-        "Variable is constant",
-        "Used once only"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "volatile prevents the compiler from caching the variable."
-    },
-    {
-      "question": "How many GPIO pins does the ATmega328P have in total?",
-      "options": [
-        "8",
-        "14",
-        "23",
-        "32"
-      ],
+      "question": "How do you enable the internal pull-up resistor on an input pin?",
+      "options": ["Set the DDRx bit to 1", "Write 1 to the PINx bit", "Write 1 to the PORTx bit while DDRx bit is 0", "Set a fuse bit"],
       "correct_answer_index": 2,
-      "explanation": "23 GPIO pins across Port B, C, and D."
+      "explanation": "For a pin configured as input (DDRx=0), writing 1 to the corresponding PORTx bit connects the built-in 20–50 kΩ pull-up resistor to VCC."
+    },
+    {
+      "question": "In active-low button wiring with a pull-up enabled, what level is read when the button is PRESSED?",
+      "options": ["HIGH (1)", "LOW (0)", "Floating", "Depends on resistor value"],
+      "correct_answer_index": 1,
+      "explanation": "Pressing the button shorts the pin to GND through the button. The pull-up's 20–50 kΩ resistance is overcome, pulling the pin to logic LOW (0)."
+    },
+    {
+      "question": "What is 'contact bounce' in a mechanical switch?",
+      "options": ["A spring-back force", "Rapid HIGH/LOW transitions at the moment of contact closure", "Electrical sparks", "Resistance increase over time"],
+      "correct_answer_index": 1,
+      "explanation": "When metal contacts meet, they physically bounce apart multiple times before settling. This creates rapid spurious voltage transitions lasting 5–20 ms."
+    },
+    {
+      "question": "What is the typical duration of button contact bounce?",
+      "options": ["< 1 µs", "5–20 ms", "100–500 ms", "> 1 second"],
+      "correct_answer_index": 1,
+      "explanation": "Contact bounce usually settles within 5–20 ms depending on the switch quality and contact material."
+    },
+    {
+      "question": "What does 'edge detection' mean in button reading firmware?",
+      "options": ["Reading pin at screen edge", "Detecting the transition between states, not the state itself", "Using interrupt vectors", "Reading pin at high speed"],
+      "correct_answer_index": 1,
+      "explanation": "Edge detection stores the previous state and detects when it changes. A HIGH→LOW transition is a falling edge (press); LOW→HIGH is a rising edge (release)."
+    },
+    {
+      "question": "Why is a floating input pin unreliable?",
+      "options": ["It consumes too much power", "Its voltage is undefined — random noise determines the logic reading", "It burns the MCU", "DDR cannot be set for it"],
+      "correct_answer_index": 1,
+      "explanation": "A floating pin has no defined voltage reference. Random electromagnetic noise or adjacent signal coupling causes random HIGH/LOW readings."
+    },
+    {
+      "question": "Which header provides _delay_ms() for AVR?",
+      "options": ["<avr/io.h>", "<util/delay.h>", "<avr/interrupt.h>", "<avr/sleep.h>"],
+      "correct_answer_index": 1,
+      "explanation": "<util/delay.h> provides _delay_ms() and _delay_us(). F_CPU must be defined before including it for correct timing."
+    },
+    {
+      "question": "How does software debouncing work?",
+      "options": ["Using extra hardware capacitors", "Waiting a period longer than the bounce, then re-reading the pin", "Averaging multiple readings", "Using ADC instead of digital input"],
+      "correct_answer_index": 1,
+      "explanation": "After detecting a press edge, wait 20–50 ms (longer than the ~20 ms bounce window) then re-read. If still LOW, the press is genuine."
     },
     {
       "question": "What is the maximum clock frequency of the ATmega328P?",
-      "options": [
-        "1MHz",
-        "8MHz",
-        "16MHz",
-        "20MHz"
-      ],
+      "options": ["1 MHz", "8 MHz", "16 MHz", "20 MHz"],
       "correct_answer_index": 3,
-      "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
-    },
-    {
-      "question": "What is the purpose of sei()?",
-      "options": [
-        "Set error interrupt",
-        "Set enable interrupts",
-        "System error indication",
-        "Serial enable interface"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "sei() sets the global interrupt enable flag in SREG."
-    },
-    {
-      "question": "Which AVR memory type retains data after power-off?",
-      "options": [
-        "SRAM",
-        "Registers",
-        "Flash and EEPROM",
-        "Stack memory"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "Flash and EEPROM are non-volatile."
-    },
-    {
-      "question": "What is the width of each ATmega328P port register?",
-      "options": [
-        "4 bits",
-        "8 bits",
-        "16 bits",
-        "32 bits"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      "explanation": "The ATmega328P supports up to 20 MHz at 5 V supply. The Arduino Uno uses 16 MHz due to the crystal fitted."
     }
   ],
   "procedure": [
-    "Connect an LED with a 330Ω resistor to Pin 13 (PB5) and configure it as an OUTPUT.",
-    "Connect a Push Button between Pin 2 (PD2) and Ground (GND).",
-    "Configure PD2 as an INPUT by clearing bit 2 in the DDRD register (DDRD &= ~(1<<PD2)).",
-    "Enable the internal pull-up resistor on PD2 by setting bit 2 in the PORTD register (PORTD |= (1<<PD2)).",
-    "In your main loop, read the PIND register to check the state of PD2.",
-    "If the bit is 0 (button pressed), turn the LED ON.",
-    "If the bit is 1 (button unpressed), turn the LED OFF."
+    "Include headers: <code>#include &lt;avr/io.h&gt;</code> and <code>#include &lt;util/delay.h&gt;</code>. Define <code>#define F_CPU 16000000UL</code> before the delay header. Define pin constants: <code>#define LED_PIN PB5</code> and <code>#define BTN_PIN PD2</code>.",
+    "Configure the LED pin as output: <code>DDRB |= (1 &lt;&lt; LED_PIN);</code>. Configure the button pin as input: <code>DDRD &amp;= ~(1 &lt;&lt; BTN_PIN);</code> (clear the DDR bit to make it an input).",
+    "Enable the internal pull-up resistor on the button pin by writing 1 to that bit in PORTD: <code>PORTD |= (1 &lt;&lt; BTN_PIN);</code>. This ensures a stable HIGH reading when the button is open.",
+    "Create a variable to track the previous button state: <code>uint8_t prevState = 1;</code> (starts at 1 because the pull-up holds it HIGH when not pressed).",
+    "Enter the infinite main loop <code>while(1)</code>. At the start of each iteration, read the current button state: <code>uint8_t currState = (PIND &gt;&gt; BTN_PIN) &amp; 0x01;</code>. This extracts just the BTN_PIN bit and normalises it to 0 or 1.",
+    "Implement falling-edge detection: check if <code>prevState == 1</code> and <code>currState == 0</code>. This condition is true only at the instant the button transitions from released (HIGH) to pressed (LOW).",
+    "When the falling edge is detected, call <code>_delay_ms(20);</code> to wait out the contact bounce period before acting. This 20 ms window is longer than typical bounce duration.",
+    "After the debounce delay, re-read the pin: if it is still LOW (confirmed press), toggle the LED state using XOR: <code>PORTB ^= (1 &lt;&lt; LED_PIN);</code>. The LED state flips with each genuine button press.",
+    "Update the previous state at the end of each loop iteration: <code>prevState = currState;</code>. Wire the circuit: button between Pin 2 (PD2) and GND, LED with 330 Ω resistor on Pin 13 (PB5). Compile, flash, and test: each button press should toggle the LED exactly once."
   ],
   "posttest": [
     {
-      "question": "When using an internal pull-up with a button connected to Ground, what does the PIN register read when the button is PRESSED?",
-      "options": [
-        "HIGH (1)",
-        "LOW (0)",
-        "High Impedance (Z)",
-        "Floating"
-      ],
+      "question": "If you omit the debounce delay and press the button once, what might happen?",
+      "options": ["LED stays OFF", "LED toggles many times rapidly due to bounce", "MCU resets", "Nothing changes"],
       "correct_answer_index": 1,
-      "explanation": "Pressing the button connects the pin directly to Ground, forcing the voltage to 0V (LOW)."
+      "explanation": "Without debouncing, the MCU reads the 5–20 ms of contact bounce as multiple press events, causing the LED to toggle unpredictably with each physical press."
     },
     {
-      "question": "Why is it good practice to use #define for pin numbers?",
-      "options": [
-        "Runs faster",
-        "More readable and maintainable",
-        "Reduces memory",
-        "Compiler requires it"
-      ],
+      "question": "If both the previous and current button states are LOW (button held), does the edge detector trigger?",
+      "options": ["Yes, every loop iteration", "No — transition from previous HIGH to current LOW is required", "Yes, but only once per second", "Depends on the prescaler"],
       "correct_answer_index": 1,
-      "explanation": "#define creates named constants for self-documenting code."
+      "explanation": "Edge detection requires a state transition (1→0 for falling edge). Holding the button keeps both prevState and currState at 0, so the condition is never true while held."
     },
     {
-      "question": "What tool converts C source to .hex for AVR?",
-      "options": [
-        "avr-gcc toolchain",
-        "Python interpreter",
-        "Node.js",
-        "Arduino IDE only"
-      ],
+      "question": "What is an alternative hardware fix for contact bounce?",
+      "options": ["Add a 10 kΩ series resistor", "Add a 100 nF capacitor across the button terminals (RC debounce)", "Use a Zener diode", "Use a larger power supply"],
+      "correct_answer_index": 1,
+      "explanation": "A capacitor in parallel with the switch charges/discharges slowly, filtering out the fast bounce transitions. This is called hardware debouncing."
+    },
+    {
+      "question": "What is the result of PIND & (1 << PD2)?",
+      "options": ["Returns 1 or 0", "Returns PD2's bit value in its original position (4 or 0)", "Always returns PIND", "Clears PD2"],
+      "correct_answer_index": 1,
+      "explanation": "(1 << PD2) creates the mask 0b00000100. ANDing with PIND isolates bit 2 — the result is either 4 (bit set) or 0 (bit clear). Shifting right by BTN_PIN would give 0 or 1."
+    },
+    {
+      "question": "Why is active-low (button to GND with pull-up) preferred over active-high (button to VCC with pull-down)?",
+      "options": ["Pull-up is built-in; pull-down requires external resistor", "Active-low is faster", "Active-low uses less current", "Active-high causes MCU damage"],
       "correct_answer_index": 0,
-      "explanation": "avr-gcc compiles C to AVR machine code."
+      "explanation": "The ATmega328P has built-in pull-up resistors but NO built-in pull-down resistors. Active-low wiring uses the internal pull-up, avoiding any external components."
     },
     {
-      "question": "What is the difference between PORTB and PINB?",
-      "options": [
-        "No difference",
-        "PORTB writes output; PINB reads actual pin voltages",
-        "PINB configures direction",
-        "PORTB is input only"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "PORTB drives outputs; PINB reads real-time pin states."
-    },
-    {
-      "question": "What happens to SRAM when power is removed?",
-      "options": [
-        "Saved to EEPROM",
-        "Lost immediately",
-        "Persists for 1 hour",
-        "Backed up to Flash"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "SRAM is volatile memory."
+      "question": "What does PORTB ^= (1 << PB5) do?",
+      "options": ["Sets PB5 HIGH", "Clears PB5 LOW", "Toggles PB5 between HIGH and LOW", "Reads PB5"],
+      "correct_answer_index": 2,
+      "explanation": "The XOR-assignment operator (^=) flips the specified bit. If PB5 was 0 it becomes 1, and vice versa — useful for toggling without knowing the current state."
     },
     {
       "question": "What is the stack used for in AVR?",
-      "options": [
-        "Global variables",
-        "Return addresses and local variables",
-        "Program counter only",
-        "Flash management"
-      ],
+      "options": ["Global variables", "Return addresses and local variables during function calls", "Program counter only", "Flash management"],
       "correct_answer_index": 1,
-      "explanation": "Stack stores return addresses and local variables."
+      "explanation": "The stack (in SRAM) stores function return addresses and local variables during function calls and ISR execution."
     },
     {
       "question": "Which is NOT a valid ATmega328P port?",
-      "options": [
-        "PORTA",
-        "PORTB",
-        "PORTC",
-        "PORTD"
-      ],
+      "options": ["PORTA", "PORTB", "PORTC", "PORTD"],
       "correct_answer_index": 0,
-      "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      "explanation": "ATmega328P has only Port B (PB0–PB7), Port C (PC0–PC6), and Port D (PD0–PD7). No Port A exists on this device."
     },
     {
-      "question": "What is a watchdog timer used for?",
-      "options": [
-        "Timing PWM",
-        "Temperature",
-        "Resetting MCU if software hangs",
-        "Audio tones"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "WDT auto-resets MCU when not periodically fed."
+      "question": "If you wanted to read button state from Pin 4 (PD4), which expression reads only that bit?",
+      "options": ["PIND & (1 << PD4)", "PORTD & (1 << PD4)", "DDRB & (1 << PD4)", "PINB & (1 << PD4)"],
+      "correct_answer_index": 0,
+      "explanation": "Pin 4 maps to Port D bit 4. PIND contains the current pin voltages on Port D. ANDing with (1 << PD4) isolates that specific bit."
     },
     {
-      "question": "What does the SREG register contain?",
-      "options": [
-        "Serial rate",
-        "Status Register with CPU flags",
-        "Servo control",
-        "SPI rate"
-      ],
+      "question": "What happens to SRAM when power is removed?",
+      "options": ["Saved to EEPROM automatically", "Lost immediately", "Persists for 1 hour", "Backed up to Flash"],
       "correct_answer_index": 1,
-      "explanation": "SREG holds CPU flags and the global interrupt enable bit."
-    },
-    {
-      "question": "In an ISR, interrupts are automatically:",
-      "options": [
-        "Left enabled",
-        "Disabled until ISR returns",
-        "Slowed by half",
-        "Redirected to main()"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      "explanation": "SRAM is volatile — all data is immediately lost when power is removed or the MCU is reset."
     }
   ],
-  "feedback": "Great job! You learned how to read inputs, use bitwise operators to check specific bits within PIN registers, and enable internal pull-up resistors to stabilize inputs."
+  "feedback": "Outstanding! You have mastered input sensing, internal pull-up resistors, and noise rejection through software debouncing. These skills are used in every real-world product that has a physical button or switch."
 }

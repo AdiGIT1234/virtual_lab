@@ -2,240 +2,143 @@
   "id": "exp01_led_blinking",
   "title": "Level 1: Hello World (LED Blinking)",
   "difficulty": "Beginner",
-  "aim": "To write an Embedded C program to blink an LED connected to an ATmega328P.",
-  "objective": "Understand GPIO configuration using DDRx and PORTx registers, and learn how to stall the MCU using delay routines.",
-  "theory": "<h3>What is GPIO?</h3><p>General Purpose Input/Output (GPIO) pins allow microcontrollers to read digital signals (like buttons) or write digital signals (like turning on an LED).</p><h3>The Registers</h3><ul><li><b>DDRx (Data Direction Register):</b> Configures a pin as INPUT (0) or OUTPUT (1). For example, setting DDRB = 0xFF makes all PORTB pins outputs.</li><li><b>PORTx (Data Register):</b> When a pin is configured as an output, writing a 1 to PORTx sets the pin HIGH (5V), and writing a 0 sets it LOW (0V).</li></ul><h3>The Delay Loop</h3><p>Microcontrollers operate infinitely fast (up to 16 million instructions per second on an Arduino UNO). If you turn an LED ON and OFF without a delay, it happens so fast that it will just look dimly lit. A delay function forces the microcontroller to count empty cycles, keeping the LED in its current state long enough for the human eye to see.</p>",
+  "aim": "To write an Embedded C program that blinks an LED connected to Pin 13 (PB5) of the ATmega328P using direct GPIO register manipulation and a software delay loop.",
+  "objective": "Understand how to configure GPIO direction using DDRx, drive a pin HIGH/LOW using PORTx, and produce a human-visible blink using a blocking software delay with _delay_ms().",
+  "theory": "<h3>The ATmega328P GPIO System</h3><p>Every pin on the ATmega328P belongs to one of three 8-bit <strong>Ports</strong>: Port B (PB0–PB7), Port C (PC0–PC6), and Port D (PD0–PD7). Each port is controlled by a trio of hardware registers that you write to directly in memory.</p><h3>DDRx — Data Direction Register</h3><p>Before you can do anything with a pin, the CPU must know whether it is an <strong>input</strong> or an <strong>output</strong>. Writing a <code>1</code> to a bit in <strong>DDRx</strong> (Data Direction Register) configures that pin as an output. Writing <code>0</code> makes it an input (which also enables reading). For example: <code>DDRB |= (1 << PB5);</code> sets only bit 5 of Port B as an output, leaving all other bits untouched — this is the safest form using the bitwise OR-assignment operator.</p><h3>PORTx — Output Data Register</h3><p>Once a pin is configured as output, you control its voltage by writing to <strong>PORTx</strong>. Writing <code>1</code> drives the pin to <strong>+5 V (HIGH)</strong>. Writing <code>0</code> drives it to <strong>0 V (LOW)</strong>. For inputs, writing 1 to PORTx enables the pin's built-in <strong>internal pull-up resistor</strong> (~20–50 kΩ), which is useful for buttons.</p><h3>PINx — Pin Input Register</h3><p><strong>PINx</strong> is the read-only mirror of the actual voltage present on each pin. Reading it lets you check whether an external signal is HIGH or LOW. For outputs, PINx reflects whatever PORTx drives.</p><h3>LED Circuit</h3><p>An LED (Light Emitting Diode) passes current in only one direction and emits light when forward biased. Its forward voltage is ≈ 2 V for red LEDs. Since the MCU drives 5 V, a <strong>current-limiting resistor</strong> is mandatory to prevent damage. Using Ohm's law: R = (Vsupply − Vf) / If = (5 − 2) / 0.020 = <strong>150 Ω minimum</strong>. A 330 Ω resistor is commonly used for safety margin, giving ≈ 9 mA of LED current.</p><h3>Software Delay</h3><p>The ATmega328P executes most instructions in a <strong>single clock cycle</strong> at 16 MHz, meaning it can toggle a pin millions of times per second — far too fast for the human eye (persistence of vision threshold ≈ 60 Hz). The <code>_delay_ms()</code> function from <code>&lt;util/delay.h&gt;</code> burns CPU cycles counting: at 16 MHz, 1 ms = 16,000 cycles. This is called a <strong>blocking delay</strong> — the CPU can do nothing else while waiting. It wastes energy and CPU time, which is why Experiment 5 replaces it with a hardware timer.</p><h3>Key Registers at a Glance</h3><ul><li><strong>DDRB (0x24)</strong> — Bit 5 = PB5 direction (1 = output)</li><li><strong>PORTB (0x25)</strong> — Bit 5 = PB5 output level (1 = HIGH, 0 = LOW)</li><li><strong>PINB (0x23)</strong> — Bit 5 = PB5 current voltage (read-only)</li></ul>",
   "pretest": [
     {
       "question": "Which register is responsible for setting a pin as an Input or Output?",
-      "options": [
-        "PORTB",
-        "PINB",
-        "DDRB",
-        "MCUCR"
-      ],
+      "options": ["PORTB", "PINB", "DDRB", "MCUCR"],
       "correct_answer_index": 2,
-      "explanation": "The Data Direction Register (DDR) configures pin direction."
+      "explanation": "The Data Direction Register (DDRx) configures each pin's direction. 1 = output, 0 = input."
     },
     {
-      "question": "If you write '1' to a bit in the PORT register while the DDR bit is set to '1', what happens to the output pin?",
-      "options": [
-        "It becomes High-Z",
-        "It outputs 5V (HIGH)",
-        "It outputs 0V (LOW)",
-        "It acts as an input"
-      ],
+      "question": "If you write '1' to a bit in the PORT register while the DDR bit is '1', what happens?",
+      "options": ["It becomes High-Z", "It outputs 5V (HIGH)", "It outputs 0V (LOW)", "It acts as an input"],
       "correct_answer_index": 1,
-      "explanation": "Writing 1 to PORT when DDR is 1 drives the pin HIGH."
+      "explanation": "Writing 1 to PORTx when DDRx bit is 1 drives the output pin to +5 V (HIGH)."
     },
     {
-      "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
-      "options": [
-        "To read pin values",
-        "To configure pins as input or output",
-        "To set pull-up resistors",
-        "To configure interrupts"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "DDR configures the direction of each GPIO pin."
+      "question": "What is the forward voltage drop of a typical red LED?",
+      "options": ["0.7 V", "1.2 V", "2.0 V", "5.0 V"],
+      "correct_answer_index": 2,
+      "explanation": "Red LEDs typically have a forward voltage of about 2.0 V. This determines the resistor size needed."
     },
     {
-      "question": "Which header file provides basic I/O register definitions for AVR?",
-      "options": [
-        "<stdio.h>",
-        "<avr/io.h>",
-        "<string.h>",
-        "<math.h>"
-      ],
+      "question": "Using a 330 Ω resistor with a 5 V supply and a red LED (Vf=2V), what is the LED current?",
+      "options": ["6 mA", "9 mA", "15 mA", "20 mA"],
       "correct_answer_index": 1,
-      "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      "explanation": "I = (5 − 2) / 330 ≈ 9 mA. This is within safe operating range for most LEDs."
     },
     {
       "question": "What does the volatile keyword tell the C compiler?",
-      "options": [
-        "Uses less memory",
-        "May change unexpectedly, so do not optimize reads",
-        "Variable is constant",
-        "Used once only"
-      ],
+      "options": ["Uses less memory", "May change unexpectedly, do not optimize reads", "Variable is constant", "Used once only"],
       "correct_answer_index": 1,
-      "explanation": "volatile prevents the compiler from caching the variable."
+      "explanation": "volatile prevents the compiler from caching a variable's value in a register, ensuring every read goes to hardware."
+    },
+    {
+      "question": "At 16 MHz, how many CPU cycles are burned by _delay_ms(1)?",
+      "options": ["160", "1600", "16000", "160000"],
+      "correct_answer_index": 2,
+      "explanation": "16 MHz means 16,000,000 cycles per second. 1 ms = 1/1000 s × 16,000,000 = 16,000 cycles."
+    },
+    {
+      "question": "Which header file provides basic I/O register definitions for AVR?",
+      "options": ["<stdio.h>", "<avr/io.h>", "<string.h>", "<math.h>"],
+      "correct_answer_index": 1,
+      "explanation": "<avr/io.h> includes the MCU-specific header defining all peripheral registers like DDRB, PORTB, etc."
     },
     {
       "question": "How many GPIO pins does the ATmega328P have in total?",
-      "options": [
-        "8",
-        "14",
-        "23",
-        "32"
-      ],
+      "options": ["8", "14", "23", "32"],
       "correct_answer_index": 2,
-      "explanation": "23 GPIO pins across Port B, C, and D."
+      "explanation": "The ATmega328P exposes 23 general-purpose I/O pins across Port B (PB0–PB7), Port C (PC0–PC6), and Port D (PD0–PD7)."
     },
     {
-      "question": "What is the maximum clock frequency of the ATmega328P?",
-      "options": [
-        "1MHz",
-        "8MHz",
-        "16MHz",
-        "20MHz"
-      ],
+      "question": "Which bit operation safely sets only bit 5 of DDRB without touching other bits?",
+      "options": ["DDRB = 0xFF", "DDRB = (1 << 5)", "DDRB |= (1 << 5)", "DDRB &= ~(1 << 5)"],
+      "correct_answer_index": 2,
+      "explanation": "The bitwise OR-assignment (|=) sets the target bit to 1 while leaving all other bits unchanged."
+    },
+    {
+      "question": "What is the ATmega328P's maximum supported clock frequency?",
+      "options": ["1 MHz", "8 MHz", "16 MHz", "20 MHz"],
       "correct_answer_index": 3,
-      "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
-    },
-    {
-      "question": "What is the purpose of sei()?",
-      "options": [
-        "Set error interrupt",
-        "Set enable interrupts",
-        "System error indication",
-        "Serial enable interface"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "sei() sets the global interrupt enable flag in SREG."
-    },
-    {
-      "question": "Which AVR memory type retains data after power-off?",
-      "options": [
-        "SRAM",
-        "Registers",
-        "Flash and EEPROM",
-        "Stack memory"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "Flash and EEPROM are non-volatile."
-    },
-    {
-      "question": "What is the width of each ATmega328P port register?",
-      "options": [
-        "4 bits",
-        "8 bits",
-        "16 bits",
-        "32 bits"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      "explanation": "The ATmega328P is rated for up to 20 MHz at 5 V. The Arduino UNO uses an external 16 MHz crystal."
     }
   ],
   "procedure": [
-    "Connect the Anode (long leg) of an LED to Pin 13 (PORTB Pin 5) of the ATmega328P.",
-    "Connect the Cathode (short leg) of the LED through a 330Ω resistor to GND.",
-    "Write the code to set DDRB bit 5 as an output.",
-    "In the infinite loop, set PORTB bit 5 HIGH.",
-    "Call a delay function to wait for 1000ms.",
-    "Set PORTB bit 5 LOW, and wait another 1000ms."
+    "Include the necessary headers at the top of your file: <code>#include &lt;avr/io.h&gt;</code> (for register definitions) and <code>#include &lt;util/delay.h&gt;</code> (for _delay_ms). Set <code>#define F_CPU 16000000UL</code> before including delay.h so the delay library knows the clock speed.",
+    "Define a constant for the LED pin to keep code readable: <code>#define LED_PIN PB5</code>. Pin 13 on the Arduino Uno physically maps to PB5 (Port B, Bit 5).",
+    "In <code>setup()</code> or before the main loop, configure PB5 as an output by setting its corresponding bit in DDRB HIGH: <code>DDRB |= (1 &lt;&lt; LED_PIN);</code>. The <code>(1 &lt;&lt; PB5)</code> expression creates the bitmask 0b00100000.",
+    "Start the infinite main loop: <code>while(1) { ... }</code>. The ATmega328P main loop must run forever — there is no operating system to return to.",
+    "Inside the loop, turn the LED ON by writing 1 to the PB5 bit of PORTB: <code>PORTB |= (1 &lt;&lt; LED_PIN);</code>. This drives the pin to +5 V, forward-biasing the LED.",
+    "Call <code>_delay_ms(1000);</code> to hold the LED ON state for 1000 milliseconds (1 second). During this time the CPU is fully occupied counting empty cycles.",
+    "Turn the LED OFF by clearing bit PB5 in PORTB using AND-NOT: <code>PORTB &amp;= ~(1 &lt;&lt; LED_PIN);</code>. This drives the pin to 0 V, cutting LED current.",
+    "Call <code>_delay_ms(1000);</code> again to hold the OFF state for 1 second. The LED has now completed one full blink cycle (period = 2 seconds, frequency = 0.5 Hz).",
+    "Connect the hardware: LED Anode (long leg) → Pin 13 of Arduino → 330 Ω resistor → LED Cathode (short leg) → GND pin. Compile and flash the program, then observe the LED blinking at exactly 1 Hz."
   ],
   "posttest": [
     {
       "question": "Why do we need a resistor connected in series with the LED?",
-      "options": [
-        "To increase the voltage",
-        "To decrease the software delay",
-        "To limit current and prevent burning out the LED",
-        "To convert AC to DC"
-      ],
+      "options": ["To increase voltage", "To decrease software delay", "To limit current and prevent burning out the LED", "To convert AC to DC"],
       "correct_answer_index": 2,
-      "explanation": "LEDs have no internal resistance, so they will draw infinite current and burn out without a current-limiting resistor."
+      "explanation": "LEDs have no internal resistance — without a current-limiting resistor, excessive current (limited only by trace resistance) would destroy the LED and potentially damage the GPIO pin."
     },
     {
-      "question": "Why is it good practice to use #define for pin numbers?",
-      "options": [
-        "Runs faster",
-        "More readable and maintainable",
-        "Reduces memory",
-        "Compiler requires it"
-      ],
+      "question": "What happens if you forget to set the DDR and leave it as input (0)?",
+      "options": ["Pin outputs 5V always", "Pin outputs 0V always", "Output writes to PORT are ignored — pin stays Hi-Z", "MCU resets"],
+      "correct_answer_index": 2,
+      "explanation": "If DDRx bit is 0 (input), writing to PORTx toggles the pull-up resistor, not the output voltage. The LED will not light."
+    },
+    {
+      "question": "What is the fundamental disadvantage of using _delay_ms() for timing?",
+      "options": ["It requires hardware support", "It blocks the CPU — no other tasks can run", "It is inaccurate", "It consumes too much flash"],
       "correct_answer_index": 1,
-      "explanation": "#define creates named constants for self-documenting code."
-    },
-    {
-      "question": "What tool converts C source to .hex for AVR?",
-      "options": [
-        "avr-gcc toolchain",
-        "Python interpreter",
-        "Node.js",
-        "Arduino IDE only"
-      ],
-      "correct_answer_index": 0,
-      "explanation": "avr-gcc compiles C to AVR machine code."
+      "explanation": "_delay_ms() is a busy-wait loop. The CPU cannot respond to button presses, sensor readings, or interrupts while waiting."
     },
     {
       "question": "What is the difference between PORTB and PINB?",
-      "options": [
-        "No difference",
-        "PORTB writes output; PINB reads actual pin voltages",
-        "PINB configures direction",
-        "PORTB is input only"
-      ],
+      "options": ["No difference", "PORTB writes output; PINB reads actual pin voltages", "PINB configures direction", "PORTB is input only"],
       "correct_answer_index": 1,
-      "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      "explanation": "PORTB drives output voltage (or enables pull-up on inputs). PINB reads the actual real-time voltage on the pin."
     },
     {
-      "question": "What happens to SRAM when power is removed?",
-      "options": [
-        "Saved to EEPROM",
-        "Lost immediately",
-        "Persists for 1 hour",
-        "Backed up to Flash"
-      ],
+      "question": "To toggle PB5 without affecting other pins in one instruction, what should you write?",
+      "options": ["PORTB = (1 << PB5)", "PORTB ^= (1 << PB5)", "PORTB |= (1 << PB5)", "PORTB &= (1 << PB5)"],
       "correct_answer_index": 1,
-      "explanation": "SRAM is volatile memory."
+      "explanation": "The XOR-assignment (^=) flips only the specified bit. If it was 0 it becomes 1, and vice versa — perfect for toggling."
     },
     {
-      "question": "What is the stack used for in AVR?",
-      "options": [
-        "Global variables",
-        "Return addresses and local variables",
-        "Program counter only",
-        "Flash management"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Stack stores return addresses and local variables."
+      "question": "What tool converts C source to a .hex file for AVR?",
+      "options": ["avr-gcc toolchain", "Python interpreter", "Node.js", "Arduino IDE only"],
+      "correct_answer_index": 0,
+      "explanation": "avr-gcc cross-compiles C source to AVR machine code. avr-objcopy then converts the ELF to Intel HEX format for flashing."
     },
     {
       "question": "Which is NOT a valid ATmega328P port?",
-      "options": [
-        "PORTA",
-        "PORTB",
-        "PORTC",
-        "PORTD"
-      ],
+      "options": ["PORTA", "PORTB", "PORTC", "PORTD"],
       "correct_answer_index": 0,
-      "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      "explanation": "The ATmega328P has only Port B, C, and D. The 'A' naming is used on larger AVR devices like ATmega2560."
     },
     {
-      "question": "What is a watchdog timer used for?",
-      "options": [
-        "Timing PWM",
-        "Temperature",
-        "Resetting MCU if software hangs",
-        "Audio tones"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "WDT auto-resets MCU when not periodically fed."
-    },
-    {
-      "question": "What does the SREG register contain?",
-      "options": [
-        "Serial rate",
-        "Status Register with CPU flags",
-        "Servo control",
-        "SPI rate"
-      ],
+      "question": "What happens to SRAM when power is removed?",
+      "options": ["Saved to EEPROM", "Lost immediately (volatile)", "Persists for 1 hour", "Backed up to Flash"],
       "correct_answer_index": 1,
-      "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      "explanation": "SRAM is volatile memory. It requires continuous power to retain data. Variables in SRAM are lost on power-off or reset."
+    },
+    {
+      "question": "The blink period is defined as the time for one full ON-OFF cycle. With 1000ms ON and 1000ms OFF, what is the blink frequency?",
+      "options": ["0.5 Hz", "1 Hz", "2 Hz", "500 Hz"],
+      "correct_answer_index": 0,
+      "explanation": "Period = 2000 ms = 2 s. Frequency = 1/Period = 0.5 Hz."
     },
     {
       "question": "In an ISR, interrupts are automatically:",
-      "options": [
-        "Left enabled",
-        "Disabled until ISR returns",
-        "Slowed by half",
-        "Redirected to main()"
-      ],
+      "options": ["Left enabled", "Disabled until ISR returns", "Slowed by half", "Redirected to main()"],
       "correct_answer_index": 1,
-      "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      "explanation": "The AVR hardware clears the I (Global Interrupt Enable) flag in SREG upon entering an ISR, preventing nested interrupts unless explicitly re-enabled."
     }
   ],
-  "feedback": "Congratulations! You successfully configured an output pin and wrote a blocking loop to blink the LED."
+  "feedback": "Excellent work! You've mastered the fundamental skill of embedded programming: direct register manipulation to control GPIO. Every complex firmware build on this exact foundation — DDR, PORT, PIN — the holy trinity of AVR I/O."
 }

@@ -1,243 +1,143 @@
 {
   "id": "exp13_i2c_master",
-  "title": "Level 13: I2C Comm (TWI Master)",
+  "title": "Level 13: I2C Master — Reading an MPU-6050 Accelerometer/Gyroscope",
   "difficulty": "Advanced",
-  "aim": "To address multiple devices over the I2C (Two-Wire Interface - TWI) bus using only two synchronous pins: SCL and SDA.",
-  "objective": "Understand the TWI Control mechanisms: TWCR, TWSR, and TWBR, generate a START/STOP condition, and address unique 7-bit slave devices.",
-  "theory": "<h3>The I2C Bus Architecture</h3><p>Unlike UART (point-to-point) or SPI (multi-CS), I2C uses Open-Drain circuitry and unique addressing. Only <b>SDA</b> (Serial Data) and <b>SCL</b> (Serial Clock) are needed to connect up to 127 unique devices to the ATmega328P. Both lines must be pulled up to VCC with external resistors.</p><h3>Master Control: TWCR</h3><p>The TWI Control Register (<b>TWCR</b>) manages every single bus action. A transaction is initiated by generating a START condition: writing `(1<<TWINT) | (1<<TWSTA) | (1<<TWEN)` to TWCR. TWINT (Interrupt Flag) must be cleared by writing a 1 to it to initiate the action, and then polled in software to confirm when the TWI hardware finishes the action.</p><h3>Addressing Slaves</h3><p>After a successful START, the master transmits the 7-bit Slave Address appended with a Read/Write bit (0 for Write, 1 for Read) out of <b>TWDR</b>. The designated slave responds by pulling SDA Low during the 9th clock cycle, known as the Acknowledge (ACK).</p>",
+  "aim": "To configure the ATmega328P's TWI (Two-Wire Interface, I2C compatible) as a master and communicate with an MPU-6050 6-axis IMU sensor at address 0x68, reading accelerometer and gyroscope raw data via register access.",
+  "objective": "Understand the I2C bus protocol (START, address, ACK, data, STOP conditions), the ATmega328P TWI register set (TWCR, TWSR, TWDR, TWBR), 7-bit addressing, the two-phase read transaction (write address + register, then read data), and MPU-6050 register map.",
+  "theory": "<h3>I2C — Inter-Integrated Circuit Protocol</h3><p><strong>I2C</strong> (pronounced 'I-squared-C') is a synchronous, half-duplex, multi-master, multi-slave serial protocol using only <strong>2 wires</strong>:</p><ul><li><strong>SCL</strong> (Serial Clock Line) — Master-generated clock</li><li><strong>SDA</strong> (Serial Data Line) — Bidirectional data</li></ul><p>Both lines are <strong>open-drain with pull-up resistors</strong> (typically 4.7 kΩ to VCC). Any device can pull a line LOW; pull-ups hold it HIGH when no device drives it. This allows multiple masters and multiple slaves on the same two wires, with bus arbitration.</p><h3>7-Bit Addressing</h3><p>Each I2C slave has a unique <strong>7-bit address</strong> (from 16 defined by manufacturer + user-configurable bits). The master addresses a specific slave by sending its 7-bit address followed by a direction bit:</p><ul><li><code>address &lt;&lt; 1 | 0</code> = Write (SLA+W)</li><li><code>address &lt;&lt; 1 | 1</code> = Read (SLA+R)</li></ul><p>The MPU-6050 has address <strong>0x68</strong> (AD0 pin tied to GND) or 0x69 (AD0 tied to VCC).</p><h3>I2C Transaction Anatomy</h3><p>Every I2C transaction follows this protocol: <strong>START → [Address+W/R] → [ACK] → [Data bytes with ACKs] → STOP</strong></p><p>A <strong>START condition</strong> is a high-to-low transition on SDA while SCL is HIGH. A <strong>STOP condition</strong> is a low-to-high transition on SDA while SCL is HIGH. These are the only times SDA changes while SCL is HIGH — during data bits, SDA must be stable when SCL is HIGH.</p><p>Every byte must be acknowledged by the receiver pulling SDA LOW on the 9th clock (ACK). If not acknowledged (NACK), the transaction is aborted.</p><h3>Reading an MPU-6050 Register (2-Phase Transaction)</h3><p>To read a register from a slave:<br/><strong>Phase 1:</strong> START → SLA+W → Register address → STOP (or REPEATED_START)<br/><strong>Phase 2:</strong> START → SLA+R → Read data byte → NACK → STOP</p><h3>ATmega328P TWI Registers</h3><ul><li><strong>TWBR</strong> — Bit Rate Register. SCL frequency = F_CPU / (16 + 2 × TWBR × prescaler). For 100 kHz at 16 MHz: TWBR = 72.</li><li><strong>TWCR</strong> — Control Register. Key bits: TWINT (interrupt flag — write 1 to clear and proceed), TWSTA (generate START), TWSTO (generate STOP), TWEN (enable TWI), TWEA (send ACK).</li><li><strong>TWSR</strong> — Status Register. Upper 5 bits = TWI status code. Read after each step to confirm ACK received, data ready, etc.</li><li><strong>TWDR</strong> — Data Register. Load with byte to send, or read received byte from here.</li></ul><h3>MPU-6050 Key Registers</h3><ul><li><strong>0x6B</strong> (PWR_MGMT_1) — Write 0x00 to wake device from sleep</li><li><strong>0x3B–0x40</strong> — Accelerometer X,Y,Z High/Low bytes (16-bit each)</li><li><strong>0x43–0x48</strong> — Gyroscope X,Y,Z High/Low bytes (16-bit each)</li><li><strong>0x75</strong> (WHO_AM_I) — Returns 0x68, confirms identity</li></ul><h3>I2C Pull-Up Resistors</h3><p>SCL and SDA require pull-up resistors to VCC. The value affects rise time and maximum speed: <strong>4.7 kΩ</strong> for 100 kHz (standard), <strong>2.2 kΩ</strong> for 400 kHz (fast mode). The ATmega328P has internal pull-ups (~50 kΩ) — too weak for reliable I2C; always use external resistors.</p>",
   "pretest": [
     {
-      "question": "What happens if you never write a 1 to the TWINT bit in the TWCR register?",
-      "options": [
-        "The transaction starts, but the flag isn't cleared",
-        "The I2C hardware remains stalled permanently, waiting to be cleared",
-        "An interrupt forces the bit to 0 automatically",
-        "SCL locks at 5V permanently"
-      ],
+      "question": "How many wires does I2C use?",
+      "options": ["1", "2", "4", "6"],
       "correct_answer_index": 1,
-      "explanation": "Clearing the TWINT flag literally un-stalls the hardware state machine allowing the next action (like sending data) to legally execute."
+      "explanation": "I2C uses exactly 2 wires: SCL (clock) and SDA (data). Both are open-drain with pull-up resistors to VCC."
     },
     {
-      "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
-      "options": [
-        "To read pin values",
-        "To configure pins as input or output",
-        "To set pull-up resistors",
-        "To configure interrupts"
-      ],
+      "question": "What is the MPU-6050 I2C address when AD0 is tied to GND?",
+      "options": ["0x60", "0x68", "0x69", "0x6B"],
       "correct_answer_index": 1,
-      "explanation": "DDR configures the direction of each GPIO pin."
+      "explanation": "The MPU-6050 defaults to I2C address 0x68 when the AD0 pin is grounded. Connecting AD0 to VCC shifts it to 0x69 — allowing two MPU-6050s on one bus."
     },
     {
-      "question": "Which header file provides basic I/O register definitions for AVR?",
-      "options": [
-        "<stdio.h>",
-        "<avr/io.h>",
-        "<string.h>",
-        "<math.h>"
-      ],
+      "question": "What does START condition mean in I2C?",
+      "options": ["SCL falls while SDA is LOW", "SDA falls from HIGH to LOW while SCL remains HIGH", "SDA rises while SCL is LOW", "Both lines go LOW simultaneously"],
       "correct_answer_index": 1,
-      "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      "explanation": "A START condition is defined as SDA transitioning HIGH→LOW while SCL is HIGH. This is the only legal SDA change while SCL is HIGH (during data, SDA must be stable)."
     },
     {
-      "question": "What does the volatile keyword tell the C compiler?",
-      "options": [
-        "Uses less memory",
-        "May change unexpectedly, so do not optimize reads",
-        "Variable is constant",
-        "Used once only"
-      ],
+      "question": "What does TWINT flag in TWCR indicate?",
+      "options": ["Transfer interrupted", "TWI operation complete — write 1 to TWINT to clear it and proceed to next step", "Timeout error", "ACK received"],
       "correct_answer_index": 1,
-      "explanation": "volatile prevents the compiler from caching the variable."
+      "explanation": "TWINT is set by hardware when a TWI operation completes (START sent, byte transmitted, ACK received, etc.). Software clears it by writing 1 to TWINT, which starts the next TWI operation."
     },
     {
-      "question": "How many GPIO pins does the ATmega328P have in total?",
-      "options": [
-        "8",
-        "14",
-        "23",
-        "32"
-      ],
+      "question": "For I2C 100 kHz at 16 MHz with no prescaler, what TWBR value is needed?",
+      "options": ["12", "36", "72", "128"],
       "correct_answer_index": 2,
-      "explanation": "23 GPIO pins across Port B, C, and D."
+      "explanation": "SCL = F_CPU / (16 + 2×TWBR×1). 100,000 = 16,000,000 / (16 + 2×TWBR). 16 + 2×TWBR = 160. TWBR = 72."
     },
     {
-      "question": "What is the maximum clock frequency of the ATmega328P?",
-      "options": [
-        "1MHz",
-        "8MHz",
-        "16MHz",
-        "20MHz"
-      ],
+      "question": "What is a REPEATED_START (Sr) in I2C?",
+      "options": ["Transmitting START twice", "A START condition without preceding STOP — retains bus ownership for multi-phase transactions", "Error recovery START", "Fast mode START"],
+      "correct_answer_index": 1,
+      "explanation": "A Repeated START allows the master to change transfer direction (write→read) or address a different slave without releasing the bus. Used in the two-phase read transaction."
+    },
+    {
+      "question": "What does ACK (Acknowledge) in I2C mean?",
+      "options": ["Address Check", "Receiver pulls SDA LOW during the 9th clock (confirming byte received)", "Auto Clock Keep", "Address Correction Key"],
+      "correct_answer_index": 1,
+      "explanation": "After each transmitted byte, the receiver must acknowledge by pulling SDA LOW during the 9th SCL pulse. NACK (SDA remains HIGH) indicates the receiver cannot accept more data."
+    },
+    {
+      "question": "Which MPU-6050 register must be written 0x00 to exit sleep mode?",
+      "options": ["0x6B (PWR_MGMT_1)", "0x1A (CONFIG)", "0x75 (WHO_AM_I)", "0x3B (ACCEL_XOUT_H)"],
+      "correct_answer_index": 0,
+      "explanation": "The MPU-6050 boots in sleep mode. Writing 0x00 to register 0x6B (PWR_MGMT_1) clears the SLEEP bit, waking the device and enabling sensor data output."
+    },
+    {
+      "question": "Why are external pull-up resistors required on I2C lines?",
+      "options": ["Internal pull-ups are too strong", "I2C lines are open-drain — they can only be pulled LOW, requiring external pull-ups to define the HIGH state", "MCU cannot source current", "Required by avr/io.h"],
+      "correct_answer_index": 1,
+      "explanation": "Open-drain outputs can only sink current (pull LOW). The pull-up resistor provides the path to VCC for the HIGH logic level. Internal 50 kΩ pull-ups are too weak for reliable I2C above a few kHz."
+    },
+    {
+      "question": "What 16-bit accelerometer value represents 1g in MPU-6050 default ±2g range?",
+      "options": ["1024", "2048", "4096", "16384"],
       "correct_answer_index": 3,
-      "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
-    },
-    {
-      "question": "What is the purpose of sei()?",
-      "options": [
-        "Set error interrupt",
-        "Set enable interrupts",
-        "System error indication",
-        "Serial enable interface"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "sei() sets the global interrupt enable flag in SREG."
-    },
-    {
-      "question": "Which AVR memory type retains data after power-off?",
-      "options": [
-        "SRAM",
-        "Registers",
-        "Flash and EEPROM",
-        "Stack memory"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "Flash and EEPROM are non-volatile."
-    },
-    {
-      "question": "What is the width of each ATmega328P port register?",
-      "options": [
-        "4 bits",
-        "8 bits",
-        "16 bits",
-        "32 bits"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
-    },
-    {
-      "question": "What is bit manipulation?",
-      "options": [
-        "Changing clock",
-        "Operating on individual bits using bitwise operators",
-        "Binary to decimal",
-        "Memory allocation"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      "explanation": "In ±2g range, the sensitivity is 16384 LSB/g. So raw value 16384 = 1g, 32767 ≈ 2g. Divide raw values by 16384.0 to get acceleration in g."
     }
   ],
   "procedure": [
-    "Initialize the bus speed (SCL Frequency) using the TWI Bit Rate Register (TWBR).",
-    "Enable the TWI hardware explicitly (TWEN = 1) in TWCR.",
-    "Formally generate a START condition on the bus. (TWCR = (1<<TWINT)|(1<<TWSTA)|(1<<TWEN)).",
-    "Wait for the hardware to confirm it successfully grabbed the bus by checking when the TWINT bit sets to 1: `while (!(TWCR & (1<<TWINT)));`.",
-    "Load the Slave Address (e.g., 0x27) shifted left by 1 into TWDR. Set the LSB to 0 to WRITE.",
-    "Clear TWINT and enable TWI again to send the address: `TWCR = (1<<TWINT) | (1<<TWEN);`.",
-    "Wait again. After ACK, load real data into TWDR. Clear TWINT again.",
-    "After all data is sent, generate a STOP condition: `TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWSTO);`."
+    "Include <code>#include &lt;avr/io.h&gt;</code> and <code>#include &lt;util/delay.h&gt;</code>. Wire: SDA → Arduino A4 (PC4), SCL → Arduino A5 (PC5). Add external 4.7 kΩ pull-up resistors from SDA and SCL to 3.3V or 5V (match MPU-6050's VLOGIC). Power MPU-6050 from 3.3V.",
+    "Configure I2C: Set TWSR prescaler to 1 (TWPS = 0x00), then compute and load TWBR for 100 kHz: <code>TWSR = 0x00; TWBR = 72;</code>",
+    "Write TWI helper functions: <code>twi_start()</code> (set TWSTA|TWEN|TWINT and wait for TWINT), <code>twi_stop()</code> (set TWSTO|TWEN|TWINT), <code>twi_write(byte)</code> (load TWDR, set TWEN|TWINT, wait), <code>twi_read_ack()</code> and <code>twi_read_nack()</code> for reading with or without ACK.",
+    "Wake the MPU-6050: call <code>twi_start()</code>, write SLA+W (0x68&lt;&lt;1|0 = 0xD0), write register 0x6B, write data 0x00, call <code>twi_stop()</code>.",
+    "Implement a function to read a register: <code>twi_start() → write SLA+W(0xD0) → write register_addr → twi_start() (repeated) → write SLA+R(0xD1) → twi_read_nack() → twi_stop()</code>. Return TWDR.",
+    "Read the WHO_AM_I register (0x75) — should return 0x68 to confirm device identity before reading sensors.",
+    "Read 6 bytes starting at ACCEL_XOUT_H (0x3B) by doing a repeated read: start at register 0x3B, then read 6 consecutive bytes with ACKs, last byte with NACK. Combine High+Low bytes: <code>int16_t ax = (TWDR_H &lt;&lt; 8) | TWDR_L;</code> for each axis.",
+    "Convert raw values to g: <code>float ax_g = ax / 16384.0;</code>. Transmit values over UART (from Exp 10) to monitor on a terminal. Tilt the sensor and observe axis values change."
   ],
   "posttest": [
     {
-      "question": "Why does I2C use 'Open Drain' configuration for its communication lines?",
-      "options": [
-        "To boost signal strength",
-        "Devices never drive the lines logic HIGH; they only pull them LOW, avoiding short-circuits if two devices talk simultaneously",
-        "It operates better through internal voltage regulators",
-        "It prevents floating pins"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Any device on the bus can safely yank the line to Ground (0V). The pull-up resistors handle pulling it back to 5V."
-    },
-    {
-      "question": "Why is it good practice to use #define for pin numbers?",
-      "options": [
-        "Runs faster",
-        "More readable and maintainable",
-        "Reduces memory",
-        "Compiler requires it"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "#define creates named constants for self-documenting code."
-    },
-    {
-      "question": "What tool converts C source to .hex for AVR?",
-      "options": [
-        "avr-gcc toolchain",
-        "Python interpreter",
-        "Node.js",
-        "Arduino IDE only"
-      ],
+      "question": "What TWI status code appears in TWSR after a successful START condition?",
+      "options": ["0x08", "0x18", "0x28", "0x40"],
       "correct_answer_index": 0,
-      "explanation": "avr-gcc compiles C to AVR machine code."
+      "explanation": "After generating a START condition, TWSR (masked with 0xF8) returns 0x08 (START transmitted). After REPEATED_START, it returns 0x10."
     },
     {
-      "question": "What is the difference between PORTB and PINB?",
-      "options": [
-        "No difference",
-        "PORTB writes output; PINB reads actual pin voltages",
-        "PINB configures direction",
-        "PORTB is input only"
-      ],
+      "question": "What happens if no slave ACKs the master's address byte?",
+      "options": ["Data transfer begins anyway", "TWSR returns NACK status (0x20 for SLA+W) — firmware must abort with STOP", "Bus resets automatically", "Master retries forever"],
       "correct_answer_index": 1,
-      "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      "explanation": "If no slave ACKs, SDA remains HIGH on the 9th clock. TWSR shows 0x20 (SLA+W NACK) or 0x48 (SLA+R NACK). The firmware should STOP and retry or handle the error."
     },
     {
-      "question": "What happens to SRAM when power is removed?",
-      "options": [
-        "Saved to EEPROM",
-        "Lost immediately",
-        "Persists for 1 hour",
-        "Backed up to Flash"
-      ],
+      "question": "I2C maximum speed in standard mode is 100 kHz. What speed does Fast Mode support?",
+      "options": ["200 kHz", "400 kHz", "1 MHz", "4 MHz"],
       "correct_answer_index": 1,
-      "explanation": "SRAM is volatile memory."
+      "explanation": "Fast Mode I2C supports up to 400 kHz. Fast Mode Plus (FM+) reaches 1 MHz, and High-Speed Mode (HS) reaches 3.4 MHz."
     },
     {
-      "question": "What is the stack used for in AVR?",
-      "options": [
-        "Global variables",
-        "Return addresses and local variables",
-        "Program counter only",
-        "Flash management"
-      ],
+      "question": "What is the advantage of SPI over I2C for high-bandwidth data transfer?",
+      "options": ["Fewer wires", "SPI is full-duplex and can run at 10+ MHz vs I2C's 400 kHz max in fast mode", "Less complex protocol", "More devices per bus"],
       "correct_answer_index": 1,
-      "explanation": "Stack stores return addresses and local variables."
+      "explanation": "SPI can run at tens of MHz without complex acknowledge mechanisms. I2C tops out at ~3.4 MHz and requires ACK handshake each byte. SPI is preferred for SD cards, displays, and ADCs."
     },
     {
-      "question": "Which is NOT a valid ATmega328P port?",
-      "options": [
-        "PORTA",
-        "PORTB",
-        "PORTC",
-        "PORTD"
-      ],
-      "correct_answer_index": 0,
-      "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      "question": "The gyroscope in MPU-6050 measures:",
+      "options": ["Linear acceleration in m/s²", "Angular rate in degrees per second (°/s)", "Magnetic field in Tesla", "Temperature in Celsius"],
+      "correct_answer_index": 1,
+      "explanation": "The MPU-6050 gyroscope measures angular rate (how fast it's rotating) in °/s. The default full-scale is ±250 °/s. Integrate over time to get angle."
     },
     {
       "question": "What is a watchdog timer used for?",
-      "options": [
-        "Timing PWM",
-        "Temperature",
-        "Resetting MCU if software hangs",
-        "Audio tones"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "WDT auto-resets MCU when not periodically fed."
+      "options": ["I2C bus monitoring", "Auto-resetting MCU if software hangs", "Clock prescaling", "TWSR monitoring"],
+      "correct_answer_index": 1,
+      "explanation": "WDT auto-resets MCU when not periodically cleared."
     },
     {
-      "question": "What does the SREG register contain?",
-      "options": [
-        "Serial rate",
-        "Status Register with CPU flags",
-        "Servo control",
-        "SPI rate"
-      ],
+      "question": "Which is NOT a valid ATmega328P port?",
+      "options": ["PORTA", "PORTB", "PORTC", "PORTD"],
+      "correct_answer_index": 0,
+      "explanation": "ATmega328P has Port B, C, and D only."
+    },
+    {
+      "question": "What happens to SRAM when power is removed?",
+      "options": ["Saved to EEPROM", "Lost immediately", "Persists for 1 hour", "Backed up to Flash"],
       "correct_answer_index": 1,
-      "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      "explanation": "SRAM is volatile."
     },
     {
       "question": "In an ISR, interrupts are automatically:",
-      "options": [
-        "Left enabled",
-        "Disabled until ISR returns",
-        "Slowed by half",
-        "Redirected to main()"
-      ],
+      "options": ["Left enabled", "Disabled until ISR returns", "Slowed by half", "Redirected to main()"],
       "correct_answer_index": 1,
-      "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      "explanation": "AVR clears the I-bit in SREG on ISR entry."
+    },
+    {
+      "question": "What does the SREG register contain?",
+      "options": ["Serial rate", "CPU status flags and I-bit", "SPI rate", "Timer values"],
+      "correct_answer_index": 1,
+      "explanation": "SREG is the Status Register holding CPU arithmetic flags and the global interrupt enable (I-bit)."
     }
   ],
-  "feedback": "Flawless bus manipulation. Welcome to I2C—the standard backbone for Sensors, OLED displays, and EEPROM modules."
+  "feedback": "Superb! I2C is ubiquitous in modern electronics — temperature sensors, OLED displays, real-time clocks, IMUs, and EEPROM chips all use I2C. You now understand the full TWI protocol at the register level, enabling you to interface any I2C device."
 }

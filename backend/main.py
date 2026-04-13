@@ -16,6 +16,8 @@ import glob
 from services.admin_portal import (
     ensure_admin_email,
     fetch_all_profiles,
+    fetch_admin_stats,
+    delete_user_by_id,
     fetch_user_from_token,
 )
 
@@ -242,3 +244,27 @@ async def list_admin_users(authorization: Optional[str] = Header(default=None)):
     ensure_admin_email(supabase_user.get("email"))
     profiles = await fetch_all_profiles()
     return {"users": profiles}
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, authorization: Optional[str] = Header(default=None)):
+    """Permanently delete a user account. Requires admin token."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    await delete_user_by_id(user_id)
+    return {"deleted": user_id}
+
+
+@app.get("/api/admin/stats")
+async def admin_stats(authorization: Optional[str] = Header(default=None)):
+    """Return aggregate user stats for the admin dashboard."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    stats = await fetch_admin_stats()
+    return stats

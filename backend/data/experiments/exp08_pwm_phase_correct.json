@@ -1,242 +1,143 @@
 {
   "id": "exp08_pwm_phase_correct",
-  "title": "Level 8: PWM (Phase Correct)",
+  "title": "Level 8: Phase Correct PWM — Servo Motor Control",
   "difficulty": "Intermediate",
-  "aim": "To use Timer 1 in Phase Correct PWM mode to generate symmetric, noise-free pulses suitable for motor control and servos.",
-  "objective": "Understand how dual-slope Phase Correct PWM differs from Fast PWM, and configure ICR1 or OCR1A to define custom PWM frequencies.",
-  "theory": "<h3>Dual-Slope Counting</h3><p>Unlike Fast PWM which counts up to TOP and immediately restarts at 0 (single-slope), Phase Correct PWM counts up from 0 to TOP, and then counts back down from TOP to 0 (dual-slope). This creates a symmetrical pulse centered exactly half-way through the PWM cycle, which is vastly preferred in motor control to avoid sudden phase shifts and current spikes.</p><h3>Defining Custom TOP with ICR1</h3><p>Normally a 16-bit timer counts to 65535, giving a very slow PWM frequency. By using Phase Correct PWM mode with <b>ICR1</b> (Input Capture Register) defining the TOP value, we can create custom-frequency PWM! For example, standard RC Servo motors expect a 50Hz signal (a 20ms period). We calculate what ICR1 needs to be so the timer reaches TOP in exactly 10ms (half the 20ms dual-slope cycle).</p><h3>Controlling Servos</h3><p>A servo expects a 50Hz signal where the HIGH pulse lasts between 1.0ms (0 degrees) and 2.0ms (180 degrees). We use <b>OCR1A</b> to define how long the pulse stays high within that 20ms window.</p>",
+  "aim": "To use Timer1 in Phase Correct PWM mode on the ATmega328P to generate the precise 50 Hz, 1–2 ms pulse-width signal required to control a standard RC servo motor's angular position.",
+  "objective": "Understand Phase Correct (dual-slope) PWM operation, Timer1's 16-bit resolution for precision servo timing, ICR1 as the TOP register, and the mapping between OCR1A pulse width and servo angle (0°–180°).",
+  "theory": "<h3>Phase Correct PWM — Dual-Slope Operation</h3><p>Unlike Fast PWM which counts in a single upward slope (0→255→0), <strong>Phase Correct PWM</strong> counts <em>both up and down</em>: TCNT1 ramps from 0 up to TOP, then back down to 0 in a symmetric triangle. This dual-slope counting means:</p><ul><li>PWM period = 2 × TOP × tick period (double the Fast PWM period at same prescaler)</li><li>Output pin goes HIGH on the up-count when TCNT1 = OCR1A, and LOW on the down-count when TCNT1 = OCR1A again</li><li>The pulse is <strong>centred</strong> in the period — no phase shift relative to the timer cycle</li></ul><p>Phase Correct PWM is preferred for motor control because symmetric pulses eliminate even-order harmonic distortion in motor windings.</p><h3>RC Servo Motor Protocol</h3><p>Standard RC servo motors expect a <strong>50 Hz control signal</strong> (20 ms period) with a pulse width between <strong>1 ms and 2 ms</strong>:</p><ul><li><strong>1.0 ms pulse</strong> → 0° (full counter-clockwise)</li><li><strong>1.5 ms pulse</strong> → 90° (centre position)</li><li><strong>2.0 ms pulse</strong> → 180° (full clockwise)</li></ul><p>This signal must be precise — even small deviations in pulse width cause servo position jitter.</p><h3>Using Timer1 with ICR1 as TOP</h3><p>Timer1's 16-bit range and <strong>ICR1</strong> (Input Capture Register 1) as a programmable TOP enables generating the 50 Hz frame rate precisely with 16 MHz clock and ÷8 prescaler:</p><p style='font-family:monospace; background:#111; padding:8px; border-radius:4px;'>Tick = 0.5 µs (÷8 prescaler at 16 MHz)<br/>TOP = Period / (2 × tick) = 20,000 µs / (2 × 0.5 µs) = <strong>20,000</strong><br/>ICR1 = 20000</p><p>No approximation — exact 50 Hz. For the pulse width:</p><p style='font-family:monospace; background:#111; padding:8px; border-radius:4px;'>OCR1A = pulse_width_µs / tick_µs<br/>1.0 ms → OCR1A = 1000 / 0.5 = <strong>2000</strong><br/>1.5 ms → OCR1A = 1500 / 0.5 = <strong>3000</strong><br/>2.0 ms → OCR1A = 2000 / 0.5 = <strong>4000</strong></p><h3>Register Configuration Summary</h3><ul><li><strong>TCCR1A:</strong> COM1A1=1 (non-inverting), COM1A0=0, WGM11=1, WGM10=0 → Phase Correct PWM Mode 10 with ICR1 as TOP</li><li><strong>TCCR1B:</strong> WGM13=1, WGM12=0, CS11=1 (÷8 prescaler)</li><li><strong>ICR1 = 20000</strong> (50 Hz period)</li><li><strong>OCR1A</strong> = 2000–4000 (1–2 ms pulse width, mapped to servo angle)</li></ul><h3>Servo Angle to OCR1A Mapping</h3><p>For smooth position control, linearly map angle (0–180°) to OCR1A (2000–4000):</p><p style='font-family:monospace; background:#111; padding:8px; border-radius:4px;'>OCR1A = 2000 + (angle × 2000 / 180)</p>",
   "pretest": [
     {
-      "question": "What happens differently when a timer operates in Phase Correct PWM mode instead of Fast PWM?",
-      "options": [
-        "The timer stops entirely at the top",
-        "The timer counts up to TOP and then counts backwards to 0",
-        "The timer automatically disables the prescaler",
-        "The timer counts twice as fast"
-      ],
+      "question": "How does Phase Correct PWM counting differ from Fast PWM?",
+      "options": ["It counts 0→TOP only (single slope)", "It counts 0→TOP→0 (dual slope, symmetric triangle)", "It counts backwards", "It skips even counts"],
       "correct_answer_index": 1,
-      "explanation": "Counting up and then down generates a symmetric 'dual slope' waveform."
+      "explanation": "Phase Correct PWM uses dual-slope counting creating a symmetric triangle waveform. Fast PWM uses single-slope (sawtooth). Phase Correct has half the PWM frequency at the same setting."
     },
     {
-      "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
-      "options": [
-        "To read pin values",
-        "To configure pins as input or output",
-        "To set pull-up resistors",
-        "To configure interrupts"
-      ],
+      "question": "What standard PWM signal does a RC servo motor require?",
+      "options": ["1 kHz, 0–5V", "50 Hz, 1–2 ms pulse width", "400 Hz, 50% duty", "100 Hz, 0.5–1 ms"],
       "correct_answer_index": 1,
-      "explanation": "DDR configures the direction of each GPIO pin."
+      "explanation": "Standard RC servos require a 50 Hz (20 ms period) signal with a 1–2 ms pulse width. 1 ms = 0°, 1.5 ms = 90°, 2 ms = 180°."
     },
     {
-      "question": "Which header file provides basic I/O register definitions for AVR?",
-      "options": [
-        "<stdio.h>",
-        "<avr/io.h>",
-        "<string.h>",
-        "<math.h>"
-      ],
+      "question": "With ÷8 prescaler at 16 MHz, what is the timer tick period?",
+      "options": ["62.5 ns", "0.5 µs", "4 µs", "64 µs"],
       "correct_answer_index": 1,
-      "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      "explanation": "Tick = prescaler / F_CPU = 8 / 16,000,000 = 0.5 µs per tick. This 0.5 µs resolution is perfect for servo positioning."
     },
     {
-      "question": "What does the volatile keyword tell the C compiler?",
-      "options": [
-        "Uses less memory",
-        "May change unexpectedly, so do not optimize reads",
-        "Variable is constant",
-        "Used once only"
-      ],
+      "question": "In Phase Correct PWM Mode 10 (ICR1 as TOP), what is ICR1 for 50 Hz with 0.5 µs ticks?",
+      "options": ["10000", "20000", "40000", "50000"],
       "correct_answer_index": 1,
-      "explanation": "volatile prevents the compiler from caching the variable."
+      "explanation": "ICR1 = Period / (2 × tick) = 20,000 µs / (2 × 0.5 µs) = 20,000. The factor 2 accounts for dual-slope counting (up and down)."
     },
     {
-      "question": "How many GPIO pins does the ATmega328P have in total?",
-      "options": [
-        "8",
-        "14",
-        "23",
-        "32"
-      ],
+      "question": "What OCR1A value positions the servo at the centre (90°)?",
+      "options": ["1000", "2000", "3000", "4000"],
       "correct_answer_index": 2,
-      "explanation": "23 GPIO pins across Port B, C, and D."
+      "explanation": "Centre = 1.5 ms pulse. OCR1A = 1500 µs / 0.5 µs = 3000. (0°=2000, 90°=3000, 180°=4000)."
     },
     {
-      "question": "What is the maximum clock frequency of the ATmega328P?",
-      "options": [
-        "1MHz",
-        "8MHz",
-        "16MHz",
-        "20MHz"
-      ],
-      "correct_answer_index": 3,
-      "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
-    },
-    {
-      "question": "What is the purpose of sei()?",
-      "options": [
-        "Set error interrupt",
-        "Set enable interrupts",
-        "System error indication",
-        "Serial enable interface"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "sei() sets the global interrupt enable flag in SREG."
-    },
-    {
-      "question": "Which AVR memory type retains data after power-off?",
-      "options": [
-        "SRAM",
-        "Registers",
-        "Flash and EEPROM",
-        "Stack memory"
-      ],
+      "question": "Which register sets the TOP value for Phase Correct PWM Mode 10 in Timer1?",
+      "options": ["OCR1A", "OCR1B", "ICR1", "TCNT1"],
       "correct_answer_index": 2,
-      "explanation": "Flash and EEPROM are non-volatile."
+      "explanation": "In Phase Correct PWM Mode 10 (WGM13=1, WGM12=0, WGM11=1, WGM10=0), ICR1 is the programmable TOP. OCR1A is used for the duty cycle (pulse width)."
     },
     {
-      "question": "What is the width of each ATmega328P port register?",
-      "options": [
-        "4 bits",
-        "8 bits",
-        "16 bits",
-        "32 bits"
-      ],
+      "question": "Why is Phase Correct PWM preferred over Fast PWM for servo/motor control?",
+      "options": ["Higher frequency", "Symmetric pulses eliminate phase distortion, giving smoother motor operation", "Lower current", "Easier programming"],
       "correct_answer_index": 1,
-      "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      "explanation": "Symmetric (phase-correct) pulses centred in the PWM period reduce even-order harmonics in motor windings, reducing vibration and heat."
     },
     {
-      "question": "What is bit manipulation?",
-      "options": [
-        "Changing clock",
-        "Operating on individual bits using bitwise operators",
-        "Binary to decimal",
-        "Memory allocation"
-      ],
+      "question": "What physical pin is OC1A on the Arduino Uno?",
+      "options": ["Pin 6 (PD6)", "Pin 9 (PB1)", "Pin 10 (PB2)", "Pin 11 (PB3)"],
       "correct_answer_index": 1,
-      "explanation": "Bit manipulation uses AND, OR, XOR, and SHIFT."
+      "explanation": "OC1A is mapped to PB1 (Port B, bit 1), which is Digital Pin 9 on the Arduino Uno."
+    },
+    {
+      "question": "Which TCCR1A bits must be set for Phase Correct PWM Mode 10?",
+      "options": ["WGM11=0, WGM10=0", "WGM11=1, WGM10=1", "WGM11=1, WGM10=0", "WGM11=0, WGM10=1"],
+      "correct_answer_index": 2,
+      "explanation": "Phase Correct PWM Mode 10 requires WGM13=1 (in TCCR1B) and WGM11=1, WGM12=0, WGM10=0. So TCCR1A needs WGM11=1 only."
+    },
+    {
+      "question": "What is the purpose of COM1A1=1 in TCCR1A for PWM output?",
+      "options": ["Inverts the output", "Enables non-inverting PWM on OC1A — pin goes HIGH on up-match, LOW on down-match", "Disconnects OC1A", "Enables toggle mode"],
+      "correct_answer_index": 1,
+      "explanation": "COM1A1=1, COM1A0=0 selects non-inverting Phase Correct PWM: OC1A set on the up-counting compare match, cleared on the down-counting compare match."
     }
   ],
   "procedure": [
-    "Connect the Control signal of a Servo Motor to Pin 9 (PB1 / OC1A).",
-    "Configure DDRB to make PB1 an output.",
-    "Set the TCCR1A and TCCR1B registers for Phase Correct PWM using ICR1 as the TOP value (Mode 10).",
-    "Set the TCCR1A COM1A1 bit to clear OC1A on up-counting compare match, and set OC1A on down-counting compare match.",
-    "Calculate the TOP value for 50Hz based on a chosen prescaler (e.g. 8). Calculate: fPWM = fclk / (2 * N * TOP). For fPWM=50Hz, TOP (ICR1) = 20000.",
-    "In the main loop, map servo positions to OCR1A delays. A 1ms pulse (1000 ticks) is 0°, and a 2ms pulse (2000 ticks) is 180°.",
-    "Write code to sweep OCR1A between 1000 and 2000."
+    "Include <code>#include &lt;avr/io.h&gt;</code> and <code>#include &lt;util/delay.h&gt;</code>. Wire the servo's signal wire (usually orange/yellow) to Pin 9 (PB1 = OC1A). Servo red → 5V, brown/black → GND. Use a separate 5V power supply for the servo if it draws more than 500 mA.",
+    "Configure OC1A (PB1) as output: <code>DDRB |= (1 &lt;&lt; PB1);</code>.",
+    "Set ICR1 = 20000 for the 50 Hz period (dual-slope with 0.5 µs ticks): <code>ICR1 = 20000;</code>. This register defines the TOP value for Phase Correct PWM Mode 10.",
+    "Set initial pulse width to centre position (1.5 ms = 3000 ticks): <code>OCR1A = 3000;</code>.",
+    "Configure TCCR1A for Phase Correct PWM Mode 10 with non-inverting output on OC1A: <code>TCCR1A = (1 &lt;&lt; COM1A1) | (1 &lt;&lt; WGM11);</code>.",
+    "Configure TCCR1B for Mode 10 (WGM13=1) plus ÷8 prescaler (CS11=1): <code>TCCR1B = (1 &lt;&lt; WGM13) | (1 &lt;&lt; CS11);</code>. The timer starts immediately at this point.",
+    "In the main loop, sweep the servo from 0° to 180° and back. Write a sweep function: <code>for(int angle = 0; angle &lt;= 180; angle++) { OCR1A = 2000 + (angle * 2000 / 180); _delay_ms(15); }</code>. Then sweep back similarly. Each step waits 15 ms for the servo to physically move.",
+    "Verify the servo rotates smoothly through its full range. Adjust sweep delay if movement appears choppy. The 50 Hz signal is hardware-generated — OCR1A changes take effect at the next PWM period."
   ],
   "posttest": [
     {
-      "question": "If ICR1 defines the full wavelength frequency (50Hz), what register controls the exact width of the pulse (duty cycle) sent to the servo?",
-      "options": [
-        "TCCR1B",
-        "TCNT1",
-        "OCR1A",
-        "ICR1"
-      ],
+      "question": "If a servo requires a 2.5 ms pulse for 180° (non-standard), what OCR1A value is needed with 0.5 µs ticks?",
+      "options": ["3000", "4000", "5000", "2500"],
       "correct_answer_index": 2,
-      "explanation": "OCR1A determines the compare-match threshold, which sets exactly when the pin transitions from high to low inside the cycle."
+      "explanation": "OCR1A = 2500 µs / 0.5 µs = 5000. As long as this is less than ICR1 (20000), it's valid."
     },
     {
-      "question": "Why is it good practice to use #define for pin numbers?",
-      "options": [
-        "Runs faster",
-        "More readable and maintainable",
-        "Reduces memory",
-        "Compiler requires it"
-      ],
+      "question": "What would happen if you use a ÷64 prescaler instead of ÷8 for servo control?",
+      "options": ["Servo gets faster", "Precision reduces to 4 µs per tick, requiring ICR1=2500 for 50 Hz — servo still works but position resolution degrades", "MCU resets", "No effect on servo"],
       "correct_answer_index": 1,
-      "explanation": "#define creates named constants for self-documenting code."
+      "explanation": "With ÷64 prescaler, tick = 4 µs, ICR1 = 20000/(2×4) = 2500 for 50 Hz. The 1–2 ms pulse maps to OCR1A = 250–500, giving only 250 steps vs 2000 steps with ÷8."
     },
     {
-      "question": "What tool converts C source to .hex for AVR?",
-      "options": [
-        "avr-gcc toolchain",
-        "Python interpreter",
-        "Node.js",
-        "Arduino IDE only"
-      ],
+      "question": "What is the formula to convert servo angle (0–180°) to OCR1A (2000–4000)?",
+      "options": ["OCR1A = angle × 20", "OCR1A = 2000 + (angle × 2000 / 180)", "OCR1A = angle + 2000", "OCR1A = angle × 11"],
+      "correct_answer_index": 1,
+      "explanation": "Linear interpolation: min OCR1A (0°) = 2000, max (180°) = 4000. Range = 2000. OCR1A = 2000 + (angle / 180) × 2000."
+    },
+    {
+      "question": "What is the Phase Correct PWM frequency with ICR1=20000 and ÷8 prescaler at 16 MHz?",
+      "options": ["100 Hz", "50 Hz", "25 Hz", "200 Hz"],
+      "correct_answer_index": 1,
+      "explanation": "f = F_CPU / (2 × prescaler × ICR1) = 16,000,000 / (2 × 8 × 20,000) = 50 Hz. Exactly right for servo control."
+    },
+    {
+      "question": "Why does the servo signal need to be repeated at 50 Hz continuously, not sent once?",
+      "options": ["Keeps the servo motor energized and holding position", "To count ticks", "For safety compliance", "To power the MCU"],
       "correct_answer_index": 0,
-      "explanation": "avr-gcc compiles C to AVR machine code."
+      "explanation": "RC servos require a continuous 50 Hz pulse stream to maintain their commanded position. Without ongoing pulses, many servos go limp or lose position hold."
     },
     {
-      "question": "What is the difference between PORTB and PINB?",
-      "options": [
-        "No difference",
-        "PORTB writes output; PINB reads actual pin voltages",
-        "PINB configures direction",
-        "PORTB is input only"
-      ],
+      "question": "Which bit in TCCR1B enables WGM13 for Phase Correct PWM Mode 10?",
+      "options": ["Bit 1 (WGM10)", "Bit 4 (WGM13)", "Bit 3 (WGM12)", "Bit 2 (WGM11)"],
       "correct_answer_index": 1,
-      "explanation": "PORTB drives outputs; PINB reads real-time pin states."
-    },
-    {
-      "question": "What happens to SRAM when power is removed?",
-      "options": [
-        "Saved to EEPROM",
-        "Lost immediately",
-        "Persists for 1 hour",
-        "Backed up to Flash"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "SRAM is volatile memory."
-    },
-    {
-      "question": "What is the stack used for in AVR?",
-      "options": [
-        "Global variables",
-        "Return addresses and local variables",
-        "Program counter only",
-        "Flash management"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Stack stores return addresses and local variables."
+      "explanation": "WGM13 is bit 4 of TCCR1B. Setting it (along with WGM11 in TCCR1A and WGM12=0) selects Phase Correct PWM Mode 10."
     },
     {
       "question": "Which is NOT a valid ATmega328P port?",
-      "options": [
-        "PORTA",
-        "PORTB",
-        "PORTC",
-        "PORTD"
-      ],
+      "options": ["PORTA", "PORTB", "PORTC", "PORTD"],
       "correct_answer_index": 0,
-      "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      "explanation": "ATmega328P has Port B, C, and D only."
     },
     {
-      "question": "What is a watchdog timer used for?",
-      "options": [
-        "Timing PWM",
-        "Temperature",
-        "Resetting MCU if software hangs",
-        "Audio tones"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "WDT auto-resets MCU when not periodically fed."
-    },
-    {
-      "question": "What does the SREG register contain?",
-      "options": [
-        "Serial rate",
-        "Status Register with CPU flags",
-        "Servo control",
-        "SPI rate"
-      ],
+      "question": "What happens to SRAM when power is removed?",
+      "options": ["Saved to EEPROM", "Lost immediately", "Persists for 1 hour", "Backed up to Flash"],
       "correct_answer_index": 1,
-      "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      "explanation": "SRAM is volatile — all contents are lost instantly on power-off."
     },
     {
       "question": "In an ISR, interrupts are automatically:",
-      "options": [
-        "Left enabled",
-        "Disabled until ISR returns",
-        "Slowed by half",
-        "Redirected to main()"
-      ],
+      "options": ["Left enabled", "Disabled until ISR returns", "Slowed by half", "Redirected"],
       "correct_answer_index": 1,
-      "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      "explanation": "AVR clears I-bit in SREG on ISR entry to prevent nested interrupts."
+    },
+    {
+      "question": "What does the SREG register contain?",
+      "options": ["Serial rate", "CPU status flags and I-bit", "Servo registers", "SPI rate"],
+      "correct_answer_index": 1,
+      "explanation": "SREG holds arithmetic flags (C, Z, N, V, H, S, T) and the global interrupt enable bit (I)."
     }
   ],
-  "feedback": "Outstanding work defining custom hardware frequencies! You can now effectively drive RC robotics servos."
+  "feedback": "Outstanding precision work! Phase Correct PWM with ICR1 is the gold standard for servo and brushless motor control. Every drone flight controller, CNC stepper driver, and robotic actuator uses exactly this principle."
 }

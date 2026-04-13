@@ -276,8 +276,20 @@ export default function ReferencePage() {
         <div style={styles.heroOrbit}>
           <div style={styles.orbitGlow} />
           <div style={styles.orbitCore}>
-            <span style={{ fontSize: 48 }}>⬢</span>
-            <span style={styles.orbitLabel}>Independent Device Atlas</span>
+            {/* Animated chip icon */}
+            <div style={styles.chipIcon}>
+              <span style={{ fontSize: 36, lineHeight: 1 }}>🔩</span>
+              <div style={styles.chipPulse} />
+            </div>
+            <span style={styles.orbitTitle}>AVR Component Vault</span>
+            <span style={styles.orbitLabel}>Pin-accurate · Datasheet-sourced</span>
+            <div style={styles.chipStats}>
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>45+</span><span style={styles.chipStatLabel}>Components</span></div>
+              <div style={styles.chipStatDivider} />
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>10</span><span style={styles.chipStatLabel}>Categories</span></div>
+              <div style={styles.chipStatDivider} />
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>∞</span><span style={styles.chipStatLabel}>Free to use</span></div>
+            </div>
           </div>
         </div>
       </section>
@@ -394,10 +406,66 @@ const styles = {
     boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
   },
   orbitLabel: {
-    letterSpacing: "0.2em",
-    fontSize: 12,
-    color: "#c4d3de",
+    letterSpacing: "0.08em",
+    fontSize: 10,
+    color: "#7a9ab0",
     textTransform: "uppercase",
+    textAlign: "center",
+  },
+  orbitTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#e8ecf1",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  chipIcon: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    background: "linear-gradient(135deg, rgba(0,255,208,0.15), rgba(0,102,255,0.1))",
+    border: "1px solid rgba(0,255,208,0.3)",
+  },
+  chipPulse: {
+    position: "absolute",
+    inset: -4,
+    borderRadius: 18,
+    border: "1px solid rgba(0,255,208,0.2)",
+    animation: "pulse 2s ease-in-out infinite",
+  },
+  chipStats: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  chipStat: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+  },
+  chipStatNum: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#6ff7d7",
+    lineHeight: 1,
+  },
+  chipStatLabel: {
+    fontSize: 9,
+    color: "#7a9ab0",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  chipStatDivider: {
+    width: 1,
+    height: 24,
+    background: "rgba(255,255,255,0.1)",
   },
   section: {
     marginBottom: 64,

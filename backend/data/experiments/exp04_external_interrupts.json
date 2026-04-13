@@ -1,243 +1,143 @@
 {
   "id": "exp04_external_interrupts",
-  "title": "Level 4: External Interrupts (INT0 & INT1)",
+  "title": "Level 4: External Interrupts (INT0 / INT1)",
   "difficulty": "Intermediate",
-  "aim": "To use external hardware interrupts on the ATmega328P to pause the main program and execute an Interrupt Service Routine (ISR).",
-  "objective": "Understand how interrupt vectors function in C (using ISR macros and AVR/interrupt.h), configure EICRA and EIMSK, and debounce interrupts in software.",
-  "theory": "<h3>What is an Interrupt?</h3><p>An interrupt is an emergency signal from hardware that tells the CPU to immediately stop what it's doing (the main loop) and jump to a specific piece of code called an Interrupt Service Routine (ISR).</p><h3>Configuring Interrupts</h3><p>In the ATmega328P, INT0 (Pin 2) and INT1 (Pin 3) are the primary external interrupt pins.</p><ol><li><b>EICRA (External Interrupt Control Register A):</b> Configures exactly <i>what</i> triggers the interrupt (e.g., rising edge, falling edge, low level, or any logic change).</li><li><b>EIMSK (External Interrupt Mask Register):</b> Actually enables the specific interrupt pin you want to use (INT0 or INT1).</li><li><b>sei():</b> The global interrupt enable macro. Even if you turn on the INT0 pin, nothing will happen until you execute <code>sei();</code> to tell the CPU to accept all interrupts.</li></ol><h3>The Global Variable gotcha</h3><p>Whenever a variable is written in an ISR and read in the main loop, it MUST be declared with the <code>volatile</code> keyword (e.g., <code>volatile uint8_t flag = 0;</code>). This tells the C compiler that the value can change without warning, preventing it from optimizing the variable out of existence.</p>",
+  "aim": "To configure the ATmega328P's hardware External Interrupt pins (INT0 on PD2 and INT1 on PD3) to trigger an Interrupt Service Routine (ISR) on a button press, without polling the pin in the main loop.",
+  "objective": "Understand the interrupt subsystem of AVR — EICRA (trigger sense), EIMSK (enable mask), the global interrupt enable bit (sei), and writing ISRs. Compare interrupt-driven input handling versus polling.",
+  "theory": "<h3>What Is an Interrupt?</h3><p>An <strong>interrupt</strong> is a hardware signal that instantly suspends the CPU's current execution, saves its state (all registers and the Program Counter onto the stack), and jumps to a special function called an <strong>Interrupt Service Routine (ISR)</strong>. When the ISR returns (via the <code>RETI</code> instruction), the CPU restores its saved state and resumes exactly where it left off. This mechanism allows the processor to respond to real-world events (button presses, timer overflows, serial data) in microseconds, without wasting cycles polling in a loop.</p><h3>External Interrupt Pins: INT0 and INT1</h3><p>The ATmega328P has two dedicated external interrupt pins: <strong>INT0</strong> (PD2 = Arduino Pin 2) and <strong>INT1</strong> (PD3 = Arduino Pin 3). Unlike pin-change interrupts, INT0 and INT1 have selectable <strong>trigger sense</strong> — you configure whether the interrupt fires on a LOW level, a logic change, a falling edge, or a rising edge.</p><h3>EICRA — External Interrupt Control Register A</h3><p>The trigger sense for INT0 and INT1 is set via <strong>EICRA</strong>:</p><ul><li><strong>ISC01:ISC00</strong> (bits 1:0) — control INT0 sense: 00=LOW level, 01=any change, 10=falling edge, 11=rising edge</li><li><strong>ISC11:ISC10</strong> (bits 3:2) — same options for INT1</li></ul><p>To detect a falling edge on INT0: <code>EICRA |= (1 &lt;&lt; ISC01);</code> (ISC01=1, ISC00=0 → 10 = falling edge).</p><h3>EIMSK — External Interrupt Mask Register</h3><p>Setting a bit in <strong>EIMSK</strong> enables that interrupt line: <code>EIMSK |= (1 &lt;&lt; INT0);</code>. If the corresponding bit is clear, the interrupt is masked (ignored) even if the pin triggers.</p><h3>Global Interrupt Enable — sei()</h3><p>Even after configuring EICRA and EIMSK, no interrupt fires until the <strong>I-bit</strong> (Global Interrupt Enable) in SREG is set. The intrinsic function <code>sei()</code> sets this bit. Its counterpart <code>cli()</code> clears it, temporarily disabling all interrupts (useful for atomic register accesses).</p><h3>Writing the ISR</h3><p>ISRs for external interrupts are written using the <code>ISR()</code macro from <code>&lt;avr/interrupt.h&gt;</code>:</p><pre>ISR(INT0_vect) {\n  // code runs on INT0 trigger\n}</pre><p>Key ISR rules: keep them <strong>short and fast</strong> — no delays, no blocking calls. Use <code>volatile</code> global flags to communicate results back to the main loop.</p><h3>Polling vs Interrupts</h3><table><tr><th>Polling</th><th>Interrupts</th></tr><tr><td>CPU constantly checks pin state in a loop</td><td>CPU is notified automatically by hardware</td></tr><tr><td>Wastes CPU cycles when nothing happens</td><td>CPU free to do other work or sleep</td></tr><tr><td>Simple to code</td><td>Slightly more complex setup</td></tr><tr><td>Response latency = polling period</td><td>Response latency = 4–7 clock cycles</td></tr></table>",
   "pretest": [
     {
-      "question": "Which macro MUST be executed to enable global interrupts?",
-      "options": [
-        "cli()",
-        "EICRA = 1",
-        "sei()",
-        "ISR()"
-      ],
+      "question": "Which register controls the trigger sense (edge/level) for INT0 and INT1?",
+      "options": ["EIMSK", "EICRA", "PCICR", "SREG"],
+      "correct_answer_index": 1,
+      "explanation": "EICRA (External Interrupt Control Register A) holds ISC0x bits for INT0 and ISC1x bits for INT1, selecting the trigger condition."
+    },
+    {
+      "question": "Which register enables or disables INT0 and INT1 interrupts?",
+      "options": ["EICRA", "EIMSK", "TIMSK0", "PCMSK0"],
+      "correct_answer_index": 1,
+      "explanation": "EIMSK (External Interrupt Mask Register) has INT0 bit (bit 0) and INT1 bit (bit 1). Setting them enables the respective interrupt lines."
+    },
+    {
+      "question": "What bit combination in EICRA sets INT0 to trigger on a FALLING EDGE?",
+      "options": ["ISC01=0, ISC00=0", "ISC01=0, ISC00=1", "ISC01=1, ISC00=0", "ISC01=1, ISC00=1"],
       "correct_answer_index": 2,
-      "explanation": "sei() (Set Enable Interrupts) turns on the master switch for all interrupts in the ATmega."
+      "explanation": "The AVR datasheet defines: ISC01=1, ISC00=0 → falling edge. ISC01=1, ISC00=1 → rising edge."
     },
     {
-      "question": "What is the correct syntax to declare an Interrupt Service Routine for the pin INT0?",
-      "options": [
-        "void interrupt_int0()",
-        "ISR(INT0_vect)",
-        "int0_interrupt()",
-        "ISR(PCINT0_vect)"
-      ],
+      "question": "What is the function of sei() in AVR firmware?",
+      "options": ["Set error interrupt", "Set the global interrupt enable I-bit in SREG", "System error indication", "Enable sleep mode"],
       "correct_answer_index": 1,
-      "explanation": "The avr/interrupt.h library uses the ISR() macro passing the hardcoded vector name (INT0_vect)."
+      "explanation": "sei() (Set Enable Interrupts) sets the I (Global Interrupt Enable) bit in the Status Register (SREG), allowing all enabled interrupts to fire."
     },
     {
-      "question": "What is the primary purpose of the DDRx register in the ATmega328P?",
-      "options": [
-        "To read pin values",
-        "To configure pins as input or output",
-        "To set pull-up resistors",
-        "To configure interrupts"
-      ],
+      "question": "Where must the INT0 ISR function be declared?",
+      "options": ["Inside main()", "As ISR(INT0_vect) after including <avr/interrupt.h>", "In a separate .h file only", "As an ordinary C function called int0_handler"],
       "correct_answer_index": 1,
-      "explanation": "DDR configures the direction of each GPIO pin."
+      "explanation": "The ISR macro from <avr/interrupt.h> creates the correctly named interrupt vector function that the hardware jumps to when INT0 fires."
     },
     {
-      "question": "Which header file provides basic I/O register definitions for AVR?",
-      "options": [
-        "<stdio.h>",
-        "<avr/io.h>",
-        "<string.h>",
-        "<math.h>"
-      ],
+      "question": "Why should ISRs be kept short and free of delay functions?",
+      "options": ["They cannot access registers", "Blocking inside an ISR prevents other interrupts and main loop from running", "Flash can't store large ISRs", "Long ISRs cause resets"],
       "correct_answer_index": 1,
-      "explanation": "<avr/io.h> provides register definitions for all AVR peripherals."
+      "explanation": "While inside an ISR, global interrupts are disabled. Blocking with delays prevents the system from responding to anything else during that time."
     },
     {
-      "question": "What does the volatile keyword tell the C compiler?",
-      "options": [
-        "Uses less memory",
-        "May change unexpectedly, so do not optimize reads",
-        "Variable is constant",
-        "Used once only"
-      ],
+      "question": "What is the typical ISR response latency on AVR (from event to first ISR instruction)?",
+      "options": ["1 clock cycle", "4–7 clock cycles", "1 millisecond", "1 timer overflow"],
       "correct_answer_index": 1,
-      "explanation": "volatile prevents the compiler from caching the variable."
+      "explanation": "AVR interrupts have a fixed latency of 4 cycles to complete the current instruction + push state + jump to the ISR vector."
     },
     {
-      "question": "How many GPIO pins does the ATmega328P have in total?",
-      "options": [
-        "8",
-        "14",
-        "23",
-        "32"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "23 GPIO pins across Port B, C, and D."
-    },
-    {
-      "question": "What is the maximum clock frequency of the ATmega328P?",
-      "options": [
-        "1MHz",
-        "8MHz",
-        "16MHz",
-        "20MHz"
-      ],
-      "correct_answer_index": 3,
-      "explanation": "Supports up to 20MHz, though Arduino UNO uses 16MHz."
-    },
-    {
-      "question": "What is the purpose of sei()?",
-      "options": [
-        "Set error interrupt",
-        "Set enable interrupts",
-        "System error indication",
-        "Serial enable interface"
-      ],
+      "question": "Why must variables shared between ISRs and the main loop be declared 'volatile'?",
+      "options": ["To save SRAM", "To prevent the compiler from caching the value in a register across ISR calls", "To enable interrupts", "To store in Flash"],
       "correct_answer_index": 1,
-      "explanation": "sei() sets the global interrupt enable flag in SREG."
+      "explanation": "Without volatile, the compiler may cache the variable in a CPU register and never re-read it from SRAM, missing updates made by the ISR."
     },
     {
-      "question": "Which AVR memory type retains data after power-off?",
-      "options": [
-        "SRAM",
-        "Registers",
-        "Flash and EEPROM",
-        "Stack memory"
-      ],
-      "correct_answer_index": 2,
-      "explanation": "Flash and EEPROM are non-volatile."
+      "question": "Which Arduino Uno pin corresponds to INT0?",
+      "options": ["Pin 2 (PD2)", "Pin 3 (PD3)", "Pin 13 (PB5)", "Pin A0 (PC0)"],
+      "correct_answer_index": 0,
+      "explanation": "INT0 is mapped to Port D pin 2 (PD2), which is Arduino Uno Digital Pin 2."
     },
     {
-      "question": "What is the width of each ATmega328P port register?",
-      "options": [
-        "4 bits",
-        "8 bits",
-        "16 bits",
-        "32 bits"
-      ],
+      "question": "What happens when an ISR returns?",
+      "options": ["Program restarts from main()", "CPU resumes execution at the exact point where it was interrupted", "Sleep mode activates", "All registers are cleared"],
       "correct_answer_index": 1,
-      "explanation": "The ATmega328P is an 8-bit MCU; all port registers are 8 bits wide."
+      "explanation": "The RETI instruction (Return from Interrupt) restores the saved PC and all CPU registers from the stack, resuming execution seamlessly."
     }
   ],
   "procedure": [
-    "Include the <avr/interrupt.h> header at the top of your code.",
-    "Declare a volatile integer counter variable.",
-    "Wire a push button to Pin 2 (PD2 / INT0) and connect the other end to GND. Enable its internal pull-up in DDRD/PORTD.",
-    "Configure INT0 to trigger on a FALLING edge by writing to EICRA.",
-    "Enable the INT0 interrupt by setting bit 0 in EIMSK.",
-    "Enable global interrupts by calling sei();.",
-    "Write the ISR(INT0_vect) routine to increment the counter every time the button is pressed.",
-    "In the main loop, map the counter's value to LEDs on PORTB to visualize it (a binary counter)."
+    "Include headers: <code>#include &lt;avr/io.h&gt;</code> and <code>#include &lt;avr/interrupt.h&gt;</code>. Define a volatile flag variable: <code>volatile uint8_t buttonPressed = 0;</code>. This will be set by the ISR and read by main.",
+    "Configure the LED pin as output: <code>DDRB |= (1 &lt;&lt; PB5);</code>. Configure INT0 pin (PD2) as input: <code>DDRD &amp;= ~(1 &lt;&lt; PD2);</code>. Enable its pull-up resistor: <code>PORTD |= (1 &lt;&lt; PD2);</code>.",
+    "Configure INT0 to trigger on a <strong>falling edge</strong> (button press creates HIGH→LOW transition). Set ISC01=1, ISC00=0 in EICRA: <code>EICRA |= (1 &lt;&lt; ISC01);</code> — leave ISC00 as 0 (default).",
+    "Enable the INT0 interrupt line by setting bit INT0 in EIMSK: <code>EIMSK |= (1 &lt;&lt; INT0);</code>. The interrupt is now armed but will not fire until global interrupts are enabled.",
+    "Enable global interrupts: <code>sei();</code>. From this point, any falling edge on PD2 will immediately invoke the INT0 ISR, even from inside the main loop.",
+    "In the main loop <code>while(1)</code>, check the volatile flag: <code>if (buttonPressed) { PORTB ^= (1 &lt;&lt; PB5); buttonPressed = 0; }</code>. This pattern — set flag in ISR, act in main — is the standard interrupt-safe design.",
+    "Write the ISR outside of any function: <code>ISR(INT0_vect) { buttonPressed = 1; }</code>. The ISR simply sets the flag. Hardware debounce is not included here — if needed, disable INT0 in the ISR and re-enable it after a timer delay.",
+    "Wire the circuit: push button between Pin 2 (PD2) and GND. LED with 330 Ω resistor on Pin 13 (PB5). Compile and flash. Each button press should toggle the LED visually, with the main loop free to run other tasks between presses."
   ],
   "posttest": [
     {
-      "question": "Why shouldn't you place a delay(_delay_ms) inside an ISR?",
-      "options": [
-        "Delays are not accurate in ISRs",
-        "It halts the entire system, preventing other code and interrupts from running",
-        "The compiler will throw an error",
-        "It uses too much current"
-      ],
+      "question": "What is the key difference between INT0/INT1 and Pin Change Interrupts (PCINT)?",
+      "options": ["INT0/INT1 are faster", "INT0/INT1 support configurable edge/level sensing; PCINTs only detect any change", "PCINTs have lower latency", "INT0/INT1 require external hardware"],
       "correct_answer_index": 1,
-      "explanation": "ISRs must execute as quickly as possible. During an ISR, global interrupts are disabled, so a long delay will freeze the microcontroller."
+      "explanation": "INT0 and INT1 allow choosing falling, rising, any-change, or LOW-level triggers. Pin Change Interrupts (PCINT) only fire on any logic change and share one ISR per port group."
     },
     {
-      "question": "Why is it good practice to use #define for pin numbers?",
-      "options": [
-        "Runs faster",
-        "More readable and maintainable",
-        "Reduces memory",
-        "Compiler requires it"
-      ],
+      "question": "If you set ISC01=1 and ISC00=1 in EICRA for INT0, what is the trigger condition?",
+      "options": ["LOW level", "Any change", "Falling edge", "Rising edge"],
+      "correct_answer_index": 3,
+      "explanation": "ISC01=1, ISC00=1 configures INT0 for rising edge (LOW→HIGH transition), per the AVR datasheet Table 12-1."
+    },
+    {
+      "question": "What does cli() do, and when would you use it?",
+      "options": ["Clears LCD", "Disables global interrupts — used to protect atomic multi-register operations", "Clears ISR flags", "Clears all I/O ports"],
       "correct_answer_index": 1,
-      "explanation": "#define creates named constants for self-documenting code."
+      "explanation": "cli() clears the I-bit in SREG, disabling all interrupts. Used to protect critical sections where a partial register update mid-ISR would cause data corruption."
     },
     {
-      "question": "What tool converts C source to .hex for AVR?",
-      "options": [
-        "avr-gcc toolchain",
-        "Python interpreter",
-        "Node.js",
-        "Arduino IDE only"
-      ],
-      "correct_answer_index": 0,
-      "explanation": "avr-gcc compiles C to AVR machine code."
-    },
-    {
-      "question": "What is the difference between PORTB and PINB?",
-      "options": [
-        "No difference",
-        "PORTB writes output; PINB reads actual pin voltages",
-        "PINB configures direction",
-        "PORTB is input only"
-      ],
+      "question": "What happens if INT0 fires while already inside the INT0 ISR (without sei() inside the ISR)?",
+      "options": ["Nested ISR executes", "The trigger is latched and executes after ISR returns", "The MCU resets", "The trigger is lost entirely"],
       "correct_answer_index": 1,
-      "explanation": "PORTB drives outputs; PINB reads real-time pin states."
+      "explanation": "The interrupt flag is set in hardware even while interrupts are disabled. After RETI restores the I-bit, the pending interrupt fires immediately."
     },
     {
-      "question": "What happens to SRAM when power is removed?",
-      "options": [
-        "Saved to EEPROM",
-        "Lost immediately",
-        "Persists for 1 hour",
-        "Backed up to Flash"
-      ],
+      "question": "Which SREG bit must be 1 for ANY interrupt to fire?",
+      "options": ["C (Carry)", "Z (Zero)", "I (Global Interrupt Enable)", "N (Negative)"],
+      "correct_answer_index": 2,
+      "explanation": "The I-bit (bit 7) of SREG is the global interrupt gate. All configured interrupts require this bit to be set (done via sei())."
+    },
+    {
+      "question": "What is the stack used for during an interrupt?",
+      "options": ["Storing segment LUT", "Saving the Program Counter and CPU registers before jumping to ISR", "Storing PORTB state", "Running the main loop"],
       "correct_answer_index": 1,
-      "explanation": "SRAM is volatile memory."
-    },
-    {
-      "question": "What is the stack used for in AVR?",
-      "options": [
-        "Global variables",
-        "Return addresses and local variables",
-        "Program counter only",
-        "Flash management"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Stack stores return addresses and local variables."
-    },
-    {
-      "question": "Which is NOT a valid ATmega328P port?",
-      "options": [
-        "PORTA",
-        "PORTB",
-        "PORTC",
-        "PORTD"
-      ],
-      "correct_answer_index": 0,
-      "explanation": "ATmega328P has only Port B, C, and D. No Port A."
+      "explanation": "On interrupt, the AVR pushes the current PC and all 32 general-purpose registers onto the SRAM stack before jumping to the ISR vector."
     },
     {
       "question": "What is a watchdog timer used for?",
-      "options": [
-        "Timing PWM",
-        "Temperature",
-        "Resetting MCU if software hangs",
-        "Audio tones"
-      ],
+      "options": ["Timing PWM", "Temperature monitoring", "Resetting the MCU if software hangs and fails to clear the WDT", "Audio tone generation"],
       "correct_answer_index": 2,
-      "explanation": "WDT auto-resets MCU when not periodically fed."
+      "explanation": "The Watchdog Timer auto-resets the MCU if the software fails to periodically 'pet' it (clear it), recovering from infinite loops or crashes."
     },
     {
-      "question": "What does the SREG register contain?",
-      "options": [
-        "Serial rate",
-        "Status Register with CPU flags",
-        "Servo control",
-        "SPI rate"
-      ],
+      "question": "Why is 'volatile' required for a flag variable shared between ISR and main loop?",
+      "options": ["To make it faster", "To prevent compiler from optimizing away reads from SRAM", "To fit it in Flash", "To disable interrupts"],
       "correct_answer_index": 1,
-      "explanation": "SREG holds CPU flags and the global interrupt enable bit."
+      "explanation": "The compiler may optimize a non-volatile shared variable by keeping it in a register and never re-reading SRAM. The ISR modifies SRAM, but main never sees the update."
+    },
+    {
+      "question": "What is the difference between PORTB and PINB?",
+      "options": ["No difference", "PORTB drives outputs / enables pull-ups; PINB reads real-time pin voltages", "PINB configures direction", "PORTB is for reading"],
+      "correct_answer_index": 1,
+      "explanation": "PORTB is the output data register (also controls pull-ups on inputs). PINB is the pin input register — it reads the actual current voltage on each Port B pin."
     },
     {
       "question": "In an ISR, interrupts are automatically:",
-      "options": [
-        "Left enabled",
-        "Disabled until ISR returns",
-        "Slowed by half",
-        "Redirected to main()"
-      ],
+      "options": ["Left enabled", "Disabled until ISR returns (RETI restores I-bit)", "Slowed by half", "Redirected to main()"],
       "correct_answer_index": 1,
-      "explanation": "AVR clears I-flag in SREG upon entering an ISR."
+      "explanation": "The AVR hardware clears the I-bit in SREG upon entering any ISR, preventing nested interrupts. RETI instruction re-enables them on return."
     }
   ],
-  "feedback": "Outstanding! You have successfully stepped out of single-threaded polling and learned event-driven microcontroller programming using hardware interrupts."
+  "feedback": "Superb! You've harnessed the interrupt subsystem — one of the most powerful tools in embedded systems. Interrupt-driven design is the foundation of all responsive firmware, from keyboards to motor controllers to communication stacks."
 }
