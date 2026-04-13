@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-const Multimeter = ({ value = 0, label = "Multimeter" }) => {
-  const [mode, setMode] = useState("V"); // "V", "A", "R"
+const Multimeter = ({ value = 0, label = "Multimeter", mode = "V", onModeChange }) => {
+  const setMode = (m) => onModeChange?.(m);
 
   // Map 0-1023 input to simulated voltage (0-5V)
   const voltage = ((value / 1023) * 5.0).toFixed(2);
@@ -94,6 +94,14 @@ const Multimeter = ({ value = 0, label = "Multimeter" }) => {
           <button onMouseDown={() => setMode("R")} style={btnStyle(mode === "R")}>Ω</button>
         </div>
 
+        {/* Input Terminals (4-port) */}
+        <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
+           <div id={`comp-terminal-${label}-v`} style={terminalStyle("#ff3333")} title="Voltage Input (V)" />
+           <div id={`comp-terminal-${label}-a`} style={terminalStyle("#ffcc00")} title="Current Input (A)" />
+           <div id={`comp-terminal-${label}-r`} style={terminalStyle("#33ff33")} title="Resistance Input (Ω)" />
+           <div id={`comp-terminal-${label}-com`} style={terminalStyle("#111")} title="Common / Ground (COM)" />
+        </div>
+
       </div>
     </div>
   );
@@ -110,6 +118,16 @@ const btnStyle = (active) => ({
   fontWeight: "bold",
   cursor: "pointer",
   boxShadow: active ? "inset 0 2px 4px rgba(0,0,0,0.4)" : "0 2px 3px rgba(0,0,0,0.6)"
+});
+
+const terminalStyle = (color) => ({
+  width: 12,
+  height: 12,
+  borderRadius: "50%",
+  background: color,
+  border: "2px solid #222",
+  boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
+  cursor: "crosshair"
 });
 
 export default Multimeter;

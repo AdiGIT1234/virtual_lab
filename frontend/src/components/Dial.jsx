@@ -41,7 +41,10 @@ const Dial = ({ value = 0, onChange, label = "Potentiometer" }) => {
       
       {/* Container for Dial */}
       <div 
-        onMouseDown={handleDrag}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          handleDrag(e);
+        }}
         style={{
           width: 60,
           height: 60,

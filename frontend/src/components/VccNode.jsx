@@ -1,9 +1,10 @@
 import React from "react";
 
-const VccNode = ({ label = "+5V" }) => {
+const VccNode = ({ value = 5 }) => {
+  const displayValue = value > 0 ? `+${value}V` : `${value}V`;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={styles.badge}>{label}</div>
+      <div style={styles.badge}>{displayValue}</div>
       <svg width="60" height="80" viewBox="0 0 60 80">
         <polygon points="30,10 50,40 10,40" fill="#ffcf33" stroke="#b88c00" strokeWidth="2" />
         <line x1="30" y1="40" x2="30" y2="70" stroke="#ffcf33" strokeWidth="4" strokeLinecap="round" />

@@ -10,6 +10,7 @@ export default function SlidePotentiometer({ value = 0, onChange, label = "Slide
           max="1023"
           step="1"
           value={value}
+          onMouseDown={(e) => e.stopPropagation()} // Prevent DraggableWrapper from stealing drag
           onChange={(event) => onChange?.(parseInt(event.target.value, 10))}
           style={styles.slider}
           aria-label={label}

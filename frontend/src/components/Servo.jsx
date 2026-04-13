@@ -73,12 +73,6 @@ const Servo = ({ angle = 0, label = "Servo" }) => {
           }} />
         </div>
 
-        {/* Wiring Leads coming out of the side */}
-        <div style={{ position: "absolute", right: -5, bottom: 5, width: 15, height: 10, display: "flex", flexDirection: "column", gap: 1 }}>
-          <div style={{ width: "100%", height: 3, background: "#ff6600" }} /> {/* Signal inline */}
-          <div style={{ width: "100%", height: 3, background: "#cc0000" }} /> {/* VCC inline */}
-          <div style={{ width: "100%", height: 3, background: "#5a3a22" }} /> {/* GND inline */}
-        </div>
 
       </div>
     </div>

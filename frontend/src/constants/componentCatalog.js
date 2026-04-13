@@ -551,14 +551,6 @@ export const COMPONENT_CATEGORIES = [
         description: "Placeholder for breadboard real estate.",
       },
       {
-        id: "wire_node",
-        label: "Wires / Nodes",
-        workspaceType: "WIRE_NODE",
-        status: "simulated",
-        icon: "WIRE",
-        description: "Routing tie points for wiring system.",
-      },
-      {
         id: "capacitor",
         label: "Capacitor",
         workspaceType: "CAPACITOR",

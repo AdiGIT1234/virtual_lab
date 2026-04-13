@@ -8,6 +8,9 @@ import SerialMonitor from "../components/SerialMonitor";
 import ExternalLED from "../components/ExternalLED";
 import Resistor from "../components/Resistor";
 import Capacitor from "../components/Capacitor";
+import NPNTransistor from "../components/NPNTransistor";
+import PNPTransistor from "../components/PNPTransistor";
+import Timer555 from "../components/Timer555";
 import PushButton from "../components/PushButton";
 import Dial from "../components/Dial";
 import SlidePotentiometer from "../components/SlidePotentiometer";
@@ -291,9 +294,11 @@ void loop() {
       x: 80 + Math.random() * 50,
       y: 150 + Math.random() * 100,
       scale: 1,
-      ...(type === "RESISTOR"   ? { resistance: 330 } : {}),
+      ...(type === "RESISTOR"   ? { resistance: 330, resMultiplier: 1 } : {}),
       ...(type === "CAPACITOR"  ? { capacitance: 10, capUnit: "μF" } : {}),
+      ...(type === "VCC_NODE"   ? { value: 5 } : {}),
       ...(type === "SLIDE_POT" ? { value: 512 } : {}),
+      ...(type === "DIAL"      ? { value: 0 } : {}),
           metadata: catalogMeta
         ? {
             label: catalogMeta.label,
@@ -596,7 +601,8 @@ void loop() {
     // 2. Across the component?
     if (item.type === "RESISTOR") {
       const otherTerm = termId === "t1" ? "t2" : "t1";
-      const hopResistance = currentResistance + (item.type === "RESISTOR" ? (item.resistance || 330) : 0);
+      const rVal = (item.resistance || 330) * (item.resMultiplier || 1);
+      const hopResistance = currentResistance + (item.type === "RESISTOR" ? rVal : 0);
       const result = resolveConnection(compId, otherTerm, visited, hopResistance);
       if (result.pin != null) return result;
     }
@@ -1083,10 +1089,34 @@ void loop() {
                   { id: "t1", label: "+", color: "#38bdf8" },
                   { id: "t2", label: "−", color: "#666" },
                 ];
+              } else if (item.type === "NPN_TRANSISTOR" || item.type === "PNP_TRANSISTOR") {
+                terminals = [
+                  { id: "c", label: "C", color: "#666" },
+                  { id: "b", label: "B", color: "#666" },
+                  { id: "e", label: "E", color: "#666" },
+                ];
+              } else if (item.type === "TIMER_555") {
+                terminals = [
+                  { id: "gnd", label: "1 (GND)", color: "#111" },
+                  { id: "trig", label: "2 (TRIG)", color: "#666" },
+                  { id: "out", label: "3 (OUT)", color: "#22d3ee" },
+                  { id: "reset", label: "4 (RESET)", color: "#ff4444" },
+                  { id: "ctrl", label: "5 (CTRL)", color: "#666" },
+                  { id: "thres", label: "6 (THRES)", color: "#666" },
+                  { id: "disch", label: "7 (DISCH)", color: "#666" },
+                  { id: "vcc", label: "8 (VCC)", color: "#ffcf33" },
+                ];
+              } else if (item.type === "MULTIMETER") {
+                terminals = [
+                  { id: "v", label: "V", color: "#ff3333" },
+                  { id: "a", label: "A", color: "#ffcc00" },
+                  { id: "r", label: "Ω", color: "#33ff33" },
+                  { id: "com", label: "COM", color: "#111" },
+                ];
               } else if (item.type === "GROUND_NODE") {
                 terminals = [{ id: "main", label: "GND", color: "#00ffcc" }];
               } else if (item.type === "VCC_NODE") {
-                terminals = [{ id: "main", label: "+5V", color: "#ffcf33" }];
+                terminals = [{ id: "main", label: "VCC", color: "#ffcf33" }];
               } else if (item.type === "WIRE_NODE") {
                 terminals = [{ id: "main", label: "Tie Point", color: "#4dabf7" }];
               } else if (componentMeta?.terminals) {
@@ -1095,15 +1125,54 @@ void loop() {
 
               const configPanel = item.type === "RESISTOR" ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.resistance || 330}Ω</span>
+                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.resistance || 330}{item.resMultiplier === 1000 ? 'k' : item.resMultiplier === 1000000 ? 'M' : ''}Ω</span>
                   <input
                     type="range"
-                    min="100"
-                    max="2000"
-                    step="10"
+                    min="1"
+                    max="1000"
+                    step="1"
                     value={item.resistance || 330}
                     onChange={(e) => updateComponentSettings(item.id, { resistance: parseInt(e.target.value, 10) })}
+                    style={{ width: 60 }}
+                  />
+                  <select
+                    style={{ fontSize: 10, padding: "1px 3px", background: "#111", color: "#ccc", border: "1px solid #444", borderRadius: 3 }}
+                    value={item.resMultiplier || 1}
+                    onChange={(e) => updateComponentSettings(item.id, { resMultiplier: parseInt(e.target.value, 10) })}
+                  >
+                    <option value={1}>Ω</option>
+                    <option value={1000}>kΩ</option>
+                    <option value={1000000}>MΩ</option>
+                  </select>
+                </div>
+              ) : item.type === "VCC_NODE" ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.value || 5}V</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="24"
+                    step="0.5"
+                    value={item.value || 5}
+                    onChange={(e) => updateComponentSettings(item.id, { value: parseFloat(e.target.value) })}
                     style={{ width: 80 }}
+                  />
+                </div>
+              ) : item.type === "DIAL" || item.type === "SLIDE_POT" ? (
+                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>Value:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1023"
+                    value={item.value ?? (item.type === "SLIDE_POT" ? 512 : 0)}
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(1023, parseInt(e.target.value, 10) || 0));
+                      updateComponentSettings(item.id, { value: val });
+                      const wiper = resolveConnection(item.id, item.type === "DIAL" ? "main" : "WIPER");
+                      if (wiper.pin != null) setAnalogInput(wiper.pin, val);
+                    }}
+                    style={{ width: 50, fontSize: 10, background: "#111", color: "#00ffcc", border: "1px solid #444", padding: "1px 4px" }}
                   />
                 </div>
               ) : item.type === "CAPACITOR" ? (
@@ -1138,7 +1207,8 @@ void loop() {
               } else if (item.type === "LED_YELLOW") {
                 renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "RESISTOR") {
-                renderedContent = <Resistor resistance={item.resistance || 330} />;
+                const resLabel = `${item.resistance || 330}${item.resMultiplier === 1000 ? 'k' : item.resMultiplier === 1000000 ? 'M' : ''}Ω`;
+                renderedContent = <Resistor resistance={resLabel} />;
               } else if (item.type === "CAPACITOR") {
                 renderedContent = <Capacitor capacitance={item.capacitance || 10} unit={item.capUnit || "μF"} />;
               } else if (item.type === "BUTTON") {
@@ -1149,7 +1219,14 @@ void loop() {
                 );
               } else if (item.type === "DIAL") {
                 renderedContent = (
-                  <Dial value={inputs[resolvedMain.pin] || 0} onChange={(val) => setAnalogInput(resolvedMain.pin, val)} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
+                  <Dial 
+                    value={item.value ?? 0} 
+                    onChange={(val) => {
+                      updateComponentSettings(item.id, { value: val });
+                      if (resolvedMain.pin != null) setAnalogInput(resolvedMain.pin, val);
+                    }} 
+                    label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} 
+                  />
                 );
               } else if (item.type === "SLIDE_POT") {
                 const wiperConnection = resolveConnection(item.id, "WIPER");
@@ -1166,9 +1243,26 @@ void loop() {
                   />
                 );
               } else if (item.type === "MULTIMETER") {
+                // Multimeter logic: if mode is V, measure pin connected to 'v' port
+                const mode = item.mode || "V";
+                const portId = mode.toLowerCase();
+                const portConn = resolveConnection(item.id, portId);
+                const measuredAnalog = getPinAnalog(portConn.pin, portConn.resistance);
+                
                 renderedContent = (
-                  <Multimeter value={analogState > 0 ? (analogState / 255) * 1023 : 0} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin} Rdg` : "Unwired"} />
+                  <Multimeter 
+                    value={measuredAnalog > 0 ? (measuredAnalog / 255) * 1023 : 0} 
+                    label={item.id} 
+                    mode={mode}
+                    onModeChange={(newMode) => updateComponentSettings(item.id, { mode: newMode })}
+                  />
                 );
+              } else if (item.type === "NPN_TRANSISTOR") {
+                renderedContent = <NPNTransistor label="NPN" />;
+              } else if (item.type === "PNP_TRANSISTOR") {
+                renderedContent = <PNPTransistor label="PNP" />;
+              } else if (item.type === "TIMER_555") {
+                renderedContent = <Timer555 label="NE555" />;
               } else if (item.type === "RGB_LED") {
                 renderedContent = (
                   <RGB_LED
@@ -1194,7 +1288,7 @@ void loop() {
               } else if (item.type === "GROUND_NODE") {
                 renderedContent = <GroundNode />;
               } else if (item.type === "VCC_NODE") {
-                renderedContent = <VccNode />;
+                renderedContent = <VccNode value={item.value || 5} />;
               } else if (item.type === "WIRE_NODE") {
                 renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
               }
@@ -1222,13 +1316,44 @@ void loop() {
               }
 
               // Capacitor lead tips are at (24,0) and (24,80) in the SVG
-              // SVG is 48px wide, totalH = 18 + 44 + 18 = 80
-              const terminalLayout = item.type === "CAPACITOR"
-                ? [
-                    { id: "t1", x: 24, y: 0  },   // top lead tip
-                    { id: "t2", x: 24, y: 80 },   // bottom lead tip
-                  ]
-                : undefined;
+              // SVG is 48px wide, totalH = 80
+              let terminalLayout = undefined;
+              if (item.type === "CAPACITOR") {
+                terminalLayout = [
+                  { id: "t1", x: 24, y: 0  },
+                  { id: "t2", x: 24, y: 80 },
+                ];
+              } else if (item.type === "NPN_TRANSISTOR" || item.type === "PNP_TRANSISTOR") {
+                // SVG width ~40, totalH ~60
+                // Leads at x=15, 20, 25 and y=60
+                terminalLayout = [
+                  { id: "c", x: 15, y: 60 },
+                  { id: "b", x: 20, y: 60 },
+                  { id: "e", x: 25, y: 60 },
+                ];
+              } else if (item.type === "TIMER_555") {
+                // SVG width ~60, totalH ~70
+                // Pins at x=2, 58 and y=20, 30, 40, 50
+                terminalLayout = [
+                  { id: "gnd",   x: 2,  y: 20 },
+                  { id: "trig",  x: 2,  y: 30 },
+                  { id: "out",   x: 2,  y: 40 },
+                  { id: "reset", x: 2,  y: 50 },
+                  { id: "vcc",   x: 58, y: 20 },
+                  { id: "disch", x: 58, y: 30 },
+                  { id: "thres", x: 58, y: 40 },
+                  { id: "ctrl",  x: 58, y: 50 },
+                ];
+              } else if (item.type === "MULTIMETER") {
+                // Ports in the yellow face, bottom area
+                // Multimeter size in CSS is 140x180. The 4 ports are centered.
+                terminalLayout = [
+                   { id: "v",   x: 43, y: 161 },
+                   { id: "a",   x: 65, y: 161 },
+                   { id: "r",   x: 87, y: 161 },
+                   { id: "com", x: 109, y: 161 },
+                ];
+              }
 
               return (
                 <DraggableWrapper
