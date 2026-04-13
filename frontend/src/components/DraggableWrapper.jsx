@@ -9,6 +9,7 @@ const DraggableWrapper = ({
   onStartWire,
   onDelete,
   terminals,
+  terminalLayout,      // optional: [{id, x, y}] for absolute positioning
   renderExternalTerminals = true,
   configPanel,
   children,
@@ -221,53 +222,87 @@ const DraggableWrapper = ({
         {children}
       </div>
 
-      {/* Wire Terminal Nodes */}
-      {renderExternalTerminals && <div style={{
+      {/* Wire Terminal Nodes — absolute layout if terminalLayout provided */}
+      {renderExternalTerminals && terminalLayout ? (
+        terminalLayout.map(tl => {
+          const term = termList.find(t => t.id === tl.id) || { id: tl.id, label: tl.id };
+          return (
+            <div key={tl.id} style={{
+              position: 'absolute',
+              left: tl.x - 7, // centre the 14px dot
+              top:  tl.y - 7,
+              zIndex: 60,
+            }}>
+              <div
+                id={`comp-terminal-${id}-${term.id}`}
+                data-type="terminal"
+                data-comp-id={id}
+                data-term-id={term.id}
+                title={term.label || term.id}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (window.getActiveWire && window.getActiveWire()) {
+                    if (window.onCompleteComponentWire) window.onCompleteComponentWire(id, term.id);
+                  } else if (onStartWire) {
+                    const rect = e.target.getBoundingClientRect();
+                    onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
+                  }
+                }}
+                onMouseUp={(e) => e.stopPropagation()}
+                style={{
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: term.color || '#222',
+                  border: `2px solid ${term.color || '#aaa'}`,
+                  cursor: 'crosshair',
+                  boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : 'none',
+                  transition: 'all 0.2s'
+                }}
+              />
+            </div>
+          );
+        })
+      ) : renderExternalTerminals ? (
+        <div style={{
           position: 'absolute',
-          bottom: -15, // Below the component
+          bottom: -15,
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
           gap: '8px',
           zIndex: 60
-      }}>
-        {termList.map(term => (
-          <div key={term.id} style={styles.terminalWrapper}>
-            <div
-              id={`comp-terminal-${id}-${term.id}`}
-              data-type="terminal"
-              data-comp-id={id}
-              data-term-id={term.id}
-              title={term.label || term.id}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                if (window.getActiveWire && window.getActiveWire()) {
-                  if (window.onCompleteComponentWire) {
-                    window.onCompleteComponentWire(id, term.id);
+        }}>
+          {termList.map(term => (
+            <div key={term.id} style={styles.terminalWrapper}>
+              <div
+                id={`comp-terminal-${id}-${term.id}`}
+                data-type="terminal"
+                data-comp-id={id}
+                data-term-id={term.id}
+                title={term.label || term.id}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (window.getActiveWire && window.getActiveWire()) {
+                    if (window.onCompleteComponentWire) window.onCompleteComponentWire(id, term.id);
+                  } else if (onStartWire) {
+                    const rect = e.target.getBoundingClientRect();
+                    onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
                   }
-                } else if (onStartWire) {
-                  const rect = e.target.getBoundingClientRect();
-                  onStartWire(id, term.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
-                }
-              }}
-              onMouseUp={(e) => {
-                e.stopPropagation();
-              }}
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                background: term.color || '#222',
-                border: `2px solid ${term.color || '#aaa'}`,
-                cursor: 'crosshair',
-                boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : "none",
-                transition: "all 0.2s"
-              }}
-            />
-            <span style={styles.terminalLabel}>{term.label || term.id}</span>
-          </div>
+                }}
+                onMouseUp={(e) => e.stopPropagation()}
+                style={{
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: term.color || '#222',
+                  border: `2px solid ${term.color || '#aaa'}`,
+                  cursor: 'crosshair',
+                  boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : 'none',
+                  transition: 'all 0.2s'
+                }}
+              />
+              <span style={styles.terminalLabel}>{term.label || term.id}</span>
+            </div>
           ))}
-      </div>}
+        </div>
+      ) : null}
     </div>
   );
 };

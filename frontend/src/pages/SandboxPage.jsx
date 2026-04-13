@@ -7,6 +7,7 @@ import LogicAnalyzer from "../components/LogicAnalyzer";
 import SerialMonitor from "../components/SerialMonitor";
 import ExternalLED from "../components/ExternalLED";
 import Resistor from "../components/Resistor";
+import Capacitor from "../components/Capacitor";
 import PushButton from "../components/PushButton";
 import Dial from "../components/Dial";
 import SlidePotentiometer from "../components/SlidePotentiometer";
@@ -290,7 +291,8 @@ void loop() {
       x: 80 + Math.random() * 50,
       y: 150 + Math.random() * 100,
       scale: 1,
-      ...(type === "RESISTOR" ? { resistance: 330 } : {}),
+      ...(type === "RESISTOR"   ? { resistance: 330 } : {}),
+      ...(type === "CAPACITOR"  ? { capacitance: 10, capUnit: "μF" } : {}),
       ...(type === "SLIDE_POT" ? { value: 512 } : {}),
           metadata: catalogMeta
         ? {
@@ -1073,8 +1075,13 @@ void loop() {
                 terminals = [{ id: "main", label: "SIG", color: "#ff6600" }];
               } else if (item.type === "RESISTOR") {
                 terminals = [
-                  { id: "t1", label: "Left Lead", color: "#999" },
-                  { id: "t2", label: "Right Lead", color: "#999" }
+                  { id: "t1", label: "T1", color: "#999" },
+                  { id: "t2", label: "T2", color: "#999" }
+                ];
+              } else if (item.type === "CAPACITOR") {
+                terminals = [
+                  { id: "t1", label: "+", color: "#38bdf8" },
+                  { id: "t2", label: "−", color: "#666" },
                 ];
               } else if (item.type === "GROUND_NODE") {
                 terminals = [{ id: "main", label: "GND", color: "#00ffcc" }];
@@ -1099,6 +1106,28 @@ void loop() {
                     style={{ width: 80 }}
                   />
                 </div>
+              ) : item.type === "CAPACITOR" ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.capacitance || 10}{item.capUnit || "μF"}</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="1000"
+                    step="1"
+                    value={item.capacitance || 10}
+                    onChange={(e) => updateComponentSettings(item.id, { capacitance: parseInt(e.target.value, 10) })}
+                    style={{ width: 80 }}
+                  />
+                  <select
+                    style={{ fontSize: 10, padding: "1px 3px", background: "#111", color: "#ccc", border: "1px solid #444", borderRadius: 3 }}
+                    value={item.capUnit || "μF"}
+                    onChange={(e) => updateComponentSettings(item.id, { capUnit: e.target.value })}
+                  >
+                    <option value="pF">pF</option>
+                    <option value="nF">nF</option>
+                    <option value="μF">μF</option>
+                  </select>
+                </div>
               ) : null;
 
               let renderedContent = null;
@@ -1110,6 +1139,8 @@ void loop() {
                 renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "RESISTOR") {
                 renderedContent = <Resistor resistance={item.resistance || 330} />;
+              } else if (item.type === "CAPACITOR") {
+                renderedContent = <Capacitor capacitance={item.capacitance || 10} unit={item.capUnit || "μF"} />;
               } else if (item.type === "BUTTON") {
                 renderedContent = (
                   <div onMouseDown={() => toggleInput(resolvedMain.pin)}>
@@ -1190,6 +1221,15 @@ void loop() {
                 );
               }
 
+              // Capacitor lead tips are at (24,0) and (24,80) in the SVG
+              // SVG is 48px wide, totalH = 18 + 44 + 18 = 80
+              const terminalLayout = item.type === "CAPACITOR"
+                ? [
+                    { id: "t1", x: 24, y: 0  },   // top lead tip
+                    { id: "t2", x: 24, y: 80 },   // bottom lead tip
+                  ]
+                : undefined;
+
               return (
                 <DraggableWrapper
                   key={item.id}
@@ -1198,6 +1238,7 @@ void loop() {
                   initialY={item.y}
                   scale={item.scale || 1}
                   terminals={terminals}
+                  terminalLayout={terminalLayout}
                   renderExternalTerminals={!usesEmbeddedTerminals}
                   onStartWire={startWire}
                   onDelete={deleteComponent}
@@ -1211,6 +1252,7 @@ void loop() {
                   {renderedContent}
                 </DraggableWrapper>
               );
+
             })}
 
             <WiringCanvas
