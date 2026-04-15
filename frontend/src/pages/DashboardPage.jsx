@@ -417,8 +417,8 @@ export default function DashboardPage() {
                   action: () => navigate("/"),
                 },
                 {
-                  title: "Hardware Library",
-                  desc: "Browse ATmega328P register reference",
+                  title: "Silicon Codex",
+                  desc: "Industrial-grade register reference and timing diagrams",
                   icon: "📖",
                   color: "#00FFB2",
                   action: () => navigate("/reference"),

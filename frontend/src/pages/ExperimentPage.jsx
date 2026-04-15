@@ -190,7 +190,10 @@ export default function ExperimentPage() {
             <h2 style={styles.contentTitle}>🔧 Procedure</h2>
             <ol style={styles.procedureList}>
               {experimentProcedure.map((step, idx) => (
-                <li key={idx} style={styles.procedureStep}>{step}</li>
+                <li key={idx} style={styles.procedureStep}>
+                  <div style={styles.stepNumber}>{idx + 1}</div>
+                  {step}
+                </li>
               ))}
             </ol>
             <button style={styles.nextBtn} onClick={() => setActiveTab("simulation")}>
@@ -289,9 +292,9 @@ const styles = {
   page: {
     display: "flex",
     minHeight: "100vh",
-    background: "#000",
-    color: "#fff",
-    fontFamily: "'Times New Roman', Times, serif",
+    background: "#050505",
+    color: "#f8fafc",
+    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   },
   loadingPage: {
     display: "flex",
@@ -513,15 +516,45 @@ const styles = {
 
   /* PROCEDURE */
   procedureList: {
-    paddingLeft: "20px",
-    counterReset: "step",
+    paddingLeft: "0",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    listStyleType: "none",
+    counterReset: "step-counter",
   },
   procedureStep: {
+    position: "relative",
     fontSize: "15px",
-    color: "#ccc",
-    lineHeight: "1.7",
-    marginBottom: "16px",
-    paddingLeft: "8px",
+    color: "#cbd5e1",
+    lineHeight: "1.8",
+    padding: "16px 20px 16px 20px",
+    background: "#0d0d15",
+    border: "1px solid #1e293b",
+    borderRadius: "12px",
+    fontFamily: "'Inter', sans-serif",
+    display: "flex",
+    gap: "16px",
+    alignItems: "flex-start",
+    transition: "all 0.2s ease",
+    cursor: "default",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    marginBottom: "12px",
+  },
+  stepNumber: {
+    width: "28px",
+    height: "28px",
+    flexShrink: 0,
+    background: "#00ffcc22",
+    color: "#00ffcc",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: "800",
+    border: "1px solid #00ffcc44",
+    marginTop: "2px",
   },
 
   /* SIMULATION */

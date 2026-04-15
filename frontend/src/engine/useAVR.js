@@ -164,7 +164,7 @@ export function useAVR(activeMcuId = "atmega328p") {
     }
   }, []);
 
-  const startSimulation = useCallback((hexString) => {
+  const startSimulation = useCallback((hexString, initialRegisters = {}) => {
     if (!SUPPORTED_MCUS.has(activeMcuId)) {
       throw new Error("Simulator support coming soon for this MCU.");
     }
@@ -199,8 +199,44 @@ export function useAVR(activeMcuId = "atmega328p") {
     usart.onByteTransmit = (data) => {
       cpuRef.current.serialBuffer += String.fromCharCode(data);
     };
+
+    // 4. Apply initial register states (if provided)
+    // Map register names to I/O addresses for ATmega328P
+    const REG_MAP = {
+      TCCR0A: 0x44, TCCR0B: 0x45, OCR0A: 0x47, OCR0B: 0x48,
+      TCCR1A: 0x80, TCCR1B: 0x81, OCR1A: 0x88, OCR1B: 0x8A, ICR1: 0x86,
+      TCCR2A: 0xB0, TCCR2B: 0xB1, OCR2A: 0xB3,
+      EICRA: 0x69, EIMSK: 0x3D, PCICR: 0x68, SMCR: 0x53,
+      SREG: 0x5F,
+    };
+
+    if (initialRegisters) {
+      Object.entries(initialRegisters).forEach(([reg, val]) => {
+        const addr = REG_MAP[reg];
+        if (addr !== undefined) {
+          if (Array.isArray(val)) {
+            // Convert bit array to byte
+            let byteVal = 0;
+            val.forEach((bit, i) => { if(bit) byteVal |= (1 << i); });
+            cpu.data[addr] = byteVal;
+          } else if (typeof val === 'number') {
+            // Handle 16-bit registers (OCR1A etc)
+            if (reg === 'OCR1A' || reg === 'OCR1B' || reg === 'ICR1') {
+               cpu.data[addr] = val & 0xFF; // Low byte
+               cpu.data[addr + 1] = (val >> 8) & 0xFF; // High byte
+            } else {
+               cpu.data[addr] = val & 0xFF;
+            }
+          }
+        }
+      });
+      // Special case for SREG_I bit
+      if (initialRegisters.SREG_I) {
+          cpu.data[0x5F] |= (1 << 7);
+      }
+    }
     
-    // 4. Reset State
+    // 5. Reset State
     timelineBufferRef.current = [{
       time: 0,
       registers: null,

@@ -1,35 +1,48 @@
 import React from 'react';
 
-/**
- * Minimal DIP-8 555 Timer IC.
- * Just the black package body with a notch and 8 small leads.
- */
-const Timer555 = ({ label = "NE555" }) => {
+const Timer555 = () => {
+  const pinTextColor = "#94a3b8";
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{
-        color: '#60a5fa',
-        fontFamily: 'monospace',
-        fontSize: '9px',
-        marginBottom: '2px',
-        background: 'rgba(0,0,0,0.5)',
-        padding: '1px 4px',
-        borderRadius: '3px'
-      }}>
-        {label}
-      </div>
-      <svg width="60" height="70" viewBox="0 0 60 70" style={{ overflow: 'visible' }}>
+    <div style={{ position: 'relative', width: 100, height: 120 }}>
+      <svg width="100" height="120" viewBox="0 0 100 120" style={{ overflow: 'visible' }}>
         {/* DIP-8 Body */}
-        <rect x="10" y="10" width="40" height="50" rx="2" fill="#111" stroke="#000" strokeWidth="1" />
-        {/* Notch */}
-        <path d="M 24 10 A 6 6 0 0 0 36 10" fill="#111" stroke="#333" strokeWidth="1" />
+        <rect 
+          x="25" y="10" width="50" height="100" 
+          fill="#1e1e1e" rx="3" 
+          stroke="#000" strokeWidth="1.5"
+        />
         
-        {/* Pins (8 leads) */}
-        {[0, 1, 2, 3].map(i => (
-          <React.Fragment key={i}>
-            <line x1="2" y1={20 + i * 10} x2="10" y2={20 + i * 10} stroke="#999" strokeWidth="2" strokeLinecap="round" />
-            <line x1="50" y1={20 + i * 10} x2="58" y2={20 + i * 10} stroke="#999" strokeWidth="2" strokeLinecap="round" />
-          </React.Fragment>
+        {/* Orientation Notch */}
+        <path d="M 40 10 A 10 10 0 0 0 60 10" fill="#000" />
+
+        {/* Part Label */}
+        <text 
+          x="50" y="65" 
+          fill="#fff" 
+          fontSize="14" 
+          fontWeight="800" 
+          textAnchor="middle" 
+          fontFamily="monospace"
+          style={{ opacity: 0.7 }}
+        >
+          555
+        </text>
+
+        {/* Left Side (1-4) - GND, TRIG, OUT, RESET */}
+        {[1, 2, 3, 4].map((id, i) => (
+          <g key={id}>
+            <rect x="10" y={25 + i * 22} width="15" height="4" fill="#64748b" rx="1" />
+            <text x="5" y={28 + i * 22} textAnchor="end" fontSize="8" fill={pinTextColor} fontFamily="monospace">{id}</text>
+          </g>
+        ))}
+
+        {/* Right Side (8-5) - VCC, DISCH, THRES, CTRL */}
+        {[8, 7, 6, 5].map((id, i) => (
+          <g key={id}>
+            <rect x="75" y={25 + i * 22} width="15" height="4" fill="#64748b" rx="1" />
+            <text x="95" y={28 + i * 22} textAnchor="start" fontSize="8" fill={pinTextColor} fontFamily="monospace">{id}</text>
+          </g>
         ))}
       </svg>
     </div>

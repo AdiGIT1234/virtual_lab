@@ -8,7 +8,7 @@ from engine.clock import VirtualClock  # type: ignore
 from fastapi import FastAPI, HTTPException, Header  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from pydantic import BaseModel  # type: ignore
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 import json
 import os
 import glob
@@ -19,6 +19,8 @@ from services.admin_portal import (
     fetch_admin_stats,
     delete_user_by_id,
     fetch_user_from_token,
+    fetch_all_experiments,
+    update_experiment_in_db,
 )
 
 from engine.gpio import GPIO  # type: ignore
@@ -268,3 +270,23 @@ async def admin_stats(authorization: Optional[str] = Header(default=None)):
     ensure_admin_email(supabase_user.get("email"))
     stats = await fetch_admin_stats()
     return stats
+@app.get("/api/admin/experiments")
+async def list_admin_experiments(authorization: Optional[str] = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    exps = await fetch_all_experiments()
+    return {"experiments": exps}
+
+
+@app.patch("/api/admin/experiments/{exp_id}")
+async def admin_update_experiment(exp_id: str, payload: Dict[str, Any], authorization: Optional[str] = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    updated = await update_experiment_in_db(exp_id, payload)
+    return {"updated": updated}

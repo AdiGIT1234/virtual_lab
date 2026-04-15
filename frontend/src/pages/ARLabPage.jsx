@@ -9,7 +9,6 @@ const presetOptions = Object.values(CIRCUIT_PRESETS);
 // Component library for the sidebar — like diode's "Insert Part"
 const INSERT_PARTS = [
   { id: "arduino", label: "Arduino Uno", icon: "🔲", type: "BOARD" },
-  { id: "wire", label: "Wire", icon: "⟋", type: "WIRE" },
   { id: "resistor", label: "Resistor", icon: "═╤═", type: "RESISTOR" },
   { id: "led", label: "Led", icon: "💡", type: "LED" },
   { id: "motor", label: "Motor", icon: "⚙️", type: "SERVO" },

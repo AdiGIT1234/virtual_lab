@@ -251,25 +251,24 @@ export default function ReferencePage() {
     <div style={styles.shell}>
       <section style={styles.hero}>
         <div>
-          <p style={styles.heroBadge}>Hardware Library</p>
-          <h1 style={styles.heroTitle}>Every Device, One Playground</h1>
+          <p style={styles.heroBadge}>Industrial Component Registry</p>
+          <h1 style={styles.heroTitle}>Pulse Hardware Atlas</h1>
           <p style={styles.heroSub}>
-            Browse pinouts, voltage specs, timing diagrams, and full datasheet
-            references for every chip, sensor, and module available inside AR
-            Lab. Hover over any component to reveal its detailed specifications.
+            Deep-spec documentation and register maps for the ATmega328P ecosystem. 
+            Verified industrial-grade parameters for every supported module.
           </p>
           <div style={styles.heroActions}>
             <button
               style={styles.primaryBtn}
               onClick={() => navigate("/sandbox")}
             >
-              Go to Sandbox
+              Launch Sandbox
             </button>
             <button
               style={styles.secondaryBtn}
               onClick={() => navigate("/")}
             >
-              Back to Home
+              System Overview
             </button>
           </div>
         </div>
@@ -278,17 +277,17 @@ export default function ReferencePage() {
           <div style={styles.orbitCore}>
             {/* Animated chip icon */}
             <div style={styles.chipIcon}>
-              <span style={{ fontSize: 36, lineHeight: 1 }}>🔩</span>
+              <span style={{ fontSize: 36, lineHeight: 1 }}>⚙️</span>
               <div style={styles.chipPulse} />
             </div>
-            <span style={styles.orbitTitle}>AVR Component Vault</span>
-            <span style={styles.orbitLabel}>Pin-accurate · Datasheet-sourced</span>
+            <span style={styles.orbitTitle}>Hardware Engine</span>
+            <span style={styles.orbitLabel}>Verified Spec · Low Latency</span>
             <div style={styles.chipStats}>
-              <div style={styles.chipStat}><span style={styles.chipStatNum}>45+</span><span style={styles.chipStatLabel}>Components</span></div>
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>50+</span><span style={styles.chipStatLabel}>Modules</span></div>
               <div style={styles.chipStatDivider} />
-              <div style={styles.chipStat}><span style={styles.chipStatNum}>10</span><span style={styles.chipStatLabel}>Categories</span></div>
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>15</span><span style={styles.chipStatLabel}>Protocols</span></div>
               <div style={styles.chipStatDivider} />
-              <div style={styles.chipStat}><span style={styles.chipStatNum}>∞</span><span style={styles.chipStatLabel}>Free to use</span></div>
+              <div style={styles.chipStat}><span style={styles.chipStatNum}>⚡</span><span style={styles.chipStatLabel}>Realtime</span></div>
             </div>
           </div>
         </div>

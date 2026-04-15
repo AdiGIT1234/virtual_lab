@@ -32,6 +32,7 @@ import ComponentCatalogPanel from "../components/ComponentCatalogPanel";
 import ComponentPlaceholder from "../components/ComponentPlaceholder";
 import McuPreviewPanel from "../components/McuPreviewPanel";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
+import SandboxErrorBoundary from "../components/SandboxErrorBoundary";
 import { useAVR } from "../engine/useAVR";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
@@ -92,6 +93,7 @@ void loop() {
   const [hexError, setHexError] = useState("");
 
   const [wires, setWires] = useState([]);
+  const [selectedWireId, setSelectedWireId] = useState(null);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
@@ -190,6 +192,28 @@ void loop() {
     PINC: Array(8).fill(0),
     PIND: Array(8).fill(0),
     PWM: Array(20).fill(0),
+    // Timer 0
+    TCCR0A: Array(8).fill(0),
+    TCCR0B: Array(8).fill(0),
+    OCR0A: 0,
+    OCR0B: 0,
+    // Timer 1
+    TCCR1A: Array(8).fill(0),
+    TCCR1B: Array(8).fill(0),
+    OCR1A: 0,
+    OCR1B: 0,
+    ICR1: 0,
+    // Timer 2
+    TCCR2A: Array(8).fill(0),
+    TCCR2B: Array(8).fill(0),
+    OCR2A: 0,
+    // Interrupts & Sleep
+    EICRA: Array(8).fill(0),
+    EIMSK: Array(8).fill(0),
+    PCICR: Array(8).fill(0),
+    SMCR: Array(8).fill(0),
+    SREG_I: 0,
+    WDTCSR_WDE: 0,
   });
   const manualMemoryRef = useRef(new Array(256).fill(0));
 
@@ -247,7 +271,7 @@ void loop() {
       const data = await response.json();
 
       if (data.hex) {
-        startSimulation(data.hex);
+        startSimulation(data.hex, manualRegisters);
         setHexOutput(data.hex);
         setHexError(data.hex_error || "");
         setIsAnalyzerOpen(true);
@@ -446,6 +470,11 @@ void loop() {
         setActiveWire(null);
         activeWireRef.current = null;
       }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedWireId) {
+        // Don't delete if user is typing in an input
+        if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+        handleWireDelete(selectedWireId);
+      }
     };
 
     const handleGlobalMouseMove = (e) => {
@@ -469,7 +498,7 @@ void loop() {
       window.removeEventListener("mousemove", handleGlobalMouseMove);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [updateComponentPin]);
+  }, [updateComponentPin, selectedWireId, handleWireDelete]);
 
   const toggleInput = (pin) => {
     if (pin == null) return;
@@ -495,19 +524,21 @@ void loop() {
     }));
   };
 
-  const handleWireColorChange = (wireId, color) => {
+  const handleWireColorChange = useCallback((wireId, color) => {
     setWireColors((prev) => ({ ...prev, [wireId]: color }));
-  };
+    setWires(prev => prev.map(w => w.id === wireId ? { ...w, color } : w));
+  }, []);
 
-  const handleWireDelete = (wireId) => {
+  const handleWireDelete = useCallback((wireId) => {
     if (!wireId) return;
     setWires(prev => prev.filter(w => w.id !== wireId));
+    if (selectedWireId === wireId) setSelectedWireId(null);
     setWireColors((prev) => {
       const updated = { ...prev };
       delete updated[wireId];
       return updated;
     });
-  };
+  }, [selectedWireId]);
 
   const handleWireDetach = (wireId, endType) => {
     if (!wireId) return;
@@ -1123,81 +1154,75 @@ void loop() {
                 terminals = normalizeTerminals(componentMeta.terminals);
               }
 
-              const configPanel = item.type === "RESISTOR" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.resistance || 330}{item.resMultiplier === 1000 ? 'k' : item.resMultiplier === 1000000 ? 'M' : ''}Ω</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="1000"
-                    step="1"
-                    value={item.resistance || 330}
-                    onChange={(e) => updateComponentSettings(item.id, { resistance: parseInt(e.target.value, 10) })}
-                    style={{ width: 60 }}
-                  />
-                  <select
-                    style={{ fontSize: 10, padding: "1px 3px", background: "#111", color: "#ccc", border: "1px solid #444", borderRadius: 3 }}
-                    value={item.resMultiplier || 1}
-                    onChange={(e) => updateComponentSettings(item.id, { resMultiplier: parseInt(e.target.value, 10) })}
-                  >
-                    <option value={1}>Ω</option>
-                    <option value={1000}>kΩ</option>
-                    <option value={1000000}>MΩ</option>
-                  </select>
-                </div>
-              ) : item.type === "VCC_NODE" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.value || 5}V</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="24"
-                    step="0.5"
-                    value={item.value || 5}
-                    onChange={(e) => updateComponentSettings(item.id, { value: parseFloat(e.target.value) })}
-                    style={{ width: 80 }}
-                  />
-                </div>
-              ) : item.type === "DIAL" || item.type === "SLIDE_POT" ? (
-                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>Value:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="1023"
-                    value={item.value ?? (item.type === "SLIDE_POT" ? 512 : 0)}
-                    onChange={(e) => {
-                      const val = Math.max(0, Math.min(1023, parseInt(e.target.value, 10) || 0));
-                      updateComponentSettings(item.id, { value: val });
-                      const wiper = resolveConnection(item.id, item.type === "DIAL" ? "main" : "WIPER");
-                      if (wiper.pin != null) setAnalogInput(wiper.pin, val);
-                    }}
-                    style={{ width: 50, fontSize: 10, background: "#111", color: "#00ffcc", border: "1px solid #444", padding: "1px 4px" }}
-                  />
-                </div>
-              ) : item.type === "CAPACITOR" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.capacitance || 10}{item.capUnit || "μF"}</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="1000"
-                    step="1"
-                    value={item.capacitance || 10}
-                    onChange={(e) => updateComponentSettings(item.id, { capacitance: parseInt(e.target.value, 10) })}
-                    style={{ width: 80 }}
-                  />
-                  <select
-                    style={{ fontSize: 10, padding: "1px 3px", background: "#111", color: "#ccc", border: "1px solid #444", borderRadius: 3 }}
-                    value={item.capUnit || "μF"}
-                    onChange={(e) => updateComponentSettings(item.id, { capUnit: e.target.value })}
-                  >
-                    <option value="pF">pF</option>
-                    <option value="nF">nF</option>
-                    <option value="μF">μF</option>
-                  </select>
-                </div>
-              ) : null;
+              let configPanel = null;
+              if (item.type === "RESISTOR") {
+                configPanel = (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input 
+                      type="number" 
+                      value={item.resistance || 220} 
+                      onChange={(e) => updateComponentSettings(item.id, { resistance: Number(e.target.value) })}
+                      style={{ width: '50px', background: '#000', border: '1px solid #444', color: '#0f0', fontSize: '10px' }}
+                    />
+                    <select 
+                      value={item.resMultiplier || 1}
+                      onChange={(e) => updateComponentSettings(item.id, { resMultiplier: Number(e.target.value) })}
+                      style={{ background: '#222', color: '#fff', fontSize: '10px', border: '1px solid #444' }}
+                    >
+                      <option value={1}>Ω</option>
+                      <option value={1000}>kΩ</option>
+                      <option value={1000000}>MΩ</option>
+                    </select>
+                  </div>
+                );
+              } else if (item.type === "CAPACITOR") {
+                 configPanel = (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input 
+                      type="number" 
+                      value={item.capacitance || 10} 
+                      onChange={(e) => updateComponentSettings(item.id, { capacitance: Number(e.target.value) })}
+                      style={{ width: '40px', background: '#000', border: '1px solid #444', color: '#0ea5e9', fontSize: '10px' }}
+                    />
+                    <select 
+                      value={item.capUnit || "μF"}
+                      onChange={(e) => updateComponentSettings(item.id, { capUnit: e.target.value })}
+                      style={{ background: '#222', color: '#fff', fontSize: '10px', border: '1px solid #444' }}
+                    >
+                      <option value="pF">pF</option>
+                      <option value="nF">nF</option>
+                      <option value="μF">μF</option>
+                      <option value="mF">mF</option>
+                    </select>
+                  </div>
+                );
+              } else if (item.type === "VCC_NODE") {
+                 configPanel = (
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                     <span style={{ fontSize: '9px', color: '#facc15' }}>VCC</span>
+                     <input 
+                       type="number" 
+                       min="1" max="24"
+                       value={item.value || 5} 
+                       onChange={(e) => updateComponentSettings(item.id, { value: Number(e.target.value) })}
+                       style={{ width: '40px', background: '#000', border: '1px solid #444', color: '#facc15', fontSize: '10px' }}
+                     />
+                   </div>
+                 );
+              } else if (item.type === "SLIDE_POT" || item.type === "DIAL") {
+                 configPanel = (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '9px', color: '#888' }}>MAXΩ</span>
+                    <input 
+                      type="number" 
+                      value={item.maxValue || 1023} 
+                      onChange={(e) => updateComponentSettings(item.id, { maxValue: Number(e.target.value) })}
+                      style={{ width: '50px', background: '#000', border: '1px solid #444', color: '#fff', fontSize: '10px' }}
+                    />
+                  </div>
+                 );
+              }
+
 
               let renderedContent = null;
               if (item.type === "LED_RED") {
@@ -1258,11 +1283,14 @@ void loop() {
                   />
                 );
               } else if (item.type === "NPN_TRANSISTOR") {
-                renderedContent = <NPNTransistor label="NPN" />;
+                usesEmbeddedTerminals = false; 
+                renderedContent = <NPNTransistor />;
               } else if (item.type === "PNP_TRANSISTOR") {
-                renderedContent = <PNPTransistor label="PNP" />;
+                usesEmbeddedTerminals = false; 
+                renderedContent = <PNPTransistor />;
               } else if (item.type === "TIMER_555") {
-                renderedContent = <Timer555 label="NE555" />;
+                usesEmbeddedTerminals = false; 
+                renderedContent = <Timer555 />;
               } else if (item.type === "RGB_LED") {
                 renderedContent = (
                   <RGB_LED
@@ -1288,7 +1316,12 @@ void loop() {
               } else if (item.type === "GROUND_NODE") {
                 renderedContent = <GroundNode />;
               } else if (item.type === "VCC_NODE") {
-                renderedContent = <VccNode value={item.value || 5} />;
+                renderedContent = (
+                  <VccNode 
+                    value={item.value || 5} 
+                    onChange={(newVal) => updateComponentSettings(item.id, { value: newVal })}
+                  />
+                );
               } else if (item.type === "WIRE_NODE") {
                 renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
               }
@@ -1317,43 +1350,37 @@ void loop() {
 
               // Capacitor lead tips are at (24,0) and (24,80) in the SVG
               // SVG is 48px wide, totalH = 80
-              let terminalLayout = undefined;
-              if (item.type === "CAPACITOR") {
-                terminalLayout = [
-                  { id: "t1", x: 24, y: 0  },
-                  { id: "t2", x: 24, y: 80 },
-                ];
-              } else if (item.type === "NPN_TRANSISTOR" || item.type === "PNP_TRANSISTOR") {
-                // SVG width ~40, totalH ~60
-                // Leads at x=15, 20, 25 and y=60
-                terminalLayout = [
-                  { id: "c", x: 15, y: 60 },
-                  { id: "b", x: 20, y: 60 },
-                  { id: "e", x: 25, y: 60 },
-                ];
-              } else if (item.type === "TIMER_555") {
-                // SVG width ~60, totalH ~70
-                // Pins at x=2, 58 and y=20, 30, 40, 50
-                terminalLayout = [
-                  { id: "gnd",   x: 2,  y: 20 },
-                  { id: "trig",  x: 2,  y: 30 },
-                  { id: "out",   x: 2,  y: 40 },
-                  { id: "reset", x: 2,  y: 50 },
-                  { id: "vcc",   x: 58, y: 20 },
-                  { id: "disch", x: 58, y: 30 },
-                  { id: "thres", x: 58, y: 40 },
-                  { id: "ctrl",  x: 58, y: 50 },
-                ];
-              } else if (item.type === "MULTIMETER") {
-                // Ports in the yellow face, bottom area
-                // Multimeter size in CSS is 140x180. The 4 ports are centered.
-                terminalLayout = [
-                   { id: "v",   x: 43, y: 161 },
-                   { id: "a",   x: 65, y: 161 },
-                   { id: "r",   x: 87, y: 161 },
-                   { id: "com", x: 109, y: 161 },
-                ];
-              }
+              const terminalLayout =
+                item.type === "TIMER_555"
+                  ? [
+                      { id: "gnd",   x: 18, y: 27 },
+                      { id: "trig",  x: 18, y: 49 },
+                      { id: "out",   x: 18, y: 71 },
+                      { id: "reset", x: 18, y: 93 },
+                      { id: "vcc",   x: 82, y: 27 },
+                      { id: "disch", x: 82, y: 49 },
+                      { id: "thres", x: 82, y: 71 },
+                      { id: "ctrl",  x: 82, y: 93 },
+                    ]
+                  : item.type === "NPN_TRANSISTOR" || item.type === "PNP_TRANSISTOR"
+                  ? [
+                      { id: "e", x: 15, y: 65 },
+                      { id: "b", x: 30, y: 65 },
+                      { id: "c", x: 45, y: 65 },
+                    ]
+                  : item.type === "CAPACITOR" || item.type === "RESISTOR"
+                  ? [
+                      { id: "t1", x: 24, y: 0  },
+                      { id: "t2", x: 24, y: 80 },
+                    ]
+                  : item.type === "MULTIMETER"
+                  ? [
+                       { id: "v",   x: 43, y: 161 },
+                       { id: "a",   x: 65, y: 161 },
+                       { id: "r",   x: 87, y: 161 },
+                       { id: "com", x: 109, y: 161 },
+                    ]
+                  : undefined;
 
               return (
                 <DraggableWrapper
@@ -1374,7 +1401,9 @@ void loop() {
                   onPositionChange={handleItemPositionChange}
                   onScaleChange={handleItemScaleChange}
                 >
-                  {renderedContent}
+                  <SandboxErrorBoundary>
+                    {renderedContent}
+                  </SandboxErrorBoundary>
                 </DraggableWrapper>
               );
 
@@ -1384,10 +1413,12 @@ void loop() {
               items={workspaceItems}
               wires={wires}
               activeWire={activeWire}
+              selectedWireId={selectedWireId}
               wireColors={wireColors}
               onWireColorChange={handleWireColorChange}
               onWireDelete={handleWireDelete}
               onWireDetach={handleWireDetach}
+              onWireClick={(id) => setSelectedWireId(id)}
               workspaceId="workplane-container"
               viewScale={viewScale}
               viewOffset={viewOffset}

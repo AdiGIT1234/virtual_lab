@@ -11,16 +11,6 @@ const WIRE_COLORS = [
   { name: "White",  value: "#cccccc" },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Orthogonal (Manhattan) path builder with chip obstacle avoidance
-//
-// Strategy:
-//   1. Try a simple 3-segment L-shape (H then V then H, or V then H then V).
-//   2. If either route segment passes through the chip bounding box, add a
-//      detour segment that routes around the chip (padding = 30px in workspace
-//      coords).
-//   3. All segments are axis-aligned (0° or 90° only).
-// ─────────────────────────────────────────────────────────────────────────────
 function getChipRect(workspaceRect, viewScale, viewOffset) {
   const chipNode = document.getElementById('atmega-chip');
   if (!chipNode || !workspaceRect) return null;
@@ -33,10 +23,6 @@ function getChipRect(workspaceRect, viewScale, viewOffset) {
   };
 }
 
-/**
- * Returns true if the horizontal segment (y=fy, x from x1 to x2) overlaps
- * the chip rect (with padding).
- */
 function hSegOverlaps(x1, x2, fy, chip, pad) {
   if (!chip) return false;
   const minX = Math.min(x1, x2);
@@ -47,10 +33,6 @@ function hSegOverlaps(x1, x2, fy, chip, pad) {
   );
 }
 
-/**
- * Returns true if the vertical segment (x=fx, y from y1 to y2) overlaps
- * the chip rect (with padding).
- */
 function vSegOverlaps(y1, y2, fx, chip, pad) {
   if (!chip) return false;
   const minY = Math.min(y1, y2);
@@ -61,109 +43,61 @@ function vSegOverlaps(y1, y2, fx, chip, pad) {
   );
 }
 
-/**
- * Build an orthogonal SVG path from (sx,sy) to (ex,ey) avoiding chip rect.
- *
- * Routing algorithm:
- *  - Try routing: right/left → down/up → right/left  (horizontal-first)
- *  - Midpoint on the horizontal axis is the vertical jog
- *  - If any segment cuts through chip, reroute around chip edge
- */
 function buildOrthogonalPath(sx, sy, ex, ey, chip) {
-  const PAD = 30; // pixels in workspace coords
+  const PAD = 30; 
+  const DROP = 18; // Vertical lead drop
 
-  // ── Helper: emit SVG path string from an array of {x,y} waypoints ──
   const toPath = (pts) => {
     if (pts.length < 2) return '';
     let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-      d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
+        if (pts[i].x !== pts[i-1].x || pts[i].y !== pts[i-1].y) {
+          d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
+        }
     }
     return d;
   };
 
-  // ── Simple 3-segment routes ──
-  // Route A: H→V→H  (horizontal, then vertical, then horizontal)
-  //   S → midH → midH,ey → E
-  const midX_A = sx + (ex - sx) / 2;
-  const ptsA = [
-    { x: sx,    y: sy },
-    { x: midX_A, y: sy },
-    { x: midX_A, y: ey },
-    { x: ex,    y: ey },
-  ];
-
-  // Route B: V→H→V  (vertical, then horizontal, then vertical)
-  //   S → sx,midY → ex,midY → E
-  const midY_B = sy + (ey - sy) / 2;
-  const ptsB = [
+  const midX = sx + (ex - sx) / 2;
+  const pts = [
     { x: sx, y: sy },
-    { x: sx, y: midY_B },
-    { x: ex, y: midY_B },
+    { x: sx, y: sy + DROP },
+    { x: midX, y: sy + DROP },
+    { x: midX, y: ey },
     { x: ex, y: ey },
   ];
 
-  // ── Check if a route is clear of chip ──
-  const routeAClear = () => {
-    if (!chip) return true;
-    // seg1: horizontal sy from sx→midX_A
-    if (hSegOverlaps(sx, midX_A, sy, chip, PAD)) return false;
-    // seg2: vertical midX_A from sy→ey
-    if (vSegOverlaps(sy, ey, midX_A, chip, PAD)) return false;
-    // seg3: horizontal ey from midX_A→ex
-    if (hSegOverlaps(midX_A, ex, ey, chip, PAD)) return false;
+  if (!chip) return toPath(pts);
+
+  const routeClear = () => {
+    if (vSegOverlaps(sy, sy + DROP, sx, chip, 5)) return false; 
+    if (hSegOverlaps(sx, midX, sy + DROP, chip, PAD)) return false;
+    if (vSegOverlaps(sy + DROP, ey, midX, chip, PAD)) return false;
+    if (hSegOverlaps(midX, ex, ey, chip, PAD)) return false;
     return true;
   };
 
-  const routeBClear = () => {
-    if (!chip) return true;
-    // seg1: vertical sx from sy→midY_B
-    if (vSegOverlaps(sy, midY_B, sx, chip, PAD)) return false;
-    // seg2: horizontal midY_B from sx→ex
-    if (hSegOverlaps(sx, ex, midY_B, chip, PAD)) return false;
-    // seg3: vertical ex from midY_B→ey
-    if (vSegOverlaps(midY_B, ey, ex, chip, PAD)) return false;
-    return true;
-  };
+  if (routeClear()) return toPath(pts);
 
-  if (routeAClear()) return toPath(ptsA);
-  if (routeBClear()) return toPath(ptsB);
-
-  // ── Both simple routes are blocked → route around chip ──
-  if (!chip) return toPath(ptsA); // no chip to avoid
-
-  // Decide which side of the chip to go around
-  // Compare distances to left edge vs right edge
   const distLeft  = Math.abs(((sx + ex) / 2) - chip.left);
   const distRight = Math.abs(((sx + ex) / 2) - chip.right);
+  let bypassX = (distLeft <= distRight) ? (chip.left - PAD) : (chip.right + PAD);
 
-  let bypassX;
-  if (distLeft <= distRight) {
-    // Route around left side
-    bypassX = chip.left - PAD;
-  } else {
-    // Route around right side
-    bypassX = chip.right + PAD;
-  }
-
-  // 5-segment path: H to bypassX → V to sy → V all the way → H to ex
-  // S(sx,sy) → (bypassX, sy) → (bypassX, ey) → (ex, ey)
   const ptsAround = [
     { x: sx,      y: sy },
-    { x: bypassX, y: sy },
+    { x: sx,      y: sy + DROP },
+    { x: bypassX, y: sy + DROP },
     { x: bypassX, y: ey },
     { x: ex,      y: ey },
   ];
   return toPath(ptsAround);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WiringCanvas
-// ─────────────────────────────────────────────────────────────────────────────
 const WiringCanvas = ({
   items,
   wires = [],
   activeWire,
+  selectedWireId,
   onWireDetach,
   onWireClick,
   wireColors = {},
@@ -237,6 +171,7 @@ const WiringCanvas = ({
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, wireId });
+    if (onWireClick) onWireClick(wireId, e.clientX, e.clientY);
   };
 
   const handleColorSelect = (wireId, color) => {
@@ -252,7 +187,6 @@ const WiringCanvas = ({
     }
   }, [contextMenu]);
 
-  // Active wire: render as orthogonal line from source to mouse cursor
   const renderActiveWire = () => {
     if (!activeWire || !workspaceId) return null;
     const workspaceNode = document.getElementById(workspaceId);
@@ -309,13 +243,13 @@ const WiringCanvas = ({
   return (
     <>
       <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11, overflow: 'visible' }}>
-        {/* Completed wires — orthogonal routed */}
         {lines.map(line => {
           const path = buildOrthogonalPath(
             line.sourcePos.x, line.sourcePos.y,
             line.targetPos.x, line.targetPos.y,
             line.chip,
           );
+          const isSelected = selectedWireId === line.id;
 
           return (
             <g
@@ -323,11 +257,21 @@ const WiringCanvas = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setContextMenu({ x: e.clientX, y: e.clientY, wireId: line.id });
                 if (onWireClick) onWireClick(line.id, e.clientX, e.clientY);
               }}
             >
-              {/* Wide invisible hit target */}
+              {isSelected && (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.3"
+                  style={{ filter: 'blur(4px)', pointerEvents: 'none' }}
+                />
+              )}
               <path
                 d={path}
                 fill="none"
@@ -338,7 +282,6 @@ const WiringCanvas = ({
                 style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                 onContextMenu={(e) => handleWireRightClick(e, line.id)}
               />
-              {/* Visible wire */}
               <path
                 d={path}
                 fill="none"
@@ -346,15 +289,18 @@ const WiringCanvas = ({
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.6))', pointerEvents: 'none' }}
+                style={{ 
+                  filter: isSelected ? `drop-shadow(0 0 10px ${line.color})` : 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', 
+                  transition: 'all 0.2s',
+                  pointerEvents: 'none' 
+                }}
               />
-              {/* Draggable source endpoint */}
               <circle
                 cx={line.sourcePos.x}
                 cy={line.sourcePos.y}
-                r="5"
+                r={isSelected ? "7" : "5"}
                 fill={line.color}
-                stroke="#222"
+                stroke={isSelected ? "#fff" : "#222"}
                 strokeWidth="2"
                 style={{ pointerEvents: 'all', cursor: 'grab', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.8))' }}
                 onMouseDown={(e) => {
@@ -363,13 +309,12 @@ const WiringCanvas = ({
                   if (onWireDetach) onWireDetach(line.id, 'source');
                 }}
               />
-              {/* Draggable target endpoint */}
               <circle
                 cx={line.targetPos.x}
                 cy={line.targetPos.y}
-                r="5"
+                r={isSelected ? "7" : "5"}
                 fill={line.color}
-                stroke="#222"
+                stroke={isSelected ? "#fff" : "#222"}
                 strokeWidth="2"
                 style={{ pointerEvents: 'all', cursor: 'grab', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.8))' }}
                 onMouseDown={(e) => {
@@ -381,18 +326,16 @@ const WiringCanvas = ({
             </g>
           );
         })}
-
-        {/* Active wire being dragged */}
         {renderActiveWire()}
       </svg>
 
-      {/* Context menu for wire colour / delete */}
-      {contextMenu && (
+      {(contextMenu || selectedWireId) && (
         <div
           style={{
             position: 'fixed',
-            left: contextMenu.x,
-            top: contextMenu.y,
+            left: contextMenu ? contextMenu.x : "50%",
+            top: contextMenu ? contextMenu.y : "80%",
+            transform: !contextMenu ? 'translateX(-50%)' : 'none',
             zIndex: 9999,
             background: 'rgba(15,15,15,0.95)',
             backdropFilter: 'blur(12px)',
@@ -402,34 +345,45 @@ const WiringCanvas = ({
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: '6px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ gridColumn: '1 / -1', padding: '4px 8px', fontSize: '11px', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            Wire Color
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <span>Wire Style</span>
+            {selectedWireId && <span style={{ color: '#00f2ff' }}>Selected</span>}
           </div>
           {WIRE_COLORS.map((c) => (
             <button
               key={c.value}
               title={c.name}
-              onClick={() => handleColorSelect(contextMenu.wireId, c.value)}
+              onClick={() => handleColorSelect(contextMenu?.wireId || selectedWireId, c.value)}
               style={{
                 width: '28px',
                 height: '28px',
                 borderRadius: '50%',
                 background: c.value,
-                border: wireColors[contextMenu.wireId] === c.value ? '2px solid #fff' : '2px solid #333',
+                border: (wireColors[contextMenu?.wireId || selectedWireId] || '#4dabf7') === c.value ? '2px solid #fff' : '2px solid #333',
                 cursor: 'pointer',
-                transition: 'all 0.15s',
-                boxShadow: wireColors[contextMenu.wireId] === c.value ? `0 0 10px ${c.value}` : 'none',
+                transition: 'transform 0.1s',
               }}
             />
           ))}
           <button
-            style={{ gridColumn: '1 / -1', marginTop: '6px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #ff4444', background: 'rgba(50,0,0,0.6)', color: '#fff', cursor: 'pointer', fontSize: '11px' }}
+            style={{ 
+              gridColumn: '1 / -1', 
+              marginTop: '6px', 
+              padding: '8px 12px', 
+              borderRadius: '6px', 
+              border: '1px solid #ff4444', 
+              background: 'rgba(80,0,0,0.4)', 
+              color: '#ff8888', 
+              cursor: 'pointer', 
+              fontSize: '11px',
+              fontWeight: 600,
+            }}
             onClick={() => {
-              if (onWireDelete) onWireDelete(contextMenu.wireId);
+              if (onWireDelete) onWireDelete(contextMenu?.wireId || selectedWireId);
               setContextMenu(null);
             }}
           >

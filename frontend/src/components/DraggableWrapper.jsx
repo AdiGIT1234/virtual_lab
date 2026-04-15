@@ -10,6 +10,7 @@ const DraggableWrapper = ({
   onDelete,
   terminals,
   terminalLayout,      // optional: [{id, x, y}] for absolute positioning
+  terminalSize = 8,    // reduced default size for cleaner UI
   renderExternalTerminals = true,
   configPanel,
   children,
@@ -22,6 +23,7 @@ const DraggableWrapper = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showConfig, setShowConfig] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const termList = terminals || [{ id: "main" }];
 
@@ -172,8 +174,12 @@ const DraggableWrapper = ({
         userSelect: 'none'
       }}
       onMouseDown={handleMouseDown}
-      onMouseEnter={() => setShowConfig(true)}
-      onMouseLeave={() => setShowConfig(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setShowConfig(!showConfig);
+      }}
     >
       
       {/* Config Overlay for Wiring */}
@@ -229,9 +235,11 @@ const DraggableWrapper = ({
           return (
             <div key={tl.id} style={{
               position: 'absolute',
-              left: tl.x - 7, // centre the 14px dot
-              top:  tl.y - 7,
+              left: tl.x - terminalSize / 2,
+              top:  tl.y - terminalSize / 2,
               zIndex: 60,
+              opacity: isHovered || (window.getActiveWire && window.getActiveWire()) ? 1 : 0.05, // Hover-only reveal
+              transition: 'opacity 0.2s',
             }}>
               <div
                 id={`comp-terminal-${id}-${term.id}`}
@@ -250,11 +258,11 @@ const DraggableWrapper = ({
                 }}
                 onMouseUp={(e) => e.stopPropagation()}
                 style={{
-                  width: 14, height: 14, borderRadius: '50%',
-                  background: term.color || '#222',
-                  border: `2px solid ${term.color || '#aaa'}`,
+                  width: terminalSize, height: terminalSize, borderRadius: '50%',
+                  background: term.color || '#444',
+                  border: `1px solid ${term.color || '#fff'}`,
                   cursor: 'crosshair',
-                  boxShadow: showConfig ? `0 0 10px ${term.color || '#00ffcc'}` : 'none',
+                  boxShadow: isHovered ? `0 0 12px ${term.color || '#00ffcc'}` : 'none',
                   transition: 'all 0.2s'
                 }}
               />

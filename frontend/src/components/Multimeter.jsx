@@ -96,10 +96,22 @@ const Multimeter = ({ value = 0, label = "Multimeter", mode = "V", onModeChange 
 
         {/* Input Terminals (4-port) */}
         <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-           <div id={`comp-terminal-${label}-v`} style={terminalStyle("#ff3333")} title="Voltage Input (V)" />
-           <div id={`comp-terminal-${label}-a`} style={terminalStyle("#ffcc00")} title="Current Input (A)" />
-           <div id={`comp-terminal-${label}-r`} style={terminalStyle("#33ff33")} title="Resistance Input (Ω)" />
-           <div id={`comp-terminal-${label}-com`} style={terminalStyle("#111")} title="Common / Ground (COM)" />
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#ff3333' }}>V</span>
+             <div id={`comp-terminal-${label}-v`} style={terminalStyle("#ff3333")} title="Voltage Input (V)" />
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#ffcc00' }}>A</span>
+             <div id={`comp-terminal-${label}-a`} style={terminalStyle("#ffcc00")} title="Current Input (A)" />
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#33ff33' }}>Ω</span>
+             <div id={`comp-terminal-${label}-r`} style={terminalStyle("#33ff33")} title="Resistance Input (Ω)" />
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#bbb' }}>COM</span>
+             <div id={`comp-terminal-${label}-com`} style={terminalStyle("#111")} title="Common / Ground (COM)" />
+           </div>
         </div>
 
       </div>

@@ -1,32 +1,32 @@
 import React from 'react';
 
-/**
- * Minimal PNP Transistor SVG.
- * Identical to NPN but with a visual differentiator (darker body or label).
- */
-const PNPTransistor = ({ label = "PNP" }) => {
+const PNPTransistor = () => {
+  const pinTextColor = "#cbd5e1";
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{
-        color: '#ff9999',
-        fontFamily: 'monospace',
-        fontSize: '9px',
-        marginBottom: '2px',
-        background: 'rgba(0,0,0,0.5)',
-        padding: '1px 4px',
-        borderRadius: '3px'
-      }}>
-        {label}
-      </div>
-      <svg width="40" height="60" viewBox="0 0 40 60" style={{ overflow: 'visible' }}>
+    <div style={{ position: 'relative', width: 60, height: 80 }}>
+      <svg width="60" height="80" viewBox="0 0 60 80" style={{ overflow: 'visible' }}>
         {/* TO-92 Body */}
-        <path d="M 10 30 A 10 10 0 0 1 30 30 L 30 45 L 10 45 Z" fill="#1a1a1a" stroke="#000" strokeWidth="1" />
-        <rect x="10" y="30" width="20" height="2" fill="#333" />
+        <path 
+          d="M 10 20 A 20 20 0 0 1 50 20 L 50 35 L 10 35 Z" 
+          fill="#333" stroke="#000" strokeWidth="1.5" 
+        />
+        <rect x="10" y="20" width="40" height="1" fill="#444" />
         
-        {/* Leads */}
-        <line x1="15" y1="45" x2="15" y2="60" stroke="#aaa" strokeWidth="2" strokeLinecap="round" />
-        <line x1="20" y1="45" x2="20" y2="60" stroke="#aaa" strokeWidth="2" strokeLinecap="round" />
-        <line x1="25" y1="45" x2="25" y2="60" stroke="#aaa" strokeWidth="2" strokeLinecap="round" />
+        {/* Emitter (E) */}
+        <line x1="15" y1="35" x2="15" y2="65" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+        <text x="15" y="78" textAnchor="middle" fill={pinTextColor} fontSize="9" fontFamily="monospace">E</text>
+
+        {/* Base (B) */}
+        <line x1="30" y1="35" x2="30" y2="65" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+        <text x="30" y="78" textAnchor="middle" fill={pinTextColor} fontSize="9" fontFamily="monospace">B</text>
+
+        {/* Collector (C) */}
+        <line x1="45" y1="35" x2="45" y2="65" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+        <text x="45" y="78" textAnchor="middle" fill={pinTextColor} fontSize="9" fontFamily="monospace">C</text>
+
+        {/* Label on Body */}
+        <text x="30" y="31" textAnchor="middle" fill="#f472b6" fontSize="8" fontWeight="bold" fontFamily="monospace">PNP</text>
       </svg>
     </div>
   );

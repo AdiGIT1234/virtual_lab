@@ -8,36 +8,145 @@ const createPreview = (PreviewComponent) => (props) => (
 );
 
 // Breakout-board style previews for the components that don't have bespoke art yet.
-const createTextPreview = (label, color = "#0ea5e9", shortForm) => (props) => {
+// Diversity specialized board generators
+const createSensorModulePreview = (label, color = "#0ea5e9", shortForm, iconType = "chip") => (props) => {
   const primaryLine = shortForm || label.split(" ")[0];
   const secondaryLine = shortForm ? label : label.split(" ").slice(1).join(" ");
+  
+  // Custom icons based on type
+  const renderIcon = () => {
+    switch(iconType) {
+      case 'mic': return (
+        <g transform="translate(48, 28)">
+          <rect width="24" height="24" rx="12" fill="#94a3b8" />
+          <circle cx="12" cy="12" r="8" fill="#475569" stroke="#94a3b8" strokeWidth="1" />
+          <circle cx="12" cy="12" r="1.5" fill="#f8fafc" />
+          <circle cx="12" cy="7" r="1" fill="#f8fafc" opacity="0.6" />
+          <circle cx="12" cy="17" r="1" fill="#f8fafc" opacity="0.6" />
+          <circle cx="7" cy="12" r="1" fill="#f8fafc" opacity="0.6" />
+          <circle cx="17" cy="12" r="1" fill="#f8fafc" opacity="0.6" />
+        </g>
+      );
+      case 'flame': return (
+        <g transform="translate(48, 28)">
+          <path d="M12 2 C12 2, 4 10, 4 16 C4 20, 7.5 23, 12 23 C16.5 23, 20 20, 20 16 C20 10, 12 2, 12 2 Z" fill="#f97316" />
+          <path d="M12 8 C12 8, 8 13, 8 16 C8 18, 10 20, 12 20 C14 20, 16 18, 16 16 C16 13, 12 8, 12 8 Z" fill="#fbbf24" />
+        </g>
+      );
+      case 'heart': return (
+        <g transform="translate(48, 28)">
+          <path d="M12 21 L10.5 19.8 C5.4 15.3 2 12.2 2 8.5 C2 5.4 4.4 3 7.5 3 C9.2 3 10.9 3.8 12 5.1 C13.1 3.8 14.8 3 16.5 3 C19.6 3 22 5.4 22 8.5 C22 12.2 18.6 15.3 13.5 19.8 L12 21 Z" fill="#ef4444" />
+          <path d="M2 13 H6 L8 9 L12 17 L14 13 H22" fill="none" stroke="white" strokeWidth="1.5" opacity="0.4" />
+        </g>
+      );
+      case 'gas': return (
+        <g transform="translate(48, 28)">
+          <circle cx="12" cy="12" r="12" fill="#475569" stroke="#94a3b8" strokeWidth="2" />
+          <path d="M4 12 H20 M12 4 V20 M6 6 L18 18 M6 18 L18 6" stroke="#f8fafc" strokeWidth="0.8" opacity="0.4" />
+          <rect x="8" y="8" width="8" height="8" rx="1" fill="#1e293b" />
+        </g>
+      );
+      case 'imu': return (
+        <g transform="translate(48, 28)">
+          <rect x="2" y="2" width="20" height="20" rx="3" fill="#1e293b" stroke="#334155" />
+          <path d="M5 12 H19 M12 5 V19" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.8" />
+          <circle cx="12" cy="12" r="2" fill="#0ea5e9" />
+          <text x="12" y="10" fill="white" fontSize="4" textAnchor="middle">X-Y-Z</text>
+        </g>
+      );
+      default: return (
+        <g transform="translate(48, 32)">
+           <rect width="24" height="16" rx="2" fill="#0f172a" stroke="#1e293b" />
+           <path d="M4 4 H20 M4 8 H20 M4 12 H20" stroke={color} strokeWidth="1" opacity="0.4" />
+        </g>
+      );
+    }
+  };
+
+  const boardColor = iconType === 'imu' || iconType === 'gas' ? "#1e40af" : "#17324a";
 
   return (
     <svg viewBox="0 0 120 120" style={{ width: "100%", height: "100%" }} {...props}>
-      <rect x="22" y="12" width="76" height="96" rx="10" fill="#17324a" stroke={color} strokeWidth="2.2" />
-      <circle cx="32" cy="22" r="4" fill="#0f172a" stroke="#94a3b8" strokeWidth="1" />
-      <circle cx="88" cy="22" r="4" fill="#0f172a" stroke="#94a3b8" strokeWidth="1" />
-      <rect x="34" y="28" width="52" height="28" rx="4" fill="#0f172a" stroke="#334155" strokeWidth="1.5" />
-      <rect x="40" y="34" width="40" height="16" rx="3" fill="#020617" stroke="#1e293b" strokeWidth="1" />
-      <path d="M32 68 H88 M32 76 H88" stroke="#32506b" strokeWidth="2" strokeLinecap="round" />
-      <path d="M40 60 L40 84 M54 60 L54 90 M68 60 L68 84 M82 60 L82 90" stroke="#4f6b84" strokeWidth="1.6" strokeLinecap="round" />
-      {Array.from({ length: 6 }).map((_, i) => (
-        <React.Fragment key={i}>
-          <rect x={31 + i * 9.5} y="94" width="5" height="12" rx="1" fill="#cbd5e1" />
-          <circle cx={33.5 + i * 9.5} cy="90" r="2.4" fill="#f8fafc" stroke="#475569" strokeWidth="0.8" />
-        </React.Fragment>
-      ))}
-      <text x="60" y="45" fill={color} fontSize="13" fontWeight="700" fontFamily="Inter, monospace" textAnchor="middle" letterSpacing="0.08em">
+      <rect x="22" y="12" width="76" height="96" rx="8" fill={boardColor} stroke={color} strokeWidth="1.8" />
+      <circle cx="30" cy="20" r="3.5" fill="#020617" />
+      <circle cx="90" cy="20" r="3.5" fill="#020617" />
+      <circle cx="30" cy="100" r="3.5" fill="#020617" />
+      <circle cx="90" cy="100" r="3.5" fill="#020617" />
+      
+      {renderIcon()}
+      
+      <text x="60" y="72" fill="#f8fafc" fontSize="10.5" fontWeight="800" fontFamily="Inter, sans-serif" textAnchor="middle">
         {primaryLine}
       </text>
       {secondaryLine ? (
-        <text x="60" y="68" fill="#cbd5e1" fontSize="7.5" fontWeight="600" fontFamily="Inter, monospace" textAnchor="middle" letterSpacing="0.1em">
+        <text x="60" y="86" fill="#94a3b8" fontSize="7" fontWeight="500" fontFamily="Inter, sans-serif" textAnchor="middle" opacity="0.9">
           {secondaryLine}
         </text>
       ) : null}
+      
+      {/* Pins */}
+      {Array.from({ length: 5 }).map((_, i) => (
+        <rect key={i} x={38 + i * 9} y="104" width="4" height="12" rx="1" fill="#94a3b8" />
+      ))}
     </svg>
   );
 };
+
+const createInputModulePreview = (label, color = "#14b8a6", shortForm, type = "switch") => (props) => {
+  const primaryLine = shortForm || label.split(" ")[0];
+  
+  const renderInput = () => {
+    switch(type) {
+       case 'joy': return (
+         <g transform="translate(48, 24)">
+           <circle cx="12" cy="12" r="14" fill="#0f172a" stroke="#ef4444" strokeWidth="2" opacity="0.2" />
+           <circle cx="12" cy="12" r="10" fill="#334155" />
+           <circle cx="12" cy="12" r="4" fill="#94a3b8" />
+         </g>
+       );
+       case 'enc': return (
+         <g transform="translate(48, 24)">
+           <rect x="4" y="4" width="16" height="16" rx="2" fill="#94a3b8" />
+           <circle cx="12" cy="12" r="6" fill="#cbd5e1" stroke="#475569" />
+           <path d="M12 6 V10 M6 12 H10 M12 14 V18 M14 12 H18" stroke="#475569" strokeWidth="1" />
+         </g>
+       );
+       case 'dip': return (
+         <g transform="translate(40, 24)">
+            <rect width="40" height="24" rx="2" fill="#dc2626" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <rect key={i} x={5 + i * 9} y="4" width="4" height="16" rx="1" fill="#f8fafc" />
+            ))}
+         </g>
+       );
+       case 'switch': return (
+         <g transform="translate(44, 28)">
+            <rect width="32" height="16" rx="2" fill="#1e293b" />
+            <rect x="18" y="3" width="10" height="10" rx="1" fill="#cbd5e1" />
+         </g>
+       );
+       default: return <circle cx="60" cy="40" r="12" fill={color} />;
+    }
+  };
+
+  return (
+    <svg viewBox="0 0 120 120" style={{ width: "100%", height: "100%" }} {...props}>
+      <rect x="22" y="14" width="76" height="92" rx="12" fill="#112d46" stroke={color} strokeWidth="2" />
+      {renderInput()}
+      <text x="60" y="68" fill={color} fontSize="12" fontWeight="800" fontFamily="Inter, sans-serif" textAnchor="middle">
+        {primaryLine}
+      </text>
+      <path d="M30 90 H90" stroke={color} strokeWidth="1" opacity="0.3" />
+      <g transform="translate(32, 94)">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <rect key={i} x={i * 10} width="6" height="10" rx="1" fill="#94a3b8" />
+        ))}
+      </g>
+    </svg>
+  );
+};
+
+
 
 /* -- High Fidelity Custom SVGs -- */
 
@@ -182,13 +291,13 @@ const KeypadPreview = () => (
 
 const ServoPreview = () => (
   <>
-    <rect x="25" y="30" width="70" height="60" rx="4" fill="#2563eb" />
-    <rect x="15" y="50" width="10" height="20" fill="#2563eb" />
-    <rect x="95" y="50" width="10" height="20" fill="#2563eb" />
-    <circle cx="60" cy="30" r="20" fill="#1e293b" />
-    <path d="M50,15 L70,15 L60,5 Z" fill="#e2e8f0" />
-    <rect x="55" y="15" width="10" height="25" fill="#e2e8f0" />
-    <rect x="40" y="90" width="40" height="10" fill="#64748b" />
+    <rect x="35" y="30" width="50" height="65" rx="4" fill="#2563eb" />
+    <circle cx="60" cy="40" r="14" fill="#1e40af" />
+    <circle cx="60" cy="40" r="6" fill="#f8fafc" />
+    <rect x="45" y="38" width="30" height="4" rx="2" fill="#f8fafc" transform="rotate(-15, 60, 40)" />
+    <path d="M54 95 H66" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" />
+    <path d="M54 100 H66" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+    <path d="M54 105 H66" stroke="#451a03" strokeWidth="3" strokeLinecap="round" />
   </>
 );
 
@@ -282,7 +391,7 @@ const BuzzerPreview = () => (
 const createDipIcPreview = (label, pinsPerSide, accent = "#22d3ee") => () => (
   <>
     <rect x="28" y="18" width="64" height="84" rx="8" fill="#111827" stroke="#334155" strokeWidth="2" />
-    <rect x="51" y="18" width="18" height="8" rx="0 0 8 8" fill="#374151" />
+    <rect x="51" y="18" width="18" height="8" rx="8" fill="#374151" />
     {Array.from({ length: pinsPerSide }).map((_, i) => (
       <React.Fragment key={i}>
         <rect x="18" y={28 + i * (56 / Math.max(pinsPerSide - 1, 1))} width="10" height="4" rx="1" fill="#dbe4ef" />
@@ -419,33 +528,33 @@ export const NativeComponents = {
 
   // Procedural labeled chips for specialized sensors
   "wokwi-555": createPreview(createDipIcPreview("555", 4, "#8b5cf6")),
-  "wokwi-analog-joystick": createTextPreview("JOYSTICK", "#ef4444", "JOY"),
-  "wokwi-big-sound-sensor": createTextPreview("SOUND SENSOR", "#10b981"),
-  "wokwi-dip-switch-8": createTextPreview("DIP SWITCH", "#6366f1", "DIP8"),
-  "wokwi-ds1307": createTextPreview("RTC CHIP", "#0ea5e9", "RTC"),
-  "wokwi-epaper": createTextPreview("E-PAPER DISPLAY", "#cbd5e1", "E-INK"),
-  "wokwi-flame-sensor": createTextPreview("FLAME SENSOR", "#f97316"),
-  "wokwi-gas-sensor": createTextPreview("MQ2 GAS", "#8b5cf6"),
-  "wokwi-heart-beat-sensor": createTextPreview("HEART RATE", "#ef4444", "BPM"),
-  "wokwi-hx711": createTextPreview("HX711 AMP", "#10b981", "LOAD"),
-  "wokwi-ir-receiver": createTextPreview("IR RECV", "#6366f1", "IR"),
-  "wokwi-ir-remote": createTextPreview("REMOTE", "#6366f1"),
-  "wokwi-ky-040": createTextPreview("ENCODER", "#14b8a6", "ENC"),
-  "wokwi-led-bar-graph": createTextPreview("BAR GRAPH", "#ef4444", "BAR"),
-  "wokwi-led-matrix": createTextPreview("LED MATRIX", "#ef4444", "MTX"),
-  "wokwi-led-ring": createTextPreview("LED RING", "#8b5cf6", "RING"),
-  "wokwi-microsd-card": createTextPreview("SD READER", "#0ea5e9", "SD"),
-  "wokwi-mpu6050": createTextPreview("MPU6050 IMU", "#0ea5e9", "IMU"),
-  "wokwi-neopixel": createTextPreview("NEOPIXEL", "#8b5cf6", "NEO"),
+  "wokwi-analog-joystick": createInputModulePreview("JOYSTICK", "#ef4444", "JOY", "joy"),
+  "wokwi-big-sound-sensor": createSensorModulePreview("SOUND SENSOR", "#10b981", "SOUND", "mic"),
+  "wokwi-dip-switch-8": createInputModulePreview("DIP SWITCH", "#6366f1", "DIP8", "dip"),
+  "wokwi-ds1307": createSensorModulePreview("RTC CHIP", "#0ea5e9", "RTC", "chip"),
+  "wokwi-epaper": createSensorModulePreview("E-PAPER DISPLAY", "#cbd5e1", "E-INK", "chip"),
+  "wokwi-flame-sensor": createSensorModulePreview("FLAME SENSOR", "#f97316", "FLAME", "flame"),
+  "wokwi-gas-sensor": createSensorModulePreview("MQ2 GAS", "#8b5cf6", "GAS", "gas"),
+  "wokwi-heart-beat-sensor": createSensorModulePreview("HEART RATE", "#ef4444", "BPM", "heart"),
+  "wokwi-hx711": createSensorModulePreview("HX711 AMP", "#10b981", "LOAD", "chip"),
+  "wokwi-ir-receiver": createSensorModulePreview("IR RECV", "#6366f1", "IR", "chip"),
+  "wokwi-ir-remote": createInputModulePreview("REMOTE", "#6366f1", "REMOTE", "switch"),
+  "wokwi-ky-040": createInputModulePreview("ENCODER", "#14b8a6", "ENC", "enc"),
+  "wokwi-led-bar-graph": createSensorModulePreview("BAR GRAPH", "#ef4444", "BAR", "chip"),
+  "wokwi-led-matrix": createSensorModulePreview("LED MATRIX", "#ef4444", "MTX", "chip"),
+  "wokwi-led-ring": createSensorModulePreview("LED RING", "#8b5cf6", "RING", "chip"),
+  "wokwi-microsd-card": createSensorModulePreview("SD READER", "#0ea5e9", "SD", "chip"),
+  "wokwi-mpu6050": createSensorModulePreview("MPU6050 IMU", "#0ea5e9", "IMU", "imu"),
+  "wokwi-neopixel": createSensorModulePreview("NEOPIXEL", "#8b5cf6", "NEO", "chip"),
   "wokwi-npn-transistor": createPreview(createTo92Preview("NPN", "#f59e0b")),
-  "wokwi-ntc-temperature-sensor": createTextPreview("THERMISTOR", "#0ea5e9", "NTC"),
-  "wokwi-photoresistor-sensor": createTextPreview("PHOTO SENSOR", "#f59e0b", "LDR"),
+  "wokwi-ntc-temperature-sensor": createSensorModulePreview("THERMISTOR", "#0ea5e9", "NTC", "chip"),
+  "wokwi-photoresistor-sensor": createSensorModulePreview("PHOTO SENSOR", "#f59e0b", "LDR", "chip"),
   "wokwi-pnp-transistor": createPreview(createTo92Preview("PNP", "#fb7185")),
-  "wokwi-rotary-dialer": createTextPreview("ROTARY DIAL", "#14b8a6", "DIAL"),
-  "wokwi-slide-switch": createTextPreview("SWITCH", "#94a3b8", "SW"),
-  "wokwi-stepper-motor": createTextPreview("STEPPER", "#f97316", "STEP"),
-  "wokwi-tv": createTextPreview("TV OUT", "#6366f1", "TV"),
-  "vlab-relay-module": createTextPreview("RELAY MOD", "#ef4444", "RLY"),
+  "wokwi-rotary-dialer": createInputModulePreview("ROTARY DIAL", "#14b8a6", "DIAL", "enc"),
+  "wokwi-slide-switch": createInputModulePreview("SWITCH", "#94a3b8", "SW", "switch"),
+  "wokwi-stepper-motor": createInputModulePreview("STEPPER", "#f97316", "STEP", "enc"),
+  "wokwi-tv": createSensorModulePreview("TV OUT", "#6366f1", "TV", "chip"),
+  "vlab-relay-module": createSensorModulePreview("RELAY MOD", "#ef4444", "RLY", "gas"),
   "vlab-74hc595": createPreview(createDipIcPreview("74HC595", 8, "#60a5fa")),
   "vlab-serial-monitor": createPreview(SerialMonitorPreview),
   "vlab-logic-analyzer": createPreview(LogicAnalyzerPreview),
@@ -455,7 +564,7 @@ export const NativeComponents = {
   "vlab-jumper-wires": createPreview(JumperWiresPreview),
   "vlab-vcc-node": createPreview(VccNodePreview),
   "vlab-ground-node": createPreview(GroundNodePreview),
-
+  
   // Fallback
-  "generic": createTextPreview("COMPONENT", "#94a3b8", "IC")
+  "generic": createSensorModulePreview("COMPONENT", "#94a3b8", "IC")
 };

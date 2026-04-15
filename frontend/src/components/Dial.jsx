@@ -1,108 +1,177 @@
 import React from 'react';
 
-const Dial = ({ value = 0, onChange, label = "Potentiometer" }) => {
-  // value expected to be 0 to 1023
+const Dial = ({ 
+  value = 0, 
+  onChange, 
+  label = "Precision Rotary", 
+  min = 0, 
+  max = 10000, 
+  unit = "Ω" 
+}) => {
+  const dialRef = React.useRef(null);
   
-  // Calculate rotation angle (0 to 1023 -> -135deg to +135deg)
-  const angle = (value / 1023) * 270 - 135;
+  // Angle: -135deg to +135deg
+  const angle = ((value - min) / (max - min)) * 270 - 135;
 
-  const handleDrag = () => {
-    const updateDial = (moveEvent) => {
-      // In a real app we'd calculate atan2 based on the center of the dial.
-      // For simplicity, let's just use vertical mouse movement to adjust value.
-      let deltaY = moveEvent.movementY;
-      let newValue = value - deltaY * 10;
-      newValue = Math.max(0, Math.min(1023, newValue));
-      if (onChange) onChange(newValue);
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const updateValue = (moveEvent) => {
+      if (!dialRef.current) return;
+      const rect = dialRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const dx = moveEvent.clientX - centerX;
+      const dy = moveEvent.clientY - centerY;
+      
+      // Calculate angle in degrees
+      let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+      if (deg < 0) deg += 360;
+      
+      // Map 225-360 and 0-135 to -135 to 135 range
+      let normalizedAngle;
+      if (deg >= 225) {
+        normalizedAngle = deg - 360; 
+      } else if (deg <= 135) {
+        normalizedAngle = deg;
+      } else {
+        // Dead zone
+        return;
+      }
+
+      // Map -135..135 to 0..1
+      const percent = (normalizedAngle + 135) / 270;
+      const newValue = min + percent * (max - min);
+      onChange?.(Math.round(newValue));
     };
 
     const handleMouseUp = () => {
-      window.removeEventListener('mousemove', updateDial);
+      window.removeEventListener('mousemove', updateValue);
       window.removeEventListener('mouseup', handleMouseUp);
     };
 
-    window.addEventListener('mousemove', updateDial);
+    window.addEventListener('mousemove', updateValue);
     window.addEventListener('mouseup', handleMouseUp);
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{
-        color: "#ccc",
-        fontFamily: "monospace",
-        fontSize: "10px",
-        marginBottom: "4px",
-        background: "rgba(0,0,0,0.5)",
-        padding: "2px 6px",
-        borderRadius: "4px"
-      }}>
-        {label}
-      </div>
+    <div style={styles.wrapper}>
+      <div style={styles.label}>{label}</div>
       
-      {/* Container for Dial */}
       <div 
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          handleDrag(e);
-        }}
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: "50%",
-          background: "linear-gradient(145deg, #333, #111)",
-          boxShadow: "0 8px 15px rgba(0,0,0,0.8), inset 0 2px 2px rgba(255,255,255,0.1)",
-          position: "relative",
-          cursor: "ns-resize",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          border: "2px solid #000"
-        }}
+        ref={dialRef}
+        onMouseDown={handleMouseDown}
+        style={styles.dialContainer}
       >
-        {/* Outer Ring Ticks */}
-        <div style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: "2px dashed #444", boxSizing: "border-box", opacity: 0.5 }}></div>
+        {/* Ticks */}
+        <div style={styles.ticks} />
         
-        {/* Inner Knob */}
+        {/* Knob */}
         <div style={{
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          background: "linear-gradient(145deg, #444, #222)",
-          boxShadow: "inset 0 2px 4px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.6)",
-          position: "relative",
+          ...styles.knob,
           transform: `rotate(${angle}deg)`,
-          transition: "transform 0.05s"
         }}>
-           {/* Indicator line on the knob */}
-           <div style={{
-             position: "absolute",
-             top: 4,
-             left: 20,
-             width: 4,
-             height: 12,
-             background: "#00ffcc",
-             borderRadius: 2,
-             boxShadow: "0 0 5px #00ffcc"
-           }} />
+           <div style={styles.pointer} />
+           <div style={styles.knobHighlight} />
         </div>
       </div>
       
-      {/* Readout */}
-      <div style={{
-        marginTop: "8px",
-        color: "#00ffcc",
-        fontFamily: "monospace",
-        fontSize: "12px",
-        background: "#000",
-        border: "1px solid #333",
-        padding: "2px 8px",
-        borderRadius: "4px",
-        fontWeight: "bold"
-      }}>
-        {Math.round(value)}
+      <div style={styles.readout}>
+        {Math.round(value).toLocaleString()} <span style={styles.unit}>{unit}</span>
       </div>
     </div>
   );
+};
+
+const styles = {
+  wrapper: {
+    display: "flex", 
+    flexDirection: "column", 
+    alignItems: "center",
+    gap: "8px",
+    padding: "16px",
+    background: "rgba(15, 23, 42, 0.4)",
+    borderRadius: "20px",
+    backdropFilter: "blur(4px)",
+    border: "1px solid rgba(255,255,255,0.05)",
+  },
+  label: {
+    color: "#64748b",
+    fontFamily: "Inter, sans-serif",
+    fontSize: "9px",
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    fontWeight: "600",
+  },
+  dialContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: "50%",
+    background: "#0f172a",
+    boxShadow: "0 8px 16px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.05)",
+    position: "relative",
+    cursor: "pointer",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    border: "1px solid rgba(255,255,255,0.1)"
+  },
+  ticks: {
+    position: "absolute",
+    width: "85%",
+    height: "85%",
+    borderRadius: "50%",
+    border: "2px dotted rgba(255,255,255,0.15)",
+    boxSizing: "border-box",
+  },
+  knob: {
+    width: 50,
+    height: 50,
+    borderRadius: "50%",
+    background: "linear-gradient(145deg, #1e293b, #0f172a)",
+    boxShadow: "0 4px 8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1)",
+    position: "relative",
+    transition: "transform 0.1s ease-out",
+    border: "1px solid rgba(0,0,0,0.5)",
+  },
+  pointer: {
+    position: "absolute",
+    top: 6,
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: 3,
+    height: 10,
+    background: "#22d3ee",
+    borderRadius: 99,
+    boxShadow: "0 0 10px rgba(34, 211, 238, 0.6)"
+  },
+  knobHighlight: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.05) 0%, transparent 70%)",
+  },
+  readout: {
+    color: "#22d3ee",
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: "13px",
+    background: "#020617",
+    border: "1px solid rgba(103,232,249,0.2)",
+    padding: "4px 12px",
+    borderRadius: "8px",
+    fontWeight: "700",
+    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.5)",
+  },
+  unit: {
+    fontSize: "10px",
+    color: "#64748b",
+    marginLeft: "2px",
+  }
 };
 
 export default Dial;

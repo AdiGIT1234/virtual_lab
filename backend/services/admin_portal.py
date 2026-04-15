@@ -103,3 +103,40 @@ async def delete_user_by_id(user_id: str) -> None:
 def ensure_admin_email(email: str | None) -> None:
     if not email or email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+
+async def fetch_all_experiments() -> List[Dict[str, Any]]:
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(f"{supabase_url}/rest/v1/experiments", headers=headers, params={"order": "id.asc"})
+    if resp.status_code != status.HTTP_200_OK:
+        # If table doesn't exist, return empty
+        return []
+    return resp.json()
+
+
+async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.patch(
+            f"{supabase_url}/rest/v1/experiments",
+            headers=headers,
+            params={"id": f"eq.{exp_id}"},
+            json=data,
+        )
+    if resp.status_code != status.HTTP_200_OK:
+        detail = resp.text or "Update failed"
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+    results = resp.json()
+    return results[0] if results else {}

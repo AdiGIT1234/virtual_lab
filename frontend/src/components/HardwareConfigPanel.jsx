@@ -281,7 +281,8 @@ function HardwareConfigPanel({ setManualRegisters }) {
     : null;
 
   function fmtHz(hz) {
-    if (!hz) return '—';
+    if (hz == null || isNaN(hz)) return '—';
+    if (hz >= 1000000) return `${(hz/1000000).toFixed(2)} MHz`;
     if (hz >= 1000) return `${(hz/1000).toFixed(2)} kHz`;
     return `${hz.toFixed(2)} Hz`;
   }
