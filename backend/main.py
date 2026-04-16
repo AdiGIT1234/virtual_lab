@@ -26,6 +26,8 @@ from services.admin_portal import (
 from engine.gpio import GPIO  # type: ignore
 from engine.parser import parse_code  # type: ignore
 from engine.compiler import compile_code  # type: ignore
+from engine.esp32_gpio import ESP32GPIO  # type: ignore
+from engine.esp32_parser import parse_esp32_code  # type: ignore
 
 # RAG engine (lazy-loaded — only initialized when first chatbot request arrives)
 _rag_engine = None
@@ -47,6 +49,11 @@ if allowed_origins_env.strip() == "*":
 else:
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 
+# Ensure local Vite dev server is always allowed during development
+for dev_origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
+    if dev_origin not in allowed_origins and "*" not in allowed_origins:
+        allowed_origins.append(dev_origin)
+
 app = FastAPI()
 
 app.add_middleware(
@@ -63,6 +70,11 @@ app.add_middleware(
 class CodeInput(BaseModel):
     code: str
     inputs: Optional[Dict[int, int]] = None
+
+class ESP32CodeInput(BaseModel):
+    code: str
+    inputs: Optional[Dict[int, int]] = None
+    mcu: Optional[str] = "esp32"
 
 class ChatInput(BaseModel):
     message: str
@@ -179,6 +191,47 @@ def run_experiment(payload: CodeInput):
         "validation": experiment_result,
         "hex": hex_output,
         "hex_error": hex_error
+    }
+
+
+@app.post("/run-esp32")
+def run_esp32_experiment(payload: ESP32CodeInput):
+    """Run ESP32 Arduino code through the interpretive simulator."""
+    print("[ESP32] RECEIVED CODE:")
+    print(payload.code)
+
+    clock = VirtualClock()
+    gpio = ESP32GPIO(clock=clock)
+
+    # Inject external input signals
+    inputs = payload.inputs
+    if inputs is not None:
+        for pin, value in inputs.items():
+            gpio.set_input(int(pin), value)
+
+    # Parse & execute code on virtual ESP32 GPIO
+    parse_esp32_code(payload.code, gpio)
+
+    # Snapshot flat-GPIO registers
+    registers = {
+        "GPIO_DIR": list(gpio.DDR),
+        "GPIO_OUT": list(gpio.PORT),
+        "GPIO_IN": list(gpio.PIN),
+        "ADC": list(gpio.ADC_VALUES),
+        "DAC": list(gpio.DAC_VALUES),
+        "PWM": list(gpio.PWM_VALUES),
+        "LEDC_DUTY": list(gpio.LEDC_DUTY),
+        "TOUCH": dict(gpio.TOUCH_VALUES),
+    }
+
+    timeline = gpio.timeline
+
+    return {
+        "registers": registers,
+        "timeline": timeline,
+        "led": gpio.read_led(),
+        "hex": "",
+        "hex_error": "",
     }
 
 

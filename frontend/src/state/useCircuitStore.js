@@ -102,6 +102,25 @@ export const useCircuitStore = create((set) => ({
     if (!registers) return;
     set(() => {
       const pwm = registers.PWM || [];
+
+      // ESP32: flat GPIO model
+      if (registers.GPIO_OUT) {
+        const gpioOut = registers.GPIO_OUT;
+        const outputs = {};
+        for (let pin = 0; pin < gpioOut.length; pin++) {
+          const pwmVal = pwm[pin];
+          if (typeof pwmVal === "number" && pwmVal > 0 && pwmVal < 255) {
+            outputs[pin] = Math.max(0, Math.min(1, pwmVal / 255));
+          } else if (pwmVal === 255) {
+            outputs[pin] = 1;
+          } else {
+            outputs[pin] = gpioOut[pin] ? 1 : 0;
+          }
+        }
+        return { outputs };
+      }
+
+      // ATmega328P: port-based model
       const portB = registers.PORTB || [];
       const portC = registers.PORTC || [];
       const portD = registers.PORTD || [];

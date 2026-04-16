@@ -1,4 +1,5 @@
 import { PIN_LAYOUT } from "./pinLayout";
+import { ESP32_PIN_LAYOUT, ESP32_PIN_COLORS } from "./esp32PinLayout";
 
 const PORT_COLORS = {
   B: "#4da6ff",
@@ -17,10 +18,31 @@ export const MCUS = [
     pinLayout: PIN_LAYOUT,
     docSlug: "wokwi-arduino-uno",
     wokwiTag: "wokwi-arduino-uno",
+    voltage: 5,
+    adcBits: 10,
     features: [
       "14 digital I/O (6 PWM)",
       "6 analog inputs",
       "16 MHz clock / 5V logic",
+    ],
+  },
+  {
+    id: "esp32",
+    name: "ESP32",
+    package: "Module-30",
+    description: "Dual-core Xtensa with Wi-Fi/BLE, 520KB SRAM, 3.3V logic.",
+    supported: true,
+    portColors: ESP32_PIN_COLORS,
+    pinLayout: ESP32_PIN_LAYOUT,
+    docSlug: "wokwi-esp32-devkit-v1",
+    wokwiTag: "wokwi-esp32-devkit-v1",
+    voltage: 3.3,
+    adcBits: 12,
+    chipStyle: "module",  // wider module shape vs DIP
+    features: [
+      "Dual-core 240 MHz Wi-Fi + BLE",
+      "16-ch LEDC PWM / 2 DAC / 10 Touch",
+      "18 ADC inputs (12-bit) / 3.3V logic",
     ],
   },
   {
@@ -39,28 +61,12 @@ export const MCUS = [
     pinLayout: null,
     docSlug: "wokwi-arduino-mega",
     wokwiTag: "wokwi-arduino-mega",
+    voltage: 5,
+    adcBits: 10,
     features: [
       "54 digital I/O (15 PWM)",
       "16 analog inputs (A0-A15)",
       "4 UART, I2C, SPI buses",
-    ],
-  },
-  {
-    id: "esp32s3",
-    name: "ESP32-S3",
-    package: "QFN-48",
-    description: "Dual-core Xtensa with Wi-Fi/BLE for future labs.",
-    supported: false,
-    portColors: {
-      GPIO: "#10b981",
-    },
-    pinLayout: null,
-    docSlug: "wokwi-esp32-devkit-v1",
-    wokwiTag: "wokwi-esp32-devkit-v1",
-    features: [
-      "Dual-core Wi-Fi + BLE",
-      "18 analog inputs (GPIO32-39)",
-      "3 UART / 2 I2C / 2 SPI",
     ],
   },
 ];

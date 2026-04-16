@@ -34,6 +34,7 @@ import McuPreviewPanel from "../components/McuPreviewPanel";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import SandboxErrorBoundary from "../components/SandboxErrorBoundary";
 import { useAVR } from "../engine/useAVR";
+import { useESP32 } from "../engine/useESP32";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
 import { useTheme } from "../context/useTheme";
@@ -67,12 +68,18 @@ export default function SandboxPage() {
   const [selectedMcuId, setSelectedMcuId] = useState(DEFAULT_MCU_ID);
   const selectedMcu = MCU_MAP[selectedMcuId];
   const isMcuSupported = selectedMcu?.supported;
+  const isESP32 = selectedMcuId === "esp32";
 
   const [code, setCode] = useState(`void setup() {
 }
 
 void loop() {
 }`);
+
+  // Both hooks are called unconditionally (React rules), active one selected by MCU
+  const avr = useAVR(selectedMcuId);
+  const esp32 = useESP32(selectedMcuId);
+  const activeEngine = isESP32 ? esp32 : avr;
 
   const {
     startSimulation,
@@ -84,7 +91,7 @@ void loop() {
     setSpeedMultiplier,
     setBreakpoints: syncBreakpoints,
     setBreakpointHandler,
-  } = useAVR(selectedMcuId);
+  } = activeEngine;
 
   const [timeline, setTimeline] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -262,31 +269,60 @@ void loop() {
 
     try {
       setHexError("");
-      const response = await fetch("http://127.0.0.1:8000/run-experiment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, inputs }),
-      });
 
-      const data = await response.json();
+      if (isESP32) {
+        // ESP32: interpretive simulation via backend
+        const response = await fetch("http://127.0.0.1:8000/run-esp32", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, inputs: inputs || {}, mcu: "esp32" }),
+        });
 
-      if (data.hex) {
-        startSimulation(data.hex, manualRegisters);
-        setHexOutput(data.hex);
-        setHexError(data.hex_error || "");
-        setIsAnalyzerOpen(true);
-        setIsPlaying(true);
-        setTimeline([]);
-        setBreakpointHit(null);
-      } else if (data.timeline && data.timeline.length > 0) {
-        setTimeline(data.timeline);
-        setHexOutput(data.hex || "");
-        setHexError(data.hex_error || "");
-        setCurrentStep(0);
-        setIsPlaying(true);
-        setIsAnalyzerOpen(true);
+        const data = await response.json();
+
+        if (data.timeline && data.timeline.length > 0) {
+          setTimeline(data.timeline);
+          setHexOutput("");
+          setHexError("");
+          setCurrentStep(0);
+          setIsPlaying(true);
+          setIsAnalyzerOpen(true);
+          // Feed the final registers into cpuState via startSimulation playback
+          startSimulation(code, manualRegisters, inputs, code);
+        } else if (data.registers) {
+          // No timeline, but we have registers — show static state
+          setTimeline([]);
+        } else {
+          setTimeline([]);
+        }
       } else {
-        setTimeline([]);
+        // ATmega328P: compile to hex + avr8js WASM execution
+        const response = await fetch("http://127.0.0.1:8000/run-experiment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, inputs }),
+        });
+
+        const data = await response.json();
+
+        if (data.hex) {
+          startSimulation(data.hex, manualRegisters);
+          setHexOutput(data.hex);
+          setHexError(data.hex_error || "");
+          setIsAnalyzerOpen(true);
+          setIsPlaying(true);
+          setTimeline([]);
+          setBreakpointHit(null);
+        } else if (data.timeline && data.timeline.length > 0) {
+          setTimeline(data.timeline);
+          setHexOutput(data.hex || "");
+          setHexError(data.hex_error || "");
+          setCurrentStep(0);
+          setIsPlaying(true);
+          setIsAnalyzerOpen(true);
+        } else {
+          setTimeline([]);
+        }
       }
     } catch (e) {
       console.error("Simulation failed:", e);
@@ -450,6 +486,17 @@ void loop() {
 
 
 
+  const handleWireDelete = useCallback((wireId) => {
+    if (!wireId) return;
+    setWires(prev => prev.filter(w => w.id !== wireId));
+    if (selectedWireId === wireId) setSelectedWireId(null);
+    setWireColors((prev) => {
+      const updated = { ...prev };
+      delete updated[wireId];
+      return updated;
+    });
+  }, [selectedWireId]);
+
   useEffect(() => {
     window.onAutoConnectWire = (sourceId, termId, targetPinId) => {
       // Prevents overwriting if they explicitly don't want to
@@ -529,17 +576,6 @@ void loop() {
     setWires(prev => prev.map(w => w.id === wireId ? { ...w, color } : w));
   }, []);
 
-  const handleWireDelete = useCallback((wireId) => {
-    if (!wireId) return;
-    setWires(prev => prev.filter(w => w.id !== wireId));
-    if (selectedWireId === wireId) setSelectedWireId(null);
-    setWireColors((prev) => {
-      const updated = { ...prev };
-      delete updated[wireId];
-      return updated;
-    });
-  }, [selectedWireId]);
-
   const handleWireDetach = (wireId, endType) => {
     if (!wireId) return;
     const wire = wires.find(w => w.id === wireId);
@@ -584,6 +620,11 @@ void loop() {
   const getPinLogic = (p) => {
     if (p === "" || isNaN(p) || p == null) return false;
     if (currentRegisters?.PWM?.[p] > 0 && currentRegisters?.PWM?.[p] < 255) return "PWM";
+    // ESP32: flat GPIO model
+    if (isESP32) {
+      return currentRegisters?.GPIO_OUT?.[p] === 1;
+    }
+    // ATmega328P: port-based model
     if (p <= 7) return currentRegisters?.PORTD?.[p] === 1;
     if (p <= 13) return currentRegisters?.PORTB?.[p - 8] === 1;
     if (p >= 14 && p <= 19) return currentRegisters?.PORTC?.[p - 14] === 1;
@@ -1447,7 +1488,7 @@ void loop() {
 
           <div style={styles.gpioPanel}>
             <div style={styles.gpioHeader}>GPIO View</div>
-            <GpioView registers={currentRegisters} onInputChange={handleInputChange} />
+            <GpioView registers={currentRegisters} onInputChange={handleInputChange} mcu={selectedMcu} />
           </div>
 
           {displayTimeline.length > 0 ? (
