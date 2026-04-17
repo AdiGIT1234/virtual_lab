@@ -35,6 +35,33 @@ class PeripheralSimulatorEngine {
         activeBit: 0,
         activeLed: 0,
       };
+    } else if (type === "TFT_ILI9341") {
+      this.components.get(id).state = {
+        buffer: new Uint16Array(320 * 240), // 16-bit RGB565 pixels
+        pins: config.pins, // cs, dc, rst, etc.
+        isCommand: false,
+        activeCommand: null,
+        dataIdx: 0,
+        colStart: 0, colEnd: 239,
+        pageStart: 0, pageEnd: 319,
+        cursorX: 0, cursorY: 0,
+        highByte: null
+      };
+    } else if (type === "EPAPER_BASIC") {
+      this.components.get(id).state = {
+        buffer: new Uint8Array(4736),
+        pins: config.pins,
+        isCommand: false,
+        activeCommand: null,
+        dataIdx: 0,
+        cursorX: 0, cursorY: 0,
+        updatePending: false,
+      };
+    } else if (type === "KEYPAD") {
+      this.components.get(id).state = {
+        pins: config.pins, // e.g., ["8","9","10","11", "4","5","6","7"] (R1-R4, C1-C4)
+        activeNode: null // e.g. "r2c3" 
+      };
     }
   }
 
@@ -89,7 +116,97 @@ class PeripheralSimulatorEngine {
   }
 
   onSPIByte(value, cycles) {
-    // Implement SPI parsing (TFT, Matrix)
+    for (const [id, comp] of this.components.entries()) {
+      if (comp.type === "TFT_ILI9341") {
+        if (this.getPinVal(comp.state.pins.cs) !== 0) continue; // Ignore if CS is High
+
+        const isCommand = this.getPinVal(comp.state.pins.dc) === 0;
+        
+        if (isCommand) {
+          comp.state.activeCommand = value;
+          comp.state.dataIdx = 0;
+        } else {
+          switch (comp.state.activeCommand) {
+            case 0x2A: // CASET (Column Address Set)
+              if (comp.state.dataIdx === 0) comp.state.highByte = value;
+              else if (comp.state.dataIdx === 1) comp.state.colStart = (comp.state.highByte << 8) | value;
+              else if (comp.state.dataIdx === 2) comp.state.highByte = value;
+              else if (comp.state.dataIdx === 3) {
+                  comp.state.colEnd = (comp.state.highByte << 8) | value;
+                  comp.state.cursorX = comp.state.colStart;
+              }
+              comp.state.dataIdx++;
+              break;
+            case 0x2B: // PASET (Page Address Set)
+              if (comp.state.dataIdx === 0) comp.state.highByte = value;
+              else if (comp.state.dataIdx === 1) comp.state.pageStart = (comp.state.highByte << 8) | value;
+              else if (comp.state.dataIdx === 2) comp.state.highByte = value;
+              else if (comp.state.dataIdx === 3) {
+                  comp.state.pageEnd = (comp.state.highByte << 8) | value;
+                  comp.state.cursorY = comp.state.pageStart;
+              }
+              comp.state.dataIdx++;
+              break;
+            case 0x2C: // RAMWR (Memory Write)
+            case 0x3C: // RAMWR (Memory Write Continue)
+              if (comp.state.dataIdx % 2 === 0) {
+                 comp.state.highByte = value;
+              } else {
+                 const color = (comp.state.highByte << 8) | value;
+                 const idx = comp.state.cursorY * 240 + comp.state.cursorX; // 240 width typical portrait
+                 if (idx < comp.state.buffer.length) {
+                    comp.state.buffer[idx] = color;
+                 }
+                 comp.state.cursorX++;
+                 if (comp.state.cursorX > comp.state.colEnd || comp.state.cursorX >= 240) {
+                    comp.state.cursorX = comp.state.colStart;
+                    comp.state.cursorY++;
+                    if (comp.state.cursorY > comp.state.pageEnd || comp.state.cursorY >= 320) {
+                       comp.state.cursorY = comp.state.pageStart;
+                    }
+                 }
+                 // Simple throttling logic so we don't trigger 60Hz rerenders on every sub-pixel!
+                 // React will fetch via interval or we can trigger roughly every N scanlines.
+              }
+              comp.state.dataIdx++;
+              break;
+          }
+        }
+      } else if (comp.type === "EPAPER_BASIC") {
+        if (this.getPinVal(comp.state.pins.cs) !== 0) continue; // CS High
+
+        const isCommand = this.getPinVal(comp.state.pins.dc) === 0;
+        
+        if (isCommand) {
+          comp.state.activeCommand = value;
+          comp.state.dataIdx = 0;
+          if (value === 0x20 || value === 0x12) {
+             // Master Update Activation / Display Refresh
+             comp.state.updatePending = true;
+          }
+        } else {
+          if (comp.state.activeCommand === 0x24) { // Read/Write RAM
+             if (comp.state.dataIdx < comp.state.buffer.length) {
+                comp.state.buffer[comp.state.dataIdx] = value;
+             }
+             comp.state.dataIdx++;
+          }
+        }
+      } else if (comp.type === "KEYPAD") {
+        // If a port changes that relates to our layout, we simulate a hardware matrix short!
+        if (comp.state.activeNode) {
+           const rowIdx = parseInt(comp.state.activeNode.charAt(1), 10); // 1-4
+           const colIdx = parseInt(comp.state.activeNode.charAt(3), 10); // 1-4
+           const rowPin = comp.state.pins[rowIdx - 1];
+           const colPin = comp.state.pins[colIdx + 3];
+
+           // If the sweep pushed the row LOW, the col must get dragged LOW by the short
+           if (rowPin === pinStr && typeof window !== 'undefined' && window.setExternalPin) {
+               window.setExternalPin(colPin, val === 1);
+           }
+        }
+      }
+    }
   }
 
   onPortChange(portChar, newValue, oldValue, cycles) {

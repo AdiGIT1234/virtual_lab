@@ -152,9 +152,57 @@ export const EPaperDisplay = ({ id, wiredPins }) => {
   useEffect(() => {
     if (!id || !wiredPins) return;
     
-    // Future expansion: hook up SPI for EPaper parser
-    // PeripheralSimulator.registerComponent(id, "EPAPER", { ... });
-    // return () => PeripheralSimulator.unregisterComponent(id);
+    PeripheralSimulator.registerComponent(id, "EPAPER_BASIC", {
+      pins: {
+        cs: wiredPins["cs"],
+        dc: wiredPins["dc"],
+        rst: wiredPins["rst"],
+        mosi: wiredPins["mosi"],
+        sck: wiredPins["sck"],
+        busy: wiredPins["busy"]
+      }
+    });
+
+    const renderLoop = setInterval(() => {
+      const comp = PeripheralSimulator.components.get(id);
+      // Wait for master activation to actually redraw visually
+      if (comp && comp.state.updatePending && canvasRef.current) {
+         comp.state.updatePending = false; // Reset flag upon render
+
+         const ctx = canvasRef.current.getContext('2d');
+         // Use logical size native to the component mapping (296 x 128 is a common generic format)
+         const width = 128;
+         const height = 296;
+         const imgData = ctx.createImageData(width, height);
+         const buffer = comp.state.buffer;
+         
+         const bytesPerRow = width / 8; // 16
+         
+         for (let i = 0; i < buffer.length; i++) {
+            const byte = buffer[i];
+            const y = Math.floor(i / bytesPerRow);
+            const xBase = (i % bytesPerRow) * 8;
+            for (let bit = 0; bit < 8; bit++) {
+               // 1 usually means white, 0 means black in e-paper
+               const pixelOff = (byte & (0x80 >> bit)) !== 0; 
+               const idx = (y * width + (xBase + bit)) * 4;
+               
+               if (idx < imgData.data.length - 3) {
+                 imgData.data[idx] = pixelOff ? 248 : 0;     // R
+                 imgData.data[idx+1] = pixelOff ? 250 : 0;   // G
+                 imgData.data[idx+2] = pixelOff ? 252 : 0;   // B
+                 imgData.data[idx+3] = 255;                  // Alpha
+               }
+            }
+         }
+         ctx.putImageData(imgData, 0, 0);
+      }
+    }, 250); // Epaper is slow, don't run 60hz loop
+
+    return () => {
+      clearInterval(renderLoop);
+      PeripheralSimulator.unregisterComponent(id);
+    };
   }, [id, wiredPins]);
 
   return (
@@ -162,26 +210,139 @@ export const EPaperDisplay = ({ id, wiredPins }) => {
       <rect x={0} y={0} width={140} height={180} rx={4} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={2} />
       <rect x={5} y={5} width={130} height={170} fill="#e2e8f0" />
       <foreignObject x={5} y={5} width={130} height={170}>
-        <canvas ref={canvasRef} width={260} height={340} style={{ width: '100%', height: '100%', display: 'block' }} />
+        <canvas ref={canvasRef} width={128} height={296} style={{ width: '100%', height: '100%', display: 'block' }} />
       </foreignObject>
       <text x={70} y={90} fill="#94a3b8" fontSize={14} fontWeight="bold" textAnchor="middle">E-INK (SPI)</text>
-      {["VCC", "GND", "SCK", "MOSI", "CS", "DC", "RST", "BUSY"].map((l, i) => (
-        <Pin key={i} x={14 + i*16} y={194} label={l} color={i<2 ? '#facc15' : '#22d3ee'} />
+      {["vcc", "gnd", "sck", "mosi", "cs", "dc", "rst", "busy"].map((l, i) => (
+        <Pin key={i} x={14 + i*16} y={194} label={l.toUpperCase()} color={i<2 ? '#facc15' : '#22d3ee'} />
       ))}
     </svg>
   );
 };
 
-export const Ili9341Tft = () => (
-  <svg width={110} height={150} viewBox="0 0 110 150" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={0} width={110} height={130} rx={4} fill="#b91c1c" />
-    <rect x={10} y={15} width={90} height={100} fill="#0f172a" />
-    <text x={55} y={70} fill="white" fontSize={16} fontWeight="bold" textAnchor="middle">TFT</text>
-    {["VCC","GND","CS","RST","DC","MOSI","SCK","LED"].map((l, i) => (
-      <Pin key={i} x={10 + i*13} y={142} label={l} />
-    ))}
-  </svg>
-);
+export const AnalogTV = ({ id, wiredPins }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+     let animationId;
+     if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        let counter = 0;
+        const drawStatic = () => {
+           // Simulate a TV screen with static and a slight rolling bar effect
+           const imgData = ctx.createImageData(160, 120);
+           const barY = (counter % 120);
+           for (let i = 0; i < imgData.data.length / 4; i++) {
+              const x = i % 160;
+              const y = Math.floor(i / 160);
+              let noise = Math.random() * 80 + 20;
+              if (Math.abs(y - barY) < 5) noise += 40; // rolling sync bar
+              
+              imgData.data[i*4] = noise;
+              imgData.data[i*4+1] = noise;
+              imgData.data[i*4+2] = noise;
+              imgData.data[i*4+3] = 255;
+           }
+           ctx.putImageData(imgData, 0, 0);
+           counter++;
+           // We cap the frame rate a little so we don't spin CPUs for just visual static
+           setTimeout(() => { animationId = requestAnimationFrame(drawStatic); }, 30);
+        };
+        drawStatic();
+     }
+     return () => cancelAnimationFrame(animationId);
+  }, []);
+
+  return (
+    <svg width={200} height={180} viewBox="0 0 200 180" style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={0} y={0} width={200} height={160} rx={10} fill="#f59e0b" />
+      <rect x={5} y={5} width={190} height={150} rx={8} fill="#78350f" />
+      
+      {/* Vents & Dials */}
+      <rect x={165} y={20} width={20} height={8} fill="#451a03" />
+      <rect x={165} y={40} width={20} height={8} fill="#451a03" />
+      <circle cx={175} cy={80} r={10} fill="#d97706" />
+      <circle cx={175} cy={110} r={10} fill="#d97706" />
+      
+      {/* Screen Extrusion */}
+      <rect x={10} y={15} width={150} height={130} rx={25} fill="#3b2010" />
+      
+      {/* Screen Screen */}
+      <rect x={15} y={20} width={140} height={120} rx={20} fill="#020617" />
+      
+      <foreignObject x={15} y={20} width={140} height={120} style={{ clipPath: "polygon(5% 0, 95% 0, 100% 10%, 100% 90%, 95% 100%, 5% 100%, 0 90%, 0 10%)" }}>
+        <canvas ref={canvasRef} width={160} height={120} style={{ width: '100%', height: '100%', display: 'block' }} />
+      </foreignObject>
+
+      <text x={85} y={135} fill="white" fontSize={10} fontWeight="bold" textAnchor="middle" opacity="0.3">ANALOG</text>
+
+      {["video", "gnd"].map((l, i) => (
+         <Pin key={i} x={50 + i*60} y={170} label={l.toUpperCase()} color={i === 0 ? "#eab308" : "#22d3ee"} />
+      ))}
+    </svg>
+  );
+};
+
+export const Ili9341Tft = ({ id, wiredPins }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!id || !wiredPins) return;
+    
+    // Register TFT with simulator
+    PeripheralSimulator.registerComponent(id, "TFT_ILI9341", {
+      pins: {
+        cs: wiredPins["cs"],
+        dc: wiredPins["dc"],
+        rst: wiredPins["rst"],
+        mosi: wiredPins["mosi"],
+        sck: wiredPins["sck"]
+      }
+    });
+
+    const renderLoop = setInterval(() => {
+      const comp = PeripheralSimulator.components.get(id);
+      if (comp && comp.state.buffer && canvasRef.current) {
+         const ctx = canvasRef.current.getContext('2d');
+         const imgData = ctx.createImageData(240, 320);
+         const buffer = comp.state.buffer;
+         for (let i = 0; i < buffer.length; i++) {
+            const color565 = buffer[i];
+            const r = (color565 >> 11) & 0x1F;
+            const g = (color565 >> 5) & 0x3F;
+            const b = color565 & 0x1F;
+            // Scale to 8-bit
+            imgData.data[i*4] = (r * 255) / 31;
+            imgData.data[i*4+1] = (g * 255) / 63;
+            imgData.data[i*4+2] = (b * 255) / 31;
+            imgData.data[i*4+3] = 255; 
+         }
+         ctx.putImageData(imgData, 0, 0);
+      }
+    }, 100); // 10fps refresh from buffer
+
+    return () => {
+      clearInterval(renderLoop);
+      PeripheralSimulator.unregisterComponent(id);
+    };
+  }, [id, wiredPins]);
+
+  return (
+    <svg width={110} height={150} viewBox="0 0 110 150" style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={0} y={0} width={110} height={130} rx={4} fill="#b91c1c" />
+      <rect x={10} y={15} width={90} height={100} fill="#0f172a" />
+      
+      <foreignObject x={10} y={15} width={90} height={100}>
+        <canvas ref={canvasRef} width={240} height={320} style={{ width: '100%', height: '100%', display: 'block', imageRendering: 'pixelated' }} />
+      </foreignObject>
+
+      <text x={55} y={15} fill="white" fontSize={10} fontWeight="bold" textAnchor="middle">ILI9341</text>
+      {["vcc","gnd","cs","rst","dc","mosi","sck","led"].map((l, i) => (
+        <Pin key={i} x={10 + i*13} y={142} label={l.toUpperCase()} />
+      ))}
+    </svg>
+  );
+};
 
 /* ── Sensors ── */
 export const Dht22 = () => (
@@ -289,13 +450,62 @@ export const LoadCellHx711 = () => (
 );
 
 /* ── Inputs ── */
-export const MembraneKeypad = () => (
-  <svg width={90} height={120} viewBox="0 0 90 120" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={0} width={70} height={120} rx={4} fill="#0f172a" />
-    {[1,2,3,4].map(r => [1,2,3,4].map(c => <rect key={`${r}${c}`} x={4+c*14} y={5+r*20} width={10} height={14} rx={2} fill="#334155" />))}
-    {[1,2,3,4,5,6,7,8].map(i => <Pin key={i} x={84} y={15 + i*13} label={`P${i}`} />)}
-  </svg>
-);
+export const MembraneKeypad = ({ id, wiredPins }) => {
+  const [activeKey, setActiveKey] = useState(null);
+
+  useEffect(() => {
+    if (!id || !wiredPins) return;
+    PeripheralSimulator.registerComponent(id, "KEYPAD", {
+      pins: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"].map(p => wiredPins[p])
+    });
+    return () => PeripheralSimulator.unregisterComponent(id);
+  }, [id, wiredPins]);
+
+  const handleDown = (r, c) => {
+    setActiveKey(`r${r}c${c}`);
+    const comp = PeripheralSimulator.components.get(id);
+    if (comp && comp.state) {
+       comp.state.activeNode = `r${r}c${c}`;
+       const rowPin = comp.state.pins[r - 1];
+       const colPin = comp.state.pins[c + 3];
+       if (rowPin && PeripheralSimulator.getPinVal(rowPin) === 0 && window.setExternalPin) {
+           window.setExternalPin(colPin, false);
+       }
+    }
+  };
+
+  const handleUp = () => {
+    const comp = PeripheralSimulator.components.get(id);
+    if (comp && comp.state && comp.state.activeNode) {
+       const colIdx = parseInt(comp.state.activeNode.charAt(3), 10);
+       const colPin = comp.state.pins[colIdx + 3];
+       comp.state.activeNode = null;
+       if (colPin && window.setExternalPin) {
+           window.setExternalPin(colPin, true); // Restore back to simulated pullup High
+       }
+    }
+    setActiveKey(null);
+  };
+
+  return (
+    <svg width={90} height={120} viewBox="0 0 90 120" style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={0} y={0} width={70} height={120} rx={4} fill="#0f172a" />
+      {[1,2,3,4].map(r => [1,2,3,4].map(c => (
+         <rect 
+            key={`${r}${c}`} 
+            x={4+c*14} y={5+r*20} 
+            width={10} height={14} rx={2} 
+            fill={activeKey === `r${r}c${c}` ? "#f8fafc" : "#334155"}
+            onPointerDown={(e) => { e.stopPropagation(); handleDown(r, c); }}
+            onPointerUp={(e) => { e.stopPropagation(); handleUp(); }}
+            onPointerLeave={handleUp}
+            style={{ cursor: "pointer" }}
+         />
+      )))}
+      {[1,2,3,4,5,6,7,8].map(i => <Pin key={i} x={84} y={15 + i*13} label={`P${i}`} />)}
+    </svg>
+  );
+};
 
 export const RotaryEncoder = () => (
   <svg width={65} height={90} viewBox="0 0 65 90" style={{ display: 'block', overflow: 'visible' }}>

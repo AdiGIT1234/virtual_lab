@@ -214,6 +214,26 @@ export function useAVR(activeMcuId = "atmega328p") {
 
     // Mount I2C (TWI)
     const twi = new AVRTWI(cpu, twiConfig, 16000000);
+    
+    // Inject global external pin actuator for interactive components map
+    if (typeof window !== 'undefined') {
+       window.setExternalPin = (pinStr, isHigh) => {
+          let port;
+          let bit;
+          // Map Arduino generic strings like "13" -> B5, "A0" -> C0
+          let pinNum = parseInt(pinStr);
+          if (isNaN(pinNum)) {
+            if (pinStr.startsWith("A") || pinStr.startsWith("a")) {
+               pinNum = 14 + parseInt(pinStr.substring(1));
+            }
+          }
+          if (pinNum >= 0 && pinNum <= 7) { port = portD; bit = pinNum; }
+          else if (pinNum >= 8 && pinNum <= 13) { port = portB; bit = pinNum - 8; }
+          else if (pinNum >= 14 && pinNum <= 19) { port = portC; bit = pinNum - 14; }
+          
+          if (port) port.setPin(bit, isHigh);
+       };
+    }
     class BaseTWIHandler {
       start(repeated) { twi.completeStart(); }
       stop() { twi.completeStop(); }
