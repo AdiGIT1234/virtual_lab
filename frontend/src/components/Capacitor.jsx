@@ -1,80 +1,84 @@
 import React from 'react';
 
 /**
- * Minimal capacitor SVG — just the ceramic disc body + two wire leads.
- * Terminal access points are at the very tip of each lead (top and bottom).
- * The component has zero bounding box padding — wires connect to lead tips.
- *
- * Layout (SVG coords):
- *   - Lead 1 tip:  (cx, 0)    ← top terminal
- *   - Disc centre: (cx, leadLen)
- *   - Lead 2 tip:  (cx, leadLen + r*2 + leadLen) ← bottom terminal
+ * Ceramic / electrolytic capacitor — pure SVG, 48 × 80.
+ * Pin tip circles at (24, 0) and (24, 80) — matches DraggableWrapper terminalLayout.
+ * No wrapper div: SVG coordinates map 1-to-1 with terminalLayout.
  */
 const Capacitor = ({ capacitance = 10, unit = 'μF' }) => {
-  const cx  = 24;    // horizontal centre
-  const r   = 22;    // disc radius
-  const leadLen = 18; // wire lead length above and below disc
-  const totalH  = leadLen + r * 2 + leadLen;  // full SVG height
+  const cx      = 24;    // horizontal centre
+  const r       = 22;    // disc radius
+  const leadLen = 18;    // wire lead length above and below disc
+  const totalH  = leadLen + r * 2 + leadLen;  // 80px total
+
+  const discCy  = leadLen + r;  // 40
 
   return (
     <svg
       width={cx * 2}
       height={totalH}
       viewBox={`0 0 ${cx * 2} ${totalH}`}
-      style={{ overflow: 'visible', display: 'block' }}
+      style={{ overflow: 'visible', display: 'block', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' }}
     >
-      {/* Lead 1 — top */}
+      {/* ── Top lead ── */}
       <line
         x1={cx} y1={0}
         x2={cx} y2={leadLen}
-        stroke="#bbb"
-        strokeWidth={3}
-        strokeLinecap="round"
+        stroke="#94a3b8" strokeWidth={3} strokeLinecap="round"
       />
 
-      {/* Disc body */}
-      <circle
-        cx={cx}
-        cy={leadLen + r}
-        r={r}
-        fill="#0284c7"
-      />
+      {/* ── Disc body ── */}
+      <circle cx={cx} cy={discCy} r={r} fill="#0369a1" />
       {/* Highlight half */}
       <path
         d={`M ${cx} ${leadLen} A ${r} ${r} 0 0 1 ${cx} ${leadLen + r * 2}`}
-        fill="#38bdf8"
+        fill="#0ea5e9"
       />
-      {/* Polarity marker line */}
-      <line
-        x1={cx} y1={leadLen + r * 0.6}
-        x2={cx} y2={leadLen + r * 1.4}
-        stroke="rgba(255,255,255,0.25)"
-        strokeWidth={2}
-      />
+      {/* Polarity stripe */}
+      <rect x={cx} y={leadLen} width={r} height={r * 2} rx={0}
+        fill="rgba(0,0,0,0.15)" />
+      {/* "−" polarity mark */}
+      <text x={cx + r * 0.5} y={discCy + 4}
+        textAnchor="middle" fill="rgba(255,255,255,0.55)"
+        fontSize={10} fontWeight="bold" fontFamily="monospace">−</text>
+      {/* "+" mark on positive side */}
+      <text x={cx - r * 0.5} y={discCy + 4}
+        textAnchor="middle" fill="rgba(255,255,255,0.55)"
+        fontSize={10} fontWeight="bold" fontFamily="monospace">+</text>
 
-      {/* Value label */}
+      {/* ── Value label ── */}
       <text
-        x={cx}
-        y={leadLen + r + 5}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="white"
-        fontSize="10"
-        fontWeight="bold"
-        fontFamily="monospace"
+        x={cx} y={discCy + 2}
+        textAnchor="middle" dominantBaseline="middle"
+        fill="white" fontSize={9} fontWeight="700"
+        fontFamily="'JetBrains Mono', monospace"
         style={{ userSelect: 'none', pointerEvents: 'none' }}
       >
         {capacitance}{unit}
       </text>
 
-      {/* Lead 2 — bottom */}
+      {/* ── Bottom lead ── */}
       <line
         x1={cx} y1={leadLen + r * 2}
         x2={cx} y2={totalH}
-        stroke="#bbb"
-        strokeWidth={3}
-        strokeLinecap="round"
+        stroke="#94a3b8" strokeWidth={3} strokeLinecap="round"
       />
+
+      {/* ── Pin tip circles (visual) ── */}
+      <circle
+        cx={cx} cy={0} r={4}
+        fill="#22d3ee" stroke="rgba(255,255,255,0.3)" strokeWidth={1} opacity={0.9}
+      />
+      <circle
+        cx={cx} cy={totalH} r={4}
+        fill="#22d3ee" stroke="rgba(255,255,255,0.3)" strokeWidth={1} opacity={0.9}
+      />
+
+      {/* Pin labels */}
+      <text x={cx + 8} y={6}
+        fill="#475569" fontSize={7} fontFamily="monospace" dominantBaseline="middle">+</text>
+      <text x={cx + 8} y={totalH - 2}
+        fill="#475569" fontSize={7} fontFamily="monospace" dominantBaseline="middle">−</text>
     </svg>
   );
 };

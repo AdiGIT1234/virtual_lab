@@ -238,7 +238,7 @@ const DraggableWrapper = ({
               left: tl.x - terminalSize / 2,
               top:  tl.y - terminalSize / 2,
               zIndex: 60,
-              opacity: isHovered || (window.getActiveWire && window.getActiveWire()) ? 1 : 0.05, // Hover-only reveal
+              opacity: isHovered || (window.getActiveWire && window.getActiveWire()) ? 1 : 0.75,
               transition: 'opacity 0.2s',
             }}>
               <div

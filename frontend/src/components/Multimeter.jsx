@@ -3,13 +3,9 @@ import React from 'react';
 const Multimeter = ({ value = 0, label = "Multimeter", mode = "V", onModeChange }) => {
   const setMode = (m) => onModeChange?.(m);
 
-  // Map 0-1023 input to simulated voltage (0-5V)
+  // Map 0-1023 input to simulated values
   const voltage = ((value / 1023) * 5.0).toFixed(2);
-  
-  // Calculate simulated current assuming a standard 220Ω resistor and 20mA max
   const current = ((value / 1023) * 20.0).toFixed(1);
-  
-  // Resistance is irrelevant when measuring an active circuit without calculations, but we'll simulate a reading from 0 to 10k
   const resistance = ((value / 1023) * 10.0).toFixed(2);
 
   let displayValue = "";
@@ -18,128 +14,76 @@ const Multimeter = ({ value = 0, label = "Multimeter", mode = "V", onModeChange 
   if (mode === "A") { displayValue = current; unit = "mA"; }
   if (mode === "R") { displayValue = resistance; unit = "kΩ"; }
 
+  const modeAngle = mode === "V" ? -45 : mode === "A" ? 45 : 180;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{
-        color: "#ccc",
-        fontFamily: "monospace",
-        fontSize: "10px",
-        marginBottom: "6px",
-        background: "rgba(0,0,0,0.5)",
-        padding: "2px 6px",
-        borderRadius: "4px"
-      }}>
-        {label}
-      </div>
+    <div style={{ position: 'relative', display: 'inline-block', userSelect: 'none' }}>
+      <svg width={140} height={210} viewBox="0 0 140 210" style={{ display: 'block' }}>
+        {/* Label Background */}
+        <rect x={10} y={0} width={120} height={16} rx={4} fill="rgba(0,0,0,0.5)" />
+        <text x={70} y={11} fill="#ccc" fontSize={10} fontFamily="monospace" textAnchor="middle" fontWeight="bold">
+          {label}
+        </text>
 
-      <div style={{
-        width: 140,
-        height: 180,
-        background: "#e6b800", // Classic Yellow Multimeter Corpe
-        borderRadius: "8px",
-        border: "3px solid #111",
-        boxShadow: "0 8px 20px rgba(0,0,0,0.8), inset 0 2px 5px rgba(255,255,255,0.4)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "10px",
-        boxSizing: "border-box"
-      }}>
+        {/* Multimeter Body */}
+        <rect x={0} y={20} width={140} height={190} rx={8} fill="#e6b800" stroke="#111" strokeWidth={3} />
         
-        {/* LCD Screen */}
-        <div style={{
-          width: "100%",
-          height: 50,
-          background: "#8fa38c", // LCD Green/Grey
-          border: "2px inset #536350",
-          borderRadius: "4px",
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          padding: "5px 10px",
-          boxSizing: "border-box",
-          boxShadow: "inset 0 2px 5px rgba(0,0,0,0.3)"
-        }}>
-          <span style={{ fontFamily: "monospace", fontSize: "28px", fontWeight: "bold", color: "#111", textShadow: "1px 1px 0px rgba(0,0,0,0.1)" }}>
-            {displayValue}
-          </span>
-          <span style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: "bold", color: "#222", marginLeft: "4px", marginTop: "10px" }}>
-            {unit}
-          </span>
-        </div>
+        {/* LCD Screen area */}
+        <rect x={10} y={30} width={120} height={50} rx={4} fill="#8fa38c" stroke="#536350" strokeWidth={2} />
+        <text x={100} y={65} fill="#111" fontSize={28} fontFamily="monospace" fontWeight="bold" textAnchor="end">
+          {displayValue}
+        </text>
+        <text x={105} y={65} fill="#222" fontSize={14} fontFamily="monospace" fontWeight="bold">
+          {unit}
+        </text>
 
-        {/* Rotary Dial Area */}
-        <div style={{ marginTop: "15px", position: "relative", width: 60, height: 60, borderRadius: "50%", background: "#111", border: "2px solid #222" }}>
-          {/* Knob */}
-          <div style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            width: 40,
-            height: 40,
-            background: "#333",
-            borderRadius: "50%",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.8)",
-            transform: `translate(-50%, -50%) rotate(${mode === "V" ? -45 : mode === "A" ? 45 : 180}deg)`,
-            transition: "transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-          }}>
-            <div style={{ position: "absolute", top: 4, left: "50%", width: 4, height: 14, background: "#fff", transform: "translateX(-50%)", borderRadius: 2 }} />
-          </div>
-        </div>
+        {/* Dial Background */}
+        <circle cx={70} cy={115} r={32} fill="#111" stroke="#222" strokeWidth={2} />
+        
+        {/* Mode markings */}
+        <text x={40} y={95} fill="#111" fontSize={12} fontWeight="bold" textAnchor="middle">V</text>
+        <text x={100} y={95} fill="#111" fontSize={12} fontWeight="bold" textAnchor="middle">A</text>
+        <text x={70} y={160} fill="#111" fontSize={12} fontWeight="bold" textAnchor="middle">Ω</text>
 
-        {/* Mode Buttons */}
-        <div style={{ display: "flex", gap: "8px", marginTop: "15px" }}>
-          <button onMouseDown={() => setMode("V")} style={btnStyle(mode === "V")}>V</button>
-          <button onMouseDown={() => setMode("A")} style={btnStyle(mode === "A")}>A</button>
-          <button onMouseDown={() => setMode("R")} style={btnStyle(mode === "R")}>Ω</button>
-        </div>
+        {/* Dial Knob */}
+        <g transform={`translate(70, 115) rotate(${modeAngle})`} style={{ transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+          <circle cx={0} cy={0} r={22} fill="#333" stroke="#111" strokeWidth={1} />
+          <rect x={-2} y={-18} width={4} height={12} rx={2} fill="#fff" />
+        </g>
 
-        {/* Input Terminals (4-port) */}
-        <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#ff3333' }}>V</span>
-             <div id={`comp-terminal-${label}-v`} style={terminalStyle("#ff3333")} title="Voltage Input (V)" />
-           </div>
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#ffcc00' }}>A</span>
-             <div id={`comp-terminal-${label}-a`} style={terminalStyle("#ffcc00")} title="Current Input (A)" />
-           </div>
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#33ff33' }}>Ω</span>
-             <div id={`comp-terminal-${label}-r`} style={terminalStyle("#33ff33")} title="Resistance Input (Ω)" />
-           </div>
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-             <span style={{ fontSize: 7, fontWeight: 'bold', color: '#bbb' }}>COM</span>
-             <div id={`comp-terminal-${label}-com`} style={terminalStyle("#111")} title="Common / Ground (COM)" />
-           </div>
-        </div>
+        {/* Mode buttons (clickable via foreignObject or invisible rects, let's use svg elements) */}
+        <g onClick={() => setMode("V")} style={{ cursor: 'pointer' }}>
+          <rect x={20} y={150} width={28} height={20} rx={4} fill={mode === "V" ? "#ff3333" : "#444"} stroke="#111" strokeWidth={1} />
+          <text x={34} y={164} fill="#fff" fontSize={12} fontWeight="bold" textAnchor="middle">V</text>
+        </g>
+        <g onClick={() => setMode("A")} style={{ cursor: 'pointer' }}>
+          <rect x={56} y={150} width={28} height={20} rx={4} fill={mode === "A" ? "#ff3333" : "#444"} stroke="#111" strokeWidth={1} />
+          <text x={70} y={164} fill="#fff" fontSize={12} fontWeight="bold" textAnchor="middle">A</text>
+        </g>
+        <g onClick={() => setMode("R")} style={{ cursor: 'pointer' }}>
+          <rect x={92} y={150} width={28} height={20} rx={4} fill={mode === "R" ? "#ff3333" : "#444"} stroke="#111" strokeWidth={1} />
+          <text x={106} y={164} fill="#fff" fontSize={12} fontWeight="bold" textAnchor="middle">Ω</text>
+        </g>
 
-      </div>
+        {/* Probe Sockets (V, A, Ω, COM) */}
+        {/* Socket V */}
+        <text x={26} y={185} fill="#ff3333" fontSize={8} fontWeight="bold" textAnchor="middle">V</text>
+        <circle cx={26} cy={195} r={8} fill="#ff3333" stroke="#222" strokeWidth={2} />
+        
+        {/* Socket A */}
+        <text x={55} y={185} fill="#ffcc00" fontSize={8} fontWeight="bold" textAnchor="middle">A</text>
+        <circle cx={55} cy={195} r={8} fill="#ffcc00" stroke="#222" strokeWidth={2} />
+
+        {/* Socket R (Ω) */}
+        <text x={84} y={185} fill="#33ff33" fontSize={8} fontWeight="bold" textAnchor="middle">Ω</text>
+        <circle cx={84} cy={195} r={8} fill="#33ff33" stroke="#222" strokeWidth={2} />
+
+        {/* Socket COM */}
+        <text x={113} y={185} fill="#bbb" fontSize={8} fontWeight="bold" textAnchor="middle">COM</text>
+        <circle cx={113} cy={195} r={8} fill="#111" stroke="#222" strokeWidth={2} />
+      </svg>
     </div>
   );
 };
-
-const btnStyle = (active) => ({
-  background: active ? "#ff3333" : "#444",
-  color: "#fff",
-  border: "1px solid #111",
-  borderRadius: "4px",
-  width: "30px",
-  height: "24px",
-  fontSize: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  boxShadow: active ? "inset 0 2px 4px rgba(0,0,0,0.4)" : "0 2px 3px rgba(0,0,0,0.6)"
-});
-
-const terminalStyle = (color) => ({
-  width: 12,
-  height: 12,
-  borderRadius: "50%",
-  background: color,
-  border: "2px solid #222",
-  boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
-  cursor: "crosshair"
-});
 
 export default Multimeter;

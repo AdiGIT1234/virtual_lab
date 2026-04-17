@@ -19,6 +19,7 @@ import RGB_LED from "../components/RGB_LED";
 import Servo from "../components/Servo";
 import SevenSegment from "../components/SevenSegment";
 import DraggableWrapper from "../components/DraggableWrapper";
+import { LIBRARY_COMPONENTS_MAP, LIBRARY_TERMINAL_LAYOUTS } from "../constants/LibraryComponentLayouts";
 import WiringCanvas from "../components/WiringCanvas";
 import HardwareConfigPanel from "../components/HardwareConfigPanel";
 import ChatbotWidget from "../components/ChatbotWidget";
@@ -33,6 +34,7 @@ import ComponentPlaceholder from "../components/ComponentPlaceholder";
 import McuPreviewPanel from "../components/McuPreviewPanel";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import SandboxErrorBoundary from "../components/SandboxErrorBoundary";
+import HardwarePreview from "../components/HardwarePreview";
 import { useAVR } from "../engine/useAVR";
 import { useESP32 } from "../engine/useESP32";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
@@ -339,8 +341,14 @@ void loop() {
     if (type === "RGB_LED") pins = { r: "", g: "", b: "" };
     if (type === "SEVEN_SEG") pins = { a: "", b: "", c: "", d: "", e: "", f: "", g: "" };
     if (type === "RESISTOR") pins = { t1: "", t2: "" };
+    if (type === "CAPACITOR") pins = { t1: "", t2: "" };
+    if (type === "NPN_TRANSISTOR") pins = { e: "", b: "", c: "" };
+    if (type === "PNP_TRANSISTOR") pins = { e: "", b: "", c: "" };
+    if (type === "TIMER_555") pins = { gnd: "", trig: "", out: "", reset: "", ctrl: "", thres: "", disch: "", vcc: "" };
+    if (type === "MULTIMETER") pins = { v: "", a: "", r: "", com: "" };
     if (type === "WIRE_NODE") pins = { main: "" };
-    if (!["RGB_LED", "SEVEN_SEG", "RESISTOR", "WIRE_NODE"].includes(type) && normalizedTerms) {
+    const explicitTypes = ["RGB_LED", "SEVEN_SEG", "RESISTOR", "CAPACITOR", "NPN_TRANSISTOR", "PNP_TRANSISTOR", "TIMER_555", "MULTIMETER", "WIRE_NODE"];
+    if (!explicitTypes.includes(type) && normalizedTerms) {
       pins = normalizedTerms.reduce((acc, terminal) => {
         acc[terminal.id] = "";
         return acc;
@@ -1289,8 +1297,7 @@ void loop() {
                 renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "RESISTOR") {
                 usesEmbeddedTerminals = false;
-                const resLabel = `${item.resistance || 330}${item.resMultiplier === 1000 ? 'k' : item.resMultiplier === 1000000 ? 'M' : ''}Ω`;
-                renderedContent = <Resistor resistance={resLabel} />;
+                renderedContent = <Resistor resistance={(item.resistance || 330) * (item.resMultiplier || 1)} />;
               } else if (item.type === "CAPACITOR") {
                 usesEmbeddedTerminals = false;
                 renderedContent = <Capacitor capacitance={item.capacitance || 10} unit={item.capUnit || "μF"} />;
@@ -1393,28 +1400,43 @@ void loop() {
                 renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
               }
 
+              if (!renderedContent && LIBRARY_COMPONENTS_MAP[item.type]) {
+                const CustomLibComp = LIBRARY_COMPONENTS_MAP[item.type];
+                usesEmbeddedTerminals = true;
+                renderedContent = <CustomLibComp />;
+              }
+
               if (!renderedContent) {
-                usesEmbeddedTerminals = false;
+                usesEmbeddedTerminals = true;
                 renderedContent = (
-                  <div style={{ position: 'relative', width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                     <HardwarePreview tag={componentMeta?.wokwiTag || item.metadata?.wokwiTag} imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl} size="medium" />
-                  </div>
+                  <ComponentPlaceholder
+                    id={item.id}
+                    status={componentMeta?.status || "visual"}
+                    wokwiTag={componentMeta?.wokwiTag || item.metadata?.wokwiTag}
+                    imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl}
+                    terminals={terminals}
+                    pins={item.pins || {}}
+                    onTerminalDragStart={startWire}
+                  />
                 );
               }
 
-              // Capacitor lead tips are at (24,0) and (24,80) in the SVG
-              // SVG is 48px wide, totalH = 80
+              // Pin terminal positions (relative to DraggableWrapper origin):
+              //   Timer555:  TOTAL_W=92, H=104 — tips at x=0 (left) and x=92 (right), y=17/43/69/95
+              //   NPN/PNP:   60×80 SVG — three leads at (15,65),(30,65),(45,65)
+              //   Capacitor: 48×80 SVG — leads at (24,0) and (24,80)
+              //   Resistor:  120×60 SVG — leads at (0,36) and (120,36)
               const terminalLayout =
                 item.type === "TIMER_555"
                   ? [
-                      { id: "gnd",   x: 18, y: 27 },
-                      { id: "trig",  x: 18, y: 49 },
-                      { id: "out",   x: 18, y: 71 },
-                      { id: "reset", x: 18, y: 93 },
-                      { id: "vcc",   x: 82, y: 27 },
-                      { id: "disch", x: 82, y: 49 },
-                      { id: "thres", x: 82, y: 71 },
-                      { id: "ctrl",  x: 82, y: 93 },
+                      { id: "gnd",   x: 0,  y: 17 },
+                      { id: "trig",  x: 0,  y: 43 },
+                      { id: "out",   x: 0,  y: 69 },
+                      { id: "reset", x: 0,  y: 95 },
+                      { id: "vcc",   x: 92, y: 17 },
+                      { id: "disch", x: 92, y: 43 },
+                      { id: "thres", x: 92, y: 69 },
+                      { id: "ctrl",  x: 92, y: 95 },
                     ]
                   : item.type === "NPN_TRANSISTOR" || item.type === "PNP_TRANSISTOR"
                   ? [
@@ -1422,18 +1444,25 @@ void loop() {
                       { id: "b", x: 30, y: 65 },
                       { id: "c", x: 45, y: 65 },
                     ]
-                  : item.type === "CAPACITOR" || item.type === "RESISTOR"
+                  : item.type === "CAPACITOR"
                   ? [
                       { id: "t1", x: 24, y: 0  },
                       { id: "t2", x: 24, y: 80 },
                     ]
+                  : item.type === "RESISTOR"
+                  ? [
+                      { id: "t1", x: 0,   y: 36 },
+                      { id: "t2", x: 120, y: 36 },
+                    ]
                   : item.type === "MULTIMETER"
                   ? [
-                       { id: "v",   x: 43, y: 161 },
-                       { id: "a",   x: 65, y: 161 },
-                       { id: "r",   x: 87, y: 161 },
-                       { id: "com", x: 109, y: 161 },
+                       { id: "v",   x: 26,  y: 195 },
+                       { id: "a",   x: 55,  y: 195 },
+                       { id: "r",   x: 84,  y: 195 },
+                       { id: "com", x: 113, y: 195 },
                     ]
+                  : LIBRARY_TERMINAL_LAYOUTS[item.type]
+                  ? LIBRARY_TERMINAL_LAYOUTS[item.type]
                   : undefined;
 
               return (
