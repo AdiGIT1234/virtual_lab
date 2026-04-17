@@ -79,8 +79,97 @@ function calcOvfFreq(prescDiv, bits) {
 // ─────────────────────────────────────────────────────────────────────────────
 // HardwareConfigPanel
 // ─────────────────────────────────────────────────────────────────────────────
-function HardwareConfigPanel({ setManualRegisters }) {
+function HardwareConfigPanel({ setManualRegisters, component, onUpdate }) {
   const [activeTab, setActiveTab] = useState('TIMERS');
+
+  // If a generic workspace component is selected, render its config here!
+  if (component && !component.type?.includes("CHIP") && !component.type?.includes("MCU")) {
+    return (
+      <div style={styles.panel}>
+        <h3 style={styles.header}>Configure Component</h3>
+        <div style={{ marginBottom: "12px", color: "#888", fontSize: "11px", fontFamily: "monospace" }}>
+          ID: {component.id}
+          <br/>
+          Type: {component.type}
+        </div>
+        
+        {component.type === "RESISTOR" && (
+          <div style={styles.controlRow}>
+            <label style={styles.label}>Resistance:</label>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input 
+                type="number" 
+                value={component.resistance || 220} 
+                onChange={(e) => onUpdate({ resistance: Number(e.target.value) })}
+                style={{ ...styles.input, width: '80px' }}
+              />
+              <select 
+                value={component.resMultiplier || 1}
+                onChange={(e) => onUpdate({ resMultiplier: Number(e.target.value) })}
+                style={{ ...styles.select, width: '60px' }}
+              >
+                <option value={1}>Ω</option>
+                <option value={1000}>kΩ</option>
+                <option value={1000000}>MΩ</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {component.type === "CAPACITOR" && (
+          <div style={styles.controlRow}>
+            <label style={styles.label}>Capacitance:</label>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input 
+                type="number" 
+                value={component.capacitance || 10} 
+                onChange={(e) => onUpdate({ capacitance: Number(e.target.value) })}
+                style={{ ...styles.input, width: '80px' }}
+              />
+              <select 
+                value={component.capUnit || "μF"}
+                onChange={(e) => onUpdate({ capUnit: e.target.value })}
+                style={{ ...styles.select, width: '60px' }}
+              >
+                <option value="pF">pF</option>
+                <option value="nF">nF</option>
+                <option value="μF">μF</option>
+                <option value="mF">mF</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {(component.type === "SLIDE_POT" || component.type === "DIAL") && (
+          <div style={styles.controlRow}>
+             <label style={styles.label}>Max Value:</label>
+             <input 
+                type="number" 
+                value={component.maxValue || 1023} 
+                onChange={(e) => onUpdate({ maxValue: Number(e.target.value) })}
+                style={{ ...styles.input, width: '80px' }}
+             />
+          </div>
+        )}
+
+        {component.type === "SERVO" && (
+          <div style={styles.controlRow}>
+             <label style={styles.label}>Default Angle:</label>
+             <input 
+                type="number" 
+                value={component.defaultAngle || 0} 
+                onChange={(e) => onUpdate({ defaultAngle: Number(e.target.value) })}
+                style={{ ...styles.input, width: '80px' }}
+             />
+          </div>
+        )}
+
+        {Object.keys(component).length === 0 && (
+           <div style={styles.infoBox}>No configurable properties available.</div>
+        )}
+      </div>
+    );
+  }
 
   // ── local UI state ──
   const [t0Mode, setT0Mode] = useState(0);

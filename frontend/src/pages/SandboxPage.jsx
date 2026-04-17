@@ -674,7 +674,7 @@ void loop() {
     if (item.type === "RESISTOR") {
       const otherTerm = termId === "t1" ? "t2" : "t1";
       const rVal = (item.resistance || 330) * (item.resMultiplier || 1);
-      const hopResistance = currentResistance + (item.type === "RESISTOR" ? rVal : 0);
+      const hopResistance = currentResistance + rVal;
       const result = resolveConnection(compId, otherTerm, visited, hopResistance);
       if (result.pin != null) return result;
     }
@@ -1276,26 +1276,33 @@ void loop() {
                  }
               }
 
-
+              let usesEmbeddedTerminals = true;
               let renderedContent = null;
               if (item.type === "LED_RED") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "LED_GREEN") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "LED_YELLOW") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
               } else if (item.type === "RESISTOR") {
+                usesEmbeddedTerminals = false;
                 const resLabel = `${item.resistance || 330}${item.resMultiplier === 1000 ? 'k' : item.resMultiplier === 1000000 ? 'M' : ''}Ω`;
                 renderedContent = <Resistor resistance={resLabel} />;
               } else if (item.type === "CAPACITOR") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <Capacitor capacitance={item.capacitance || 10} unit={item.capUnit || "μF"} />;
               } else if (item.type === "BUTTON") {
+                usesEmbeddedTerminals = false;
                 renderedContent = (
                   <div onMouseDown={() => toggleInput(resolvedMain.pin)}>
                     <PushButton state={inputs[resolvedMain.pin] === 1} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} />
                   </div>
                 );
               } else if (item.type === "DIAL") {
+                usesEmbeddedTerminals = false;
                 renderedContent = (
                   <Dial 
                     value={item.value ?? 0} 
@@ -1307,6 +1314,7 @@ void loop() {
                   />
                 );
               } else if (item.type === "SLIDE_POT") {
+                usesEmbeddedTerminals = false;
                 const wiperConnection = resolveConnection(item.id, "WIPER");
                 renderedContent = (
                   <SlidePotentiometer
@@ -1321,7 +1329,7 @@ void loop() {
                   />
                 );
               } else if (item.type === "MULTIMETER") {
-                // Multimeter logic: if mode is V, measure pin connected to 'v' port
+                usesEmbeddedTerminals = false;
                 const mode = item.mode || "V";
                 const portId = mode.toLowerCase();
                 const portConn = resolveConnection(item.id, portId);
@@ -1345,6 +1353,7 @@ void loop() {
                 usesEmbeddedTerminals = false; 
                 renderedContent = <Timer555 />;
               } else if (item.type === "RGB_LED") {
+                usesEmbeddedTerminals = false;
                 renderedContent = (
                   <RGB_LED
                     rState={getPinLogic(resolveConnection(item.id, "r").pin)}
@@ -1353,8 +1362,10 @@ void loop() {
                   />
                 );
               } else if (item.type === "SERVO") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <Servo angle={analogState > 0 ? (analogState / 255) * 180 : 0} />;
               } else if (item.type === "SEVEN_SEG") {
+                usesEmbeddedTerminals = false;
                 renderedContent = (
                   <SevenSegment
                     a={getPinLogic(resolveConnection(item.id, "a").pin)}
@@ -1367,8 +1378,10 @@ void loop() {
                   />
                 );
               } else if (item.type === "GROUND_NODE") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <GroundNode />;
               } else if (item.type === "VCC_NODE") {
+                usesEmbeddedTerminals = false;
                 renderedContent = (
                   <VccNode 
                     value={item.value || 5} 
@@ -1376,28 +1389,16 @@ void loop() {
                   />
                 );
               } else if (item.type === "WIRE_NODE") {
+                usesEmbeddedTerminals = false;
                 renderedContent = <div style={{ width: 12, height: 12, borderRadius: 6, background: "#4dabf7", boxShadow: "0 0 8px #4dabf7" }} />;
               }
 
-              let usesEmbeddedTerminals = false;
               if (!renderedContent) {
-                usesEmbeddedTerminals = true;
+                usesEmbeddedTerminals = false;
                 renderedContent = (
-                  <ComponentPlaceholder
-                    id={item.id}
-                    label={componentMeta?.label || item.metadata?.label || item.type}
-                    status={componentMeta?.status || item.metadata?.status || "visual"}
-                    category={componentMeta?.category || item.metadata?.category}
-                    summary={componentMeta?.summary || item.metadata?.summary}
-                    wokwiTag={componentMeta?.wokwiTag || item.metadata?.wokwiTag}
-                    docSlug={componentMeta?.docSlug || item.metadata?.docSlug}
-                    imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl}
-                    datasheet={componentMeta?.datasheet || item.metadata?.datasheet}
-                    terminals={terminals}
-                    pins={item.pins || {}}
-                    onTerminalDragStart={startWire}
-                    highlighted={false}
-                  />
+                  <div style={{ position: 'relative', width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     <HardwarePreview tag={componentMeta?.wokwiTag || item.metadata?.wokwiTag} imageUrl={componentMeta?.imageUrl || item.metadata?.imageUrl} size="medium" />
+                  </div>
                 );
               }
 
