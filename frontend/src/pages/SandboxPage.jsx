@@ -1402,8 +1402,20 @@ void loop() {
 
               if (!renderedContent && LIBRARY_COMPONENTS_MAP[item.type]) {
                 const CustomLibComp = LIBRARY_COMPONENTS_MAP[item.type];
-                usesEmbeddedTerminals = true;
-                renderedContent = <CustomLibComp />;
+                usesEmbeddedTerminals = false;
+                
+                const pinStates = {};
+                const analogStates = {};
+                const wiredPins = {};
+                const layout = LIBRARY_TERMINAL_LAYOUTS[item.type] || [];
+                layout.forEach(tl => {
+                   const conn = resolveConnection(item.id, tl.id);
+                   pinStates[tl.id] = getPinLogic(conn.pin);
+                   analogStates[tl.id] = getPinAnalog(conn.pin, conn.resistance);
+                   wiredPins[tl.id] = conn.pin;
+                });
+
+                renderedContent = <CustomLibComp id={item.id} pinStates={pinStates} analogStates={analogStates} wiredPins={wiredPins} />;
               }
 
               if (!renderedContent) {

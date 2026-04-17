@@ -10,7 +10,11 @@ import {
   timer1Config,
   timer2Config,
   AVRUSART,
-  usart0Config
+  usart0Config,
+  AVRSPI,
+  spiConfig,
+  AVRTWI,
+  twiConfig
 } from 'avr8js';
 
 // Parses Intel Hex format directly into a Uint8Array
@@ -186,6 +190,10 @@ export function useAVR(activeMcuId = "atmega328p") {
     const portC = new AVRIOPort(cpu, portCConfig);
     const portD = new AVRIOPort(cpu, portDConfig);
     
+    portB.addListener((val, oldVal) => { if (typeof window !== 'undefined' && window.onPortChange) window.onPortChange('B', val, oldVal, cpu.cycles); });
+    portC.addListener((val, oldVal) => { if (typeof window !== 'undefined' && window.onPortChange) window.onPortChange('C', val, oldVal, cpu.cycles); });
+    portD.addListener((val, oldVal) => { if (typeof window !== 'undefined' && window.onPortChange) window.onPortChange('D', val, oldVal, cpu.cycles); });
+    
     // Initialize timers to attach them to CPU hardware interrupts
     new AVRTimer(cpu, timer0Config);
     new AVRTimer(cpu, timer1Config);
@@ -194,7 +202,34 @@ export function useAVR(activeMcuId = "atmega328p") {
     // Mount USART (Serial output)
     const usart = new AVRUSART(cpu, usart0Config, 16000000);
     
-    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "" };
+    // Mount SPI
+    const spi = new AVRSPI(cpu, spiConfig, 16000000);
+    spi.onByte = (value) => {
+      // Simulate typical fast SPI transfer completion
+      spi.completeTransfer(0x00);
+      if (typeof window !== 'undefined' && window.onSPIByte) {
+        window.onSPIByte(value, cpu.cycles);
+      }
+    };
+
+    // Mount I2C (TWI)
+    const twi = new AVRTWI(cpu, twiConfig, 16000000);
+    class BaseTWIHandler {
+      start(repeated) { twi.completeStart(); }
+      stop() { twi.completeStop(); }
+      connectToSlave(addr, write) { 
+        if (typeof window !== 'undefined' && window.onTWIConnect) window.onTWIConnect(addr, write, cpu.cycles);
+        twi.completeConnect(true); 
+      }
+      writeByte(value) { 
+        if (typeof window !== 'undefined' && window.onTWIByte) window.onTWIByte(value, cpu.cycles);
+        twi.completeWrite(true); 
+      }
+      readByte(ack) { twi.completeRead(0x00); }
+    }
+    twi.eventHandler = new BaseTWIHandler();
+
+    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi };
     
     usart.onByteTransmit = (data) => {
       cpuRef.current.serialBuffer += String.fromCharCode(data);

@@ -33,6 +33,8 @@ export const LIBRARY_COMPONENTS_MAP = {
   SHIFT_REGISTER: Lib.ShiftRegister,
   RELAY_MODULE: Lib.RelayModule,
   LED_MATRIX: Lib.LedMatrix8x8,
+  LED_BAR_GRAPH: Lib.LedBarGraph,
+  EPAPER_BASIC: Lib.EPaperDisplay,
 };
 
 export const LIBRARY_TERMINAL_LAYOUTS = {
@@ -92,5 +94,7 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
   LED_MATRIX: [
     ...[0,1,2,3,4,5,6,7].map(i => ({ id: `c${i}`, x: 12 + i*9, y: 5 })),
     ...[0,1,2,3,4,5,6,7].map(i => ({ id: `r${i}`, x: 12 + i*9, y: 85 }))
-  ]
+  ],
+  LED_BAR_GRAPH: ["1","2","3","4","5","6","7","8","9","10"].map((id, i) => ({ id, x: 11 + i*13, y: 35 })),
+  EPAPER_BASIC: ["vcc", "gnd", "sck", "mosi", "cs", "dc", "rst", "busy"].map((id, i) => ({ id, x: 14 + i*16, y: 194 }))
 };
