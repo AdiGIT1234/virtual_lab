@@ -1262,6 +1262,18 @@ void loop() {
                     />
                   </div>
                  );
+                 // We defer setInputs to an effect to avoid the React state update during render crash.
+                 const wiperConnection = resolveConnection(item.id, "WIPER");
+                 if (wiperConnection.pin != null) {
+                    const effectiveVal = Math.floor(
+                      (item.value / (item.type === 'SLIDE_POT' ? 1023 : 100)) * 255
+                    );
+                    if (inputs[wiperConnection.pin] !== effectiveVal) {
+                       setTimeout(() => {
+                         setInputs(prev => ({ ...prev, [wiperConnection.pin]: effectiveVal }));
+                       }, 0);
+                    }
+                 }
               }
 
 

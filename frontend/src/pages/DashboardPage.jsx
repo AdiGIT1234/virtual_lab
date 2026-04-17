@@ -417,7 +417,7 @@ export default function DashboardPage() {
                   action: () => navigate("/"),
                 },
                 {
-                  title: "Silicon Codex",
+                  title: "Hardware Library",
                   desc: "Industrial-grade register reference and timing diagrams",
                   icon: "📖",
                   color: "#00FFB2",

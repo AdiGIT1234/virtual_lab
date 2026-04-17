@@ -13,7 +13,7 @@ import json
 import os
 import glob
 
-from services.admin_portal import (
+from services.admin_portal import (  # type: ignore
     ensure_admin_email,
     fetch_all_profiles,
     fetch_admin_stats,

@@ -1,6 +1,5 @@
 import Pin from "./Pin";
 import { PIN_LAYOUT } from "../constants/pinLayout";
-import { getESP32PinColor } from "../constants/esp32PinLayout";
 
 function Chip({ registers, toggleInput, mcu }) {
   const layout = mcu?.pinLayout || PIN_LAYOUT;

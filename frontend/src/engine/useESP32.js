@@ -10,7 +10,7 @@ import { useState, useRef, useCallback } from 'react';
  * The hook exposes the same interface as useAVR for seamless switching
  * in SandboxPage.
  */
-export function useESP32(activeMcuId = "esp32") {
+export function useESP32(_activeMcuId = "esp32") {
   const [cpuState, setCpuState] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [liveTimeline, setLiveTimeline] = useState([]);
@@ -72,7 +72,7 @@ export function useESP32(activeMcuId = "esp32") {
    * seamless switching, but the hexString param is unused (ESP32 uses
    * interpretive mode only).
    */
-  const startSimulation = useCallback(async (codeOrHex, initialRegisters = {}, inputs = {}, rawCode = null) => {
+  const startSimulation = useCallback(async (codeOrHex, _initialRegisters = {}, inputs = {}, rawCode = null) => {
     // Stop any existing playback
     if (playbackRef.current) {
       cancelAnimationFrame(playbackRef.current);

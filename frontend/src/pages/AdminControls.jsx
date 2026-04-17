@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../context/useAuth";
 import { supabase } from "../lib/supabase";
@@ -69,29 +70,16 @@ async function fetchAdminStats() {
   return resp.json();
 }
 
-async function deleteUser(userId) {
-  const headers = await getAuthHeaders();
-  const host = API_BASE || (typeof window !== "undefined" ? window.location.origin : "");
-  const resp = await fetch(`${host}/api/admin/users/${userId}`, {
-    method: "DELETE",
-    headers,
-  });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(text || "Delete failed");
-  }
-  return resp.json();
-}
 
 export default function AdminControls() {
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [deletingId, setDeletingId] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // user object to confirm
+  const [deletingId, _setDeletingId] = useState(null);
+  const [_confirmDelete, setConfirmDelete] = useState(null); // user object to confirm
   const [actionMsg, setActionMsg] = useState(null); // { type: 'success'|'error', text }
   const [backendStats, setBackendStats] = useState(null);
   const [activeTab, setActiveTab] = useState("users"); // 'users' or 'experiments'

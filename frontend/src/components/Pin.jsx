@@ -171,7 +171,7 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
         }}
         data-chip-node="interactive"
       >
-        {isInteractive && (
+        {(
           <div 
             id={pinId != null ? `chip-pin-tip-${pinId}` : `chip-pin-tip-${pin.label}`} 
             style={terminalNodeStyle} 

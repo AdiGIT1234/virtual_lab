@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 import httpx
-from services.admin_portal import _require_env, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from services.admin_portal import _require_env, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # type: ignore
 
 async def migrate():
     url = _require_env("SUPABASE_URL", SUPABASE_URL)
