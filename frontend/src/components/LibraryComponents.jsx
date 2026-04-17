@@ -78,7 +78,7 @@ export const NtcSensor = () => (
 
 export const Photoresistor = () => (
   <svg width={50} height={80} viewBox="0 0 50 80" style={{ display: 'block' }}>
-    <rect x={10} y={30} width={30} height={20" rx={8} fill="#f59e0b" opacity={0.9} />
+    <rect x={10} y={30} width={30} height={20} rx={8} fill="#f59e0b" opacity={0.9} />
     <path d="M15 40 L20 35 L25 45 L30 35 L35 40" stroke="#b45309" strokeWidth={2} fill="none" />
     <Pin x={15} y={74} label="L1" />
     <Pin x={35} y={74} label="L2" />
@@ -259,7 +259,7 @@ export const Ds1307Rtc = () => (
     <rect x={0} y={0} width={90} height={75} rx={4} fill="#166534" />
     <circle cx={25} cy={35} r={20} fill="#e2e8f0" />
     <text x={25} y={40} fill="#64748b" fontSize={10} textAnchor="middle">CR2032</text>
-    <rect x={55} y={20} width={20" height={30} rx={2} fill="#0f172a" />
+    <rect x={55} y={20} width={20} height={30} rx={2} fill="#0f172a" />
     {["VCC","GND","SCL","SDA"].map((l, i) => <Pin key={i} x={15 + i*20} y={84} label={l} />)}
   </svg>
 );
