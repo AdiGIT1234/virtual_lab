@@ -4,8 +4,8 @@ import { getESP32PinColor } from "../constants/esp32PinLayout";
 function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isESP32 = false, voltage = 5 }) {
   const [hovered, setHovered] = useState(false);
 
-  const PIN_SPACING = isESP32 ? 34 : 32;
-  const START_Y = isESP32 ? 160 : 120;
+  const PIN_SPACING = isESP32 ? 29.17 : 32;
+  const START_Y = isESP32 ? 87.3 : 120;
 
   const y = START_Y + index * PIN_SPACING;
 
@@ -29,7 +29,7 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
     if (isESP32) {
       if (pinData.power) {
         if (pinData.label === "GND") return { type: "Ground", desc: "0V Reference" };
-        if (pinData.label === "3V3") return { type: "Power", desc: "3.3V Supply" };
+        if (pinData.label === "3V3" || pinData.label === "5V") return { type: "Power", desc: `${pinData.label} Supply` };
         if (pinData.label === "EN") return { type: "Enable", desc: "Active-High Reset" };
       }
       if (pinData.inputOnly) return { type: "Input-Only", desc: "No output driver, no pull-ups" };
@@ -67,20 +67,38 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
   const isPowerPin = pin.power || pin.special === "reset";
   const isInteractive = !isPowerPin && pinId != null;
 
-  const leadStyle = {
+  const leadInnerBackground = active === "PWM" 
+        ? "#00aaff"
+        : active
+          ? "#10b981"
+          : (hovered ? "#333" : "#222");
+
+  const leadStyle = isESP32 ? {
+    position: "absolute",
+    top: y - 10, // adjust for exact center with 20px height
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    [side === "left" ? "left" : "right"]: 4, // 4px padding aligns exactly with physical layout scale
+    background: active === "PWM" ? "rgba(0,170,255,0.7)" : active ? "rgba(16,185,129,0.7)" : "transparent",
+    border: hovered ? "2px solid #fff" : "2px solid transparent", 
+    boxShadow: active === "PWM" ? "0 0 12px #00aaff" : active ? "0 0 12px #10b981" : "none",
+    cursor: isInteractive ? "pointer" : "default",
+    zIndex: hovered ? 10 : 1,
+  } : {
     position: "absolute",
     top: y,
-    width: isESP32 ? 20 : 22,
-    height: isESP32 ? 7 : 8,
+    width: 22,
+    height: 8,
     background: active === "PWM" 
       ? "linear-gradient(to bottom, #00aaff, #0077ff)"
       : active
-        ? `linear-gradient(to bottom, ${isESP32 ? '#10b981' : '#00ff88'}, ${isESP32 ? '#059669' : '#00cc66'})`
+        ? "linear-gradient(to bottom, #00ff88, #00cc66)"
         : (hovered ? "linear-gradient(to bottom, #f5f5f5, #aaa)" : "linear-gradient(to bottom, #d9d9d9, #888)"),
     boxShadow: active === "PWM"
       ? "0 0 15px #00aaff, 0 0 5px #00aaff"
       : active 
-        ? `0 0 15px ${isESP32 ? '#10b981' : '#00ff88'}, 0 0 5px ${isESP32 ? '#10b981' : '#00ff88'}` 
+        ? "0 0 15px #00ff88, 0 0 5px #00ff88" 
         : (hovered ? "0 0 10px rgba(255,255,255,1)" : "inset 0 1px 2px rgba(255,255,255,0.6)"),
     cursor: isInteractive ? "pointer" : "default",
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
@@ -88,7 +106,21 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
     zIndex: hovered ? 10 : 1
   };
 
-  const terminalNodeStyle = {
+  const terminalNodeStyle = isESP32 ? {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,0.9)",
+    background: "#10b981",
+    boxShadow: "0 0 10px #10b981",
+    opacity: hovered ? 1 : 0,
+    transition: "all 0.15s ease-in-out",
+    pointerEvents: "all",
+    zIndex: 20
+  } : {
     position: "absolute",
     top: "50%",
     transform: "translate(-50%, -50%)",
@@ -96,25 +128,37 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
     height: 8,
     borderRadius: "50%",
     border: "2px solid rgba(255,255,255,0.9)",
-    background: isESP32 ? "#10b981" : "#00ff88",
-    boxShadow: `0 0 10px ${isESP32 ? '#10b981' : '#00ff88'}`,
+    background: "#00ff88",
+    boxShadow: "0 0 10px #00ff88",
     opacity: hovered ? 1 : 0,
     transition: "all 0.15s ease-in-out",
     pointerEvents: "all",
     zIndex: 20
   };
 
-  if (side === "left") {
-    terminalNodeStyle.left = 0;
-  } else {
-    terminalNodeStyle.left = "100%";
+  // Apply transforms manually based on chip variant
+  if (!isESP32) {
+    if (side === "left") {
+      terminalNodeStyle.left = 0;
+      leadStyle.left = -28;
+      leadStyle.borderTopLeftRadius = 3;
+      leadStyle.borderBottomLeftRadius = 3;
+    } else {
+      terminalNodeStyle.left = "100%";
+      leadStyle.right = -28;
+      leadStyle.borderTopRightRadius = 3;
+      leadStyle.borderBottomRightRadius = 3;
+    }
   }
 
-  const labelStyle = {
+  const labelStyle = isESP32 ? {
+    display: "none" // The board.svg already contains perfect silkscreen labels
+  } : {
     position: "absolute",
     top: y - 6,
-    width: isESP32 ? 110 : 130,
-    fontSize: isESP32 ? 11 : 12,
+    [side === "left" ? "left" : "right"]: 12, // Original label
+    width: 130,
+    fontSize: 12,
     fontWeight: 500,
     color: hovered ? "#fff" : pinColor,
     textAlign: side === "left" ? "left" : "right",
@@ -123,18 +167,6 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
     transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     zIndex: hovered ? 10 : 1
   };
-
-  if (side === "left") {
-    leadStyle.left = -28;
-    leadStyle.borderTopLeftRadius = 3;
-    leadStyle.borderBottomLeftRadius = 3;
-    labelStyle.left = 12;
-  } else {
-    leadStyle.right = -28;
-    leadStyle.borderTopRightRadius = 3;
-    leadStyle.borderBottomRightRadius = 3;
-    labelStyle.right = 12;
-  }
 
   const infoBoxStyle = {
     position: "absolute",
@@ -176,6 +208,7 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
             id={pinId != null ? `chip-pin-tip-${pinId}` : `chip-pin-tip-${pin.label}`} 
             style={terminalNodeStyle} 
             onMouseDown={(e) => {
+              e.preventDefault(); // Prevents browser image/text drag selection highlighting
               const pinIdentifier = pinId != null ? pinId : pin.label;
               e.stopPropagation();
               if (window.getActiveWire && window.getActiveWire()) {
@@ -184,6 +217,10 @@ function Pin({ pin, index, side, getPinState, toggleInput, portColors = {}, isES
                  const rect = e.target.getBoundingClientRect();
                  window.onStartWire(`mcu::${pinIdentifier}`, null, rect.left + rect.width / 2, rect.top + rect.height / 2);
               }
+            }}
+            onClick={(e) => {
+               // Prevent bubbling to parent so drawing a wire doesn't also toggle input logic (turning the pin green)
+               e.stopPropagation(); 
             }}
             data-chip-node="interactive"
           />

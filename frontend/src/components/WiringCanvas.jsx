@@ -44,53 +44,80 @@ function vSegOverlaps(y1, y2, fx, chip, pad) {
 }
 
 function buildOrthogonalPath(sx, sy, ex, ey, chip) {
-  const PAD = 30; 
-  const DROP = 18; // Vertical lead drop
+  const PAD = 20; 
+  const DROP = 18; // Vertical lead drop for standard components
+  const EXT = 35;  // Horizontal lead extension for MCU edge pins
 
   const toPath = (pts) => {
     if (pts.length < 2) return '';
     let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-        if (pts[i].x !== pts[i-1].x || pts[i].y !== pts[i-1].y) {
+        if (Math.abs(pts[i].x - pts[i-1].x) > 0.1 || Math.abs(pts[i].y - pts[i-1].y) > 0.1) {
           d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
         }
     }
     return d;
   };
 
-  const midX = sx + (ex - sx) / 2;
-  const pts = [
+  if (!chip) {
+    const midX = sx + (ex - sx) / 2;
+    return toPath([
+      { x: sx, y: sy },
+      { x: sx, y: sy + DROP },
+      { x: midX, y: sy + DROP },
+      { x: midX, y: ey },
+      { x: ex, y: ey }
+    ]);
+  }
+
+  // Determine Safe Start Point (extracting outward if it's a chip pin)
+  const isSourceLeft = Math.abs(sx - chip.left) < 50 && sy >= chip.top - 10 && sy <= chip.bottom + 10;
+  const isSourceRight = Math.abs(sx - chip.right) < 50 && sy >= chip.top - 10 && sy <= chip.bottom + 10;
+  const sExtX = isSourceLeft ? sx - EXT : (isSourceRight ? sx + EXT : sx);
+  const sExtY = (isSourceLeft || isSourceRight) ? sy : sy + DROP;
+
+  // Determine Safe End Point
+  const isTargetLeft = Math.abs(ex - chip.left) < 50 && ey >= chip.top - 10 && ey <= chip.bottom + 10;
+  const isTargetRight = Math.abs(ex - chip.right) < 50 && ey >= chip.top - 10 && ey <= chip.bottom + 10;
+  const eExtX = isTargetLeft ? ex - EXT : (isTargetRight ? ex + EXT : ex);
+  const eExtY = ey;
+
+  let midX = sExtX + (eExtX - sExtX) / 2;
+
+  let pts = [
     { x: sx, y: sy },
-    { x: sx, y: sy + DROP },
-    { x: midX, y: sy + DROP },
-    { x: midX, y: ey },
-    { x: ex, y: ey },
+    { x: sExtX, y: sExtY },
+    { x: midX, y: sExtY },
+    { x: midX, y: eExtY },
+    { x: eExtX, y: eExtY },
+    { x: ex, y: ey }
   ];
 
-  if (!chip) return toPath(pts);
-
-  const routeClear = () => {
-    if (vSegOverlaps(sy, sy + DROP, sx, chip, 5)) return false; 
-    if (hSegOverlaps(sx, midX, sy + DROP, chip, PAD)) return false;
-    if (vSegOverlaps(sy + DROP, ey, midX, chip, PAD)) return false;
-    if (hSegOverlaps(midX, ex, ey, chip, PAD)) return false;
-    return true;
+  const checkPtsOverlap = (p) => {
+    for (let i = 0; i < p.length - 1; i++) {
+      if (Math.abs(p[i].y - p[i+1].y) < 0.1) {
+         if (hSegOverlaps(p[i].x, p[i+1].x, p[i].y, chip, PAD)) return true;
+      }
+      if (Math.abs(p[i].x - p[i+1].x) < 0.1) {
+         if (vSegOverlaps(p[i].y, p[i+1].y, p[i].x, chip, PAD)) return true;
+      }
+    }
+    return false;
   };
 
-  if (routeClear()) return toPath(pts);
+  if (!checkPtsOverlap(pts)) return toPath(pts);
 
-  const distLeft  = Math.abs(((sx + ex) / 2) - chip.left);
-  const distRight = Math.abs(((sx + ex) / 2) - chip.right);
-  let bypassX = (distLeft <= distRight) ? (chip.left - PAD) : (chip.right + PAD);
-
-  const ptsAround = [
-    { x: sx,      y: sy },
-    { x: sx,      y: sy + DROP },
-    { x: bypassX, y: sy + DROP },
-    { x: bypassX, y: ey },
-    { x: ex,      y: ey },
-  ];
-  return toPath(ptsAround);
+  // Fallback: Bypass directly around the bottom of the chip if direct route is colliding
+  const bypassY = chip.bottom + PAD + 10;
+  
+  return toPath([
+    { x: sx, y: sy },
+    { x: sExtX, y: sExtY },
+    { x: sExtX, y: bypassY },
+    { x: eExtX, y: bypassY },
+    { x: eExtX, y: eExtY },
+    { x: ex, y: ey }
+  ]);
 }
 
 const WiringCanvas = ({

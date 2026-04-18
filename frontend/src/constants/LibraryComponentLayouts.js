@@ -33,7 +33,6 @@ export const LIBRARY_COMPONENTS_MAP = {
   SHIFT_REGISTER: Lib.ShiftRegister,
   RELAY_MODULE: Lib.RelayModule,
   LED_MATRIX: Lib.LedMatrix8x8,
-  LED_MATRIX: Lib.LedMatrix8x8,
   LED_BAR_GRAPH: Lib.LedBarGraph,
   EPAPER_BASIC: Lib.EPaperDisplay,
   ANALOG_TV: Lib.AnalogTV,

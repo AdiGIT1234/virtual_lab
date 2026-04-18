@@ -1781,9 +1781,10 @@ function getStyles(theme, isCompact) {
       position: "relative",
       width: 1400,
       height: 900,
-      background: "repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 60px)",
+      backgroundColor: "#e2e8f0", // slate-200, greyish
+      backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px)",
       borderRadius: 20,
-      border: "1px solid var(--border)",
+      border: "1px solid #cbd5e1",
     },
     chipDraggable: {
       position: "absolute",

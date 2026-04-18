@@ -234,20 +234,19 @@ export function useAVR(activeMcuId = "atmega328p") {
           if (port) port.setPin(bit, isHigh);
        };
     }
-    class BaseTWIHandler {
-      start(repeated) { twi.completeStart(); }
-      stop() { twi.completeStop(); }
-      connectToSlave(addr, write) { 
+    twi.eventHandler = {
+      start: () => { twi.completeStart(); },
+      stop: () => { twi.completeStop(); },
+      connectToSlave: (addr, write) => { 
         if (typeof window !== 'undefined' && window.onTWIConnect) window.onTWIConnect(addr, write, cpu.cycles);
         twi.completeConnect(true); 
-      }
-      writeByte(value) { 
+      },
+      writeByte: (value) => { 
         if (typeof window !== 'undefined' && window.onTWIByte) window.onTWIByte(value, cpu.cycles);
         twi.completeWrite(true); 
-      }
-      readByte(ack) { twi.completeRead(0x00); }
-    }
-    twi.eventHandler = new BaseTWIHandler();
+      },
+      readByte: () => { twi.completeRead(0x00); }
+    };
 
     cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi };
     

@@ -220,7 +220,7 @@ export const EPaperDisplay = ({ id, wiredPins }) => {
   );
 };
 
-export const AnalogTV = ({ id, wiredPins }) => {
+export const AnalogTV = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -233,7 +233,6 @@ export const AnalogTV = ({ id, wiredPins }) => {
            const imgData = ctx.createImageData(160, 120);
            const barY = (counter % 120);
            for (let i = 0; i < imgData.data.length / 4; i++) {
-              const x = i % 160;
               const y = Math.floor(i / 160);
               let noise = Math.random() * 80 + 20;
               if (Math.abs(y - barY) < 5) noise += 40; // rolling sync bar
@@ -659,9 +658,6 @@ export const ShiftRegister = () => (
   <svg width={100} height={110} viewBox="0 0 100 110" style={{ display: 'block', overflow: 'visible' }}>
     <rect x={20} y={10} width={60} height={90} rx={4} fill="#0f172a" />
     <text x={50} y={60} fill="white" fontSize={10} fontWeight="bold" textAnchor="middle" transform="rotate(-90 50 60)">74HC595</text>
-    {[18,34,50,66,82,98].map(y => {
-       /* Dummy map */
-    })}
     {/* Explicit Left Pins */}
     {["VCC","Q0","DS","OE","STCP","SHCP","MR","Q7'"].map((l, i) => <Pin key={i} x={10} y={15 + i*11} label={l} color={i===0?"#facc15":"#22d3ee"} />)}
     {/* Explicit Right Pins */}

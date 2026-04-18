@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import PeripheralSimulator from './PeripheralSimulator';
 
 /**
  * ESP32 simulation engine hook.
@@ -41,6 +42,10 @@ export function useESP32(_activeMcuId = "esp32") {
 
       const step = timeline[idx];
       const registers = step?.registers || {};
+
+      if (registers.GPIO_OUT) {
+        PeripheralSimulator.cpuWriteFlatGPIO(registers.GPIO_OUT, step?.time || 0);
+      }
 
       setCpuState({
         registers,

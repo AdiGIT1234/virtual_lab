@@ -69,10 +69,10 @@ class PeripheralSimulatorEngine {
     this.components.delete(id);
   }
 
-  onTWIConnect(addr, write, cycles) {
+  onTWIConnect(addr) {
     this.twiAddress = addr;
     // SSD1306: Wait for commands or data
-    for (const [id, comp] of this.components.entries()) {
+    for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "OLED_SSD1306" && comp.state.address === addr) {
         // Reset command/data flag for next byte determining control byte
         comp.state.awaitingControlByte = true;
@@ -80,8 +80,8 @@ class PeripheralSimulatorEngine {
     }
   }
 
-  onTWIByte(value, cycles) {
-    for (const [id, comp] of this.components.entries()) {
+  onTWIByte(value) {
+    for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "OLED_SSD1306" && comp.state.address === this.twiAddress) {
         if (comp.state.awaitingControlByte) {
           comp.state.isCommand = (value === 0x00); // 0x00 is Command, 0x40 is Data
@@ -115,8 +115,8 @@ class PeripheralSimulatorEngine {
     }
   }
 
-  onSPIByte(value, cycles) {
-    for (const [id, comp] of this.components.entries()) {
+  onSPIByte(value) {
+    for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "TFT_ILI9341") {
         if (this.getPinVal(comp.state.pins.cs) !== 0) continue; // Ignore if CS is High
 
@@ -192,19 +192,6 @@ class PeripheralSimulatorEngine {
              comp.state.dataIdx++;
           }
         }
-      } else if (comp.type === "KEYPAD") {
-        // If a port changes that relates to our layout, we simulate a hardware matrix short!
-        if (comp.state.activeNode) {
-           const rowIdx = parseInt(comp.state.activeNode.charAt(1), 10); // 1-4
-           const colIdx = parseInt(comp.state.activeNode.charAt(3), 10); // 1-4
-           const rowPin = comp.state.pins[rowIdx - 1];
-           const colPin = comp.state.pins[colIdx + 3];
-
-           // If the sweep pushed the row LOW, the col must get dragged LOW by the short
-           if (rowPin === pinStr && typeof window !== 'undefined' && window.setExternalPin) {
-               window.setExternalPin(colPin, val === 1);
-           }
-        }
       }
     }
   }
@@ -235,6 +222,19 @@ class PeripheralSimulatorEngine {
     }
   }
 
+  cpuWriteFlatGPIO(gpioArray, cycles) {
+    if (!gpioArray) return;
+    for (let index = 0; index < gpioArray.length; index++) {
+      const pinValue = gpioArray[index];
+      // ESP32 Pins can be 0-39
+      if (this.ioPins[index] !== pinValue) {
+        this.ioPins[index] = pinValue;
+        this.checkPinTriggers(index.toString(), pinValue, cycles);
+        this.pinLastToggledAt[index] = cycles;
+      }
+    }
+  }
+
   getPinVal(mappedPinStr) {
     // Expects mappedPinStr like "12", "A0"
     let index = parseInt(mappedPinStr, 10);
@@ -250,7 +250,7 @@ class PeripheralSimulatorEngine {
   }
 
   checkPinTriggers(pinStr, val, cycles) {
-    for (const [id, comp] of this.components.entries()) {
+    for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "LCD1602") {
         if (comp.state.pins.e === pinStr && val === 0) {
           // Falling edge of EN - clock in data!
@@ -305,16 +305,6 @@ class PeripheralSimulatorEngine {
                
                if (comp.state.activeBit >= 8) {
                   // Push byte depending on WS2812 GRB layout
-                  const bufIdx = comp.state.activeLed * 3;
-                  if (bufIdx + 2 < comp.state.buffer.length) { // safety
-                     // For simplistic mapping without full GRB tracking locally we just write linear
-                     const rawByteIndex = Math.floor(comp.state.activeBit / 8) - 1; // 0, 1, 2
-                     // Wait, activeBit rolls over!
-                  }
-                  
-                  // Simpler tracking:
-                  const ledParamIdx = comp.state.activeBit === 8 ? 1 : (comp.state.activeBit === 16 ? 0 : 2); // GRB -> 0:G, 1:R, 2:B mapping approximation
-                  // Actually let's just index linearly:
                   const channel = Math.floor((comp.state.activeBit - 1) / 8); 
                   comp.state.buffer[comp.state.activeLed * 3 + channel] = comp.state.activeByte;
                   
@@ -331,9 +321,20 @@ class PeripheralSimulatorEngine {
                comp.state.activeLed = 0;
                comp.state.activeBit = 0;
                comp.state.activeByte = 0;
-               if (comp.config.onRenderTarget) comp.config.onRenderTarget(comp.state.buffer);
+                if (comp.config.onRenderTarget) comp.config.onRenderTarget(comp.state.buffer);
             }
           }
+        }
+      } else if (comp.type === "KEYPAD") {
+        if (comp.state.activeNode) {
+           const rowIdx = parseInt(comp.state.activeNode.charAt(1), 10); // 1-4
+           const colIdx = parseInt(comp.state.activeNode.charAt(3), 10); // 1-4
+           const rowPin = comp.state.pins[rowIdx - 1];
+           const colPin = comp.state.pins[colIdx + 3];
+
+           if (rowPin === pinStr && typeof window !== 'undefined' && window.setExternalPin) {
+               window.setExternalPin(colPin, val === 1);
+           }
         }
       }
     }

@@ -51,27 +51,86 @@ function Chip({ registers, toggleInput, mcu }) {
     <div style={chipStyles.wrapper}>
       <div style={chipStyles.fullWidthContainer}>
         <div id={isESP32 ? "esp32-chip" : "atmega-chip"} style={chipStyles.chip}>
-          {/* Notch / antenna */}
+          {/* Sub-components inside chip bounds */}
           {isESP32 ? (
-            <div style={esp32Styles.antenna}>
-              <div style={esp32Styles.antennaZigzag} />
-              <div style={esp32Styles.antennaLabel}>ANT</div>
-            </div>
-          ) : (
-            <div style={styles.notch} />
-          )}
-
-          {/* Chip label */}
-          <div style={chipStyles.engravedMain}>{mcu?.name || "ATMEGA328P-PU"}</div>
-          <div style={chipStyles.engravedSub}>
-            {isESP32 ? "Espressif Systems" : (mcu?.package || "Microchip Technology")}
-          </div>
-
-          {/* ESP32 extra info */}
-          {isESP32 && (
             <>
-              <div style={esp32Styles.voltageLabel}>3.3V Logic</div>
-              <div style={esp32Styles.wifiBadge}>Wi-Fi + BLE</div>
+              <img 
+                src="/board.svg" 
+                alt="ESP32 Board" 
+                draggable={false}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", userSelect: "none", WebkitUserDrag: "none" }} 
+              />
+              
+              {/* EN Button Overlay (Reset) */}
+              <div 
+                style={{ position: "absolute", left: 52, top: 495, width: 26, height: 26, cursor: "pointer", zIndex: 10 }}
+                title="EN (Reset)"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  // A full reset simulation mechanism could be hooked here
+                  console.log("ESP32 Reset Triggered");
+                }}
+              />
+
+              {/* BOOT Button Overlay (GPIO 0 Strap) */}
+              <div 
+                style={{ position: "absolute", right: 60, top: 495, width: 26, height: 26, cursor: "pointer", zIndex: 10 }}
+                title="BOOT (GPIO 0)"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  toggleInput(0); // Pulls GPIO 0 LOW
+                }}
+                onMouseUp={(e) => {
+                  e.stopPropagation();
+                  toggleInput(0); // Releases GPIO 0
+                }}
+                onMouseLeave={(e) => {
+                  // Ensure it releases if mouse dragged away
+                  if (e.buttons > 0) toggleInput(0);
+                }}
+              />
+
+              {/* Built-in LED Overlay (GPIO 2) */}
+              <div 
+                style={{ 
+                  position: "absolute", 
+                  left: 130, 
+                  top: 505, 
+                  width: 8, 
+                  height: 12, 
+                  borderRadius: 2, 
+                  background: getPinState(2) ? "#3b82f6" : "rgba(30, 40, 50, 0.4)",
+                  boxShadow: getPinState(2) ? "0 0 16px #3b82f6, 0 0 4px #60a5fa" : "none",
+                  transition: "all 0.1s",
+                  zIndex: 5
+                }}
+                title="Built-in LED (GPIO 2)"
+              />
+              
+              {/* Power LED (Red) */}
+              <div 
+                style={{ 
+                  position: "absolute", 
+                  left: 145, 
+                  top: 505, 
+                  width: 8, 
+                  height: 12, 
+                  borderRadius: 2, 
+                  background: isPowered ? "#ef4444" : "rgba(50, 20, 20, 0.4)",
+                  boxShadow: isPowered ? "0 0 12px #ef4444" : "none",
+                  transition: "all 0.1s",
+                  zIndex: 5
+                }}
+                title="Power LED"
+              />
+            </>
+          ) : (
+            <>
+              <div style={styles.notch} />
+              <div style={chipStyles.engravedMain}>{mcu?.name || "ATMEGA328P-PU"}</div>
+              <div style={chipStyles.engravedSub}>
+                {mcu?.package || "Microchip Technology"}
+              </div>
             </>
           )}
 
@@ -218,134 +277,39 @@ const styles = {
 // ──── ESP32 module styles ────
 const esp32Styles = {
   ...styles,
-
   fullWidthContainer: {
     ...styles.fullWidthContainer,
     minWidth: 700,
-    height: 750,
+    height: 800,
   },
-
   chip: {
     position: "relative",
-    width: 360,
-    height: 680,
-    borderRadius: 14,
-    background: "linear-gradient(145deg, #0a2e1a, #061a0f)",
-    border: "2px solid #1a5c35",
-    boxShadow:
-      "inset 0 4px 12px rgba(16,185,129,0.06), inset 0 -8px 16px rgba(0,0,0,0.8), 0 0 30px rgba(16,185,129,0.08)"
-  },
-
-  antenna: {
-    position: "absolute",
-    top: -2,
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: 120,
-    height: 45,
-    background: "linear-gradient(to bottom, #1a5c35 0%, #0a2e1a 100%)",
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottom: "2px solid #2d8a55",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-
-  antennaZigzag: {
-    width: 60,
-    height: 16,
-    backgroundImage: `repeating-linear-gradient(
-      90deg,
-      transparent 0px,
-      transparent 4px,
-      #2d8a55 4px,
-      #2d8a55 5px
-    )`,
-    opacity: 0.6,
-  },
-
-  antennaLabel: {
-    fontSize: 8,
-    letterSpacing: 2,
-    color: "#2d8a55",
-    fontWeight: "bold",
-    marginTop: 2,
-  },
-
-  engravedMain: {
-    position: "absolute",
-    top: 65,
-    width: "100%",
-    textAlign: "center",
-    fontSize: 20,
-    letterSpacing: 4,
-    fontWeight: 700,
-    color: "#10b981",
-    textShadow:
-      "0 0 8px rgba(16,185,129,0.3), 1px 1px 1px rgba(0,0,0,0.9)",
-  },
-
-  engravedSub: {
-    position: "absolute",
-    top: 92,
-    width: "100%",
-    textAlign: "center",
-    fontSize: 11,
-    letterSpacing: 2,
-    color: "#059669",
-    textShadow:
-      "1px 1px 1px rgba(0,0,0,0.9)",
-  },
-
-  voltageLabel: {
-    position: "absolute",
-    top: 115,
-    width: "100%",
-    textAlign: "center",
-    fontSize: 9,
-    letterSpacing: 1,
-    color: "#f59e0b",
-    opacity: 0.7,
-  },
-
-  wifiBadge: {
-    position: "absolute",
-    top: 135,
-    left: "50%",
-    transform: "translateX(-50%)",
-    padding: "2px 10px",
+    width: 320,
+    height: 650, 
     borderRadius: 8,
-    border: "1px solid rgba(16,185,129,0.3)",
-    background: "rgba(16,185,129,0.08)",
-    fontSize: 9,
-    letterSpacing: 1,
-    color: "#10b981",
+    background: "transparent",
+    border: "none",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.8)",
+    userSelect: "none",
+    WebkitUserSelect: "none"
   },
-
   powerLed: {
     position: "absolute",
-    top: 20,
-    right: 20,
-    width: 10,
-    height: 10,
-    borderRadius: "50%",
-    background: "#10b981",
-    boxShadow: "0 0 12px #10b981"
+    top: 230, // move to SMD cluster area
+    right: 40,
+    width: 6,
+    height: 6,
+    background: "#ef4444",
+    boxShadow: "0 0 10px #ef4444"
   },
-
   d13Led: {
     position: "absolute",
-    bottom: 40,
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#06b6d4",
-    boxShadow: "0 0 20px #06b6d4"
+    top: 240, // Built in LED next to power
+    right: 40,
+    width: 6,
+    height: 6,
+    background: "#3b82f6",
+    boxShadow: "0 0 10px #3b82f6"
   }
 };
 
