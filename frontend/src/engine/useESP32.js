@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import PeripheralSimulator from './PeripheralSimulator';
+import { PeripheralSimulator } from './PeripheralSimulator';
 
 /**
  * ESP32 simulation engine hook.
