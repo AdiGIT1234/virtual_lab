@@ -297,4 +297,242 @@ export const CIRCUIT_PRESETS = {
       4: 0,
     },
   },
+
+  // ── Gold Standard Presets ─────────────────────────────────────────────────
+
+  smart_oled_weather: {
+    id: "smart_oled_weather",
+    name: "Smart OLED Weather Station",
+    description: "ESP32 reads temperature & humidity from a DHT22 and displays live readings on a 128×64 OLED over I2C.",
+    mcu: "esp32",
+    starterCode: `#include <Wire.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// DHT22 on GPIO4 (simulated via analogRead)
+#define DHT_PIN 4
+float temperature = 0.0;
+float humidity = 0.0;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(21, 22);
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  Serial.println("Weather Station Ready");
+}
+
+void loop() {
+  // Simulate sensor readings via analog inputs
+  int rawTemp = analogRead(34);
+  int rawHum  = analogRead(35);
+  temperature = (rawTemp / 4095.0) * 50.0;  // 0–50 °C
+  humidity    = (rawHum  / 4095.0) * 100.0; // 0–100 %RH
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("== Weather Station ==");
+  display.setCursor(0, 18);
+  display.print("Temp:  ");
+  display.print(temperature, 1);
+  display.println(" C");
+  display.setCursor(0, 34);
+  display.print("Humid: ");
+  display.print(humidity, 1);
+  display.println(" %");
+  display.display();
+
+  Serial.print("T="); Serial.print(temperature); Serial.print(" H="); Serial.println(humidity);
+  delay(1000);
+}`,
+    workspace: [
+      {
+        id: "oled-1",
+        type: "OLED_SSD1306",
+        pin: 21,
+        pins: { SCL: 22, SDA: 21 },
+        x: 240,
+        y: 160,
+      },
+      {
+        id: "dht-1",
+        type: "DHT22",
+        pin: 4,
+        pins: { DATA: 4 },
+        x: 100,
+        y: 160,
+      },
+      {
+        id: "vcc-1",
+        type: "VCC_NODE",
+        pin: null,
+        pins: { main: null },
+        x: 60,
+        y: 80,
+      },
+      {
+        id: "gnd-1",
+        type: "GROUND_NODE",
+        pin: null,
+        pins: { main: null },
+        x: 60,
+        y: 340,
+      },
+    ],
+    outputs: {},
+    inputs: { 34: 0.5, 35: 0.6 },
+  },
+
+  piano_keyboard: {
+    id: "piano_keyboard",
+    name: "Piano Keyboard",
+    description: "8 tactile buttons on an ATmega328P drive a piezo buzzer to play musical notes — press any key to hear a tone.",
+    mcu: "atmega328p",
+    starterCode: `#define BUZZER_PIN 11
+
+// C4 to C5 note frequencies (Hz)
+const int NOTE_FREQ[] = { 262, 294, 330, 349, 392, 440, 494, 523 };
+const int BTN_PINS[]  = { 2, 3, 4, 5, 6, 7, 8, 9 };
+
+void setup() {
+  for (int i = 0; i < 8; i++) {
+    pinMode(BTN_PINS[i], INPUT_PULLUP);
+  }
+  pinMode(BUZZER_PIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  bool anyPressed = false;
+  for (int i = 0; i < 8; i++) {
+    if (digitalRead(BTN_PINS[i]) == LOW) {
+      tone(BUZZER_PIN, NOTE_FREQ[i], 150);
+      Serial.print("Note: "); Serial.println(NOTE_FREQ[i]);
+      anyPressed = true;
+      delay(160);
+      break;
+    }
+  }
+  if (!anyPressed) {
+    noTone(BUZZER_PIN);
+  }
+}`,
+    workspace: [
+      { id: "btn-0", type: "BUTTON", pin: 2,  pins: { main: 2  }, x: 60,  y: 200 },
+      { id: "btn-1", type: "BUTTON", pin: 3,  pins: { main: 3  }, x: 110, y: 200 },
+      { id: "btn-2", type: "BUTTON", pin: 4,  pins: { main: 4  }, x: 160, y: 200 },
+      { id: "btn-3", type: "BUTTON", pin: 5,  pins: { main: 5  }, x: 210, y: 200 },
+      { id: "btn-4", type: "BUTTON", pin: 6,  pins: { main: 6  }, x: 260, y: 200 },
+      { id: "btn-5", type: "BUTTON", pin: 7,  pins: { main: 7  }, x: 310, y: 200 },
+      { id: "btn-6", type: "BUTTON", pin: 8,  pins: { main: 8  }, x: 360, y: 200 },
+      { id: "btn-7", type: "BUTTON", pin: 9,  pins: { main: 9  }, x: 410, y: 200 },
+      { id: "buz-1", type: "BUZZER", pin: 11, pins: { main: 11 }, x: 240, y: 320 },
+      { id: "gnd-1", type: "GROUND_NODE", pin: 8, pins: { main: 8 }, x: 80, y: 380 },
+    ],
+    outputs: { 11: 0 },
+    inputs:  { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 },
+  },
+
+  industrial_dashboard: {
+    id: "industrial_dashboard",
+    name: "Industrial Dashboard",
+    description: "ESP32 reads a potentiometer and displays a live gauge on an ILI9341 TFT — showcasing color fills, text, and real-time updates.",
+    mcu: "esp32",
+    starterCode: `#include <SPI.h>
+#include <Adafruit_ILI9341.h>
+
+#define TFT_CS  5
+#define TFT_DC  2
+#define TFT_RST 4
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
+
+#define POT_PIN 34
+
+int lastBarWidth = 0;
+
+void drawGaugeLabel(const char* label, int value) {
+  tft.fillRect(0, 100, 240, 60, ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(20, 110);
+  tft.print(label);
+  tft.setCursor(120, 110);
+  tft.print(value);
+  tft.print("%");
+}
+
+void setup() {
+  Serial.begin(115200);
+  tft.begin();
+  tft.setRotation(1);
+  tft.fillScreen(ILI9341_BLACK);
+
+  tft.setTextColor(ILI9341_CYAN);
+  tft.setTextSize(3);
+  tft.setCursor(20, 20);
+  tft.println("INDUSTRIAL");
+  tft.setCursor(30, 55);
+  tft.println("DASHBOARD");
+
+  tft.drawRect(10, 170, 220, 30, ILI9341_WHITE);
+}
+
+void loop() {
+  int raw   = analogRead(POT_PIN);
+  int pct   = raw * 100 / 4095;
+  int barW  = (raw * 216) / 4095;
+
+  if (barW != lastBarWidth) {
+    tft.fillRect(12, 172, 216, 26, ILI9341_BLACK);
+    uint16_t barColor = pct < 33 ? ILI9341_GREEN : (pct < 66 ? ILI9341_YELLOW : ILI9341_RED);
+    tft.fillRect(12, 172, barW, 26, barColor);
+    drawGaugeLabel("Load:", pct);
+    lastBarWidth = barW;
+    Serial.print("Load: "); Serial.print(pct); Serial.println("%");
+  }
+  delay(50);
+}`,
+    workspace: [
+      {
+        id: "tft-1",
+        type: "ILI9341_TFT",
+        pin: 5,
+        pins: { CS: 5, DC: 2, RESET: 4, MOSI: 23, SCK: 18 },
+        x: 240,
+        y: 150,
+      },
+      {
+        id: "pot-1",
+        type: "DIAL",
+        pin: 34,
+        pins: { main: 34 },
+        x: 100,
+        y: 200,
+      },
+      {
+        id: "vcc-1",
+        type: "VCC_NODE",
+        pin: null,
+        pins: { main: null },
+        x: 60,
+        y: 80,
+      },
+      {
+        id: "gnd-1",
+        type: "GROUND_NODE",
+        pin: null,
+        pins: { main: null },
+        x: 60,
+        y: 340,
+      },
+    ],
+    outputs: {},
+    inputs: { 34: 0.5 },
+  },
 };

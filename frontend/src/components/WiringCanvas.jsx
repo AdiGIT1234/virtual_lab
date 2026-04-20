@@ -50,11 +50,23 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip) {
 
   const toPath = (pts) => {
     if (pts.length < 2) return '';
+    // Use cubic bezier curves at each corner for a natural cable arch
     let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-        if (Math.abs(pts[i].x - pts[i-1].x) > 0.1 || Math.abs(pts[i].y - pts[i-1].y) > 0.1) {
-          d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
-        }
+      const prev = pts[i - 1];
+      const curr = pts[i];
+      if (Math.abs(curr.x - prev.x) < 0.1 && Math.abs(curr.y - prev.y) < 0.1) continue;
+      // Add a slight arch on long straight segments by offsetting mid control point
+      const mx = (prev.x + curr.x) / 2;
+      const my = (prev.y + curr.y) / 2;
+      const dx = curr.x - prev.x;
+      const dy = curr.y - prev.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      // Perpendicular offset proportional to segment length (max 6px)
+      const sag = Math.min(len * 0.04, 6);
+      const ox = -dy / (len || 1) * sag;
+      const oy =  dx / (len || 1) * sag;
+      d += ` Q ${(mx + ox).toFixed(1)} ${(my + oy).toFixed(1)} ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
     }
     return d;
   };
@@ -120,6 +132,12 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip) {
   ]);
 }
 
+function getMcuPin(portStr) {
+  if (!portStr) return null;
+  if (portStr.startsWith('mcu::')) return parseInt(portStr.split('::')[1], 10);
+  return null;
+}
+
 const WiringCanvas = ({
   items,
   wires = [],
@@ -133,6 +151,7 @@ const WiringCanvas = ({
   workspaceId,
   viewScale = 1,
   viewOffset = { x: 0, y: 0 },
+  outputs = {},
 }) => {
   const [lines, setLines] = useState([]);
   const [contextMenu, setContextMenu] = useState(null);
@@ -175,12 +194,19 @@ const WiringCanvas = ({
         const p1 = resolvePort(wire.source);
         const p2 = resolvePort(wire.target);
         if (p1 && p2) {
+          const srcPin = getMcuPin(wire.source);
+          const tgtPin = getMcuPin(wire.target);
+          let logicLevel = 0;
+          if (srcPin !== null) logicLevel = outputs[srcPin] ?? 0;
+          if (tgtPin !== null && !logicLevel) logicLevel = outputs[tgtPin] ?? 0;
+
           newLines.push({
             id: wire.id,
             wire,
             sourcePos: p1,
             targetPos: p2,
             color: wire.color || '#4dabf7',
+            logicLevel,
             chip,
           });
         }
@@ -270,6 +296,15 @@ const WiringCanvas = ({
   return (
     <>
       <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 11, overflow: 'visible' }}>
+        <defs>
+          <filter id="wire-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         {lines.map(line => {
           const path = buildOrthogonalPath(
             line.sourcePos.x, line.sourcePos.y,
@@ -277,6 +312,9 @@ const WiringCanvas = ({
             line.chip,
           );
           const isSelected = selectedWireId === line.id;
+          const isActive   = (line.logicLevel ?? 0) > 0;
+          const wireStroke = isActive ? line.color : 'rgba(120,120,120,0.45)';
+          const wireWidth  = isActive ? 3 : 2;
 
           return (
             <g
@@ -287,6 +325,19 @@ const WiringCanvas = ({
                 if (onWireClick) onWireClick(line.id, e.clientX, e.clientY);
               }}
             >
+              {/* Glow halo for HIGH wires */}
+              {isActive && (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.25"
+                  style={{ filter: 'url(#wire-glow)', pointerEvents: 'none' }}
+                />
+              )}
               {isSelected && (
                 <path
                   d={path}
@@ -312,14 +363,18 @@ const WiringCanvas = ({
               <path
                 d={path}
                 fill="none"
-                stroke={line.color}
-                strokeWidth="3"
+                stroke={wireStroke}
+                strokeWidth={wireWidth}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ 
-                  filter: isSelected ? `drop-shadow(0 0 10px ${line.color})` : 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', 
-                  transition: 'all 0.2s',
-                  pointerEvents: 'none' 
+                style={{
+                  filter: isSelected
+                    ? `drop-shadow(0 0 10px ${line.color})`
+                    : isActive
+                      ? `drop-shadow(0 0 5px ${line.color})`
+                      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                  transition: 'stroke 0.3s, filter 0.3s',
+                  pointerEvents: 'none'
                 }}
               />
               <circle

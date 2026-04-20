@@ -120,6 +120,7 @@ void loop() {
   const lastUpdatedBy = useCircuitStore((state) => state.lastUpdatedBy);
   const syncFromWorkspace = useCircuitStore((state) => state.syncFromWorkspace);
   const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
+  const storeOutputs = useCircuitStore((state) => state.outputs);
   const storeInputs = useCircuitStore((state) => state.inputs);
   const inputsVersion = useCircuitStore((state) => state.inputsVersion);
   const inputsSource = useCircuitStore((state) => state.lastInputsSource);
@@ -1517,6 +1518,7 @@ void loop() {
               workspaceId="workplane-container"
               viewScale={viewScale}
               viewOffset={viewOffset}
+              outputs={storeOutputs}
             />
           </div>
           )}

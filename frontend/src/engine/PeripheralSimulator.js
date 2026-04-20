@@ -69,6 +69,39 @@ class PeripheralSimulatorEngine {
     this.components.delete(id);
   }
 
+  // ── Input actuation hooks ────────────────────────────────────────────────
+
+  setButtonState(pin, pressed) {
+    pin = String(pin);
+    if (typeof window !== 'undefined' && window.setExternalPin) {
+      window.setExternalPin(pin, pressed);
+    }
+    const idx = parseInt(pin, 10);
+    if (!isNaN(idx) && idx < this.ioPins.length) {
+      this.ioPins[idx] = pressed ? 1 : 0;
+    }
+  }
+
+  setAnalogValue(pin, normalizedValue) {
+    // normalizedValue: 0.0 – 1.0
+    pin = String(pin);
+    const idx = parseInt(pin, 10);
+    if (!isNaN(idx) && idx < this.ioPins.length) {
+      this.ioPins[idx] = Math.max(0, Math.min(1, normalizedValue));
+    }
+    if (typeof window !== 'undefined' && window.__esp32AnalogInputs) {
+      window.__esp32AnalogInputs[pin] = normalizedValue;
+    }
+  }
+
+  setSensorData(compId, data) {
+    const comp = this.components.get(compId);
+    if (comp) {
+      comp.sensorData = { ...(comp.sensorData || {}), ...data };
+      if (comp.config?.onSensorData) comp.config.onSensorData(comp.sensorData);
+    }
+  }
+
   onTWIConnect(addr) {
     this.twiAddress = addr;
     // SSD1306: Wait for commands or data
