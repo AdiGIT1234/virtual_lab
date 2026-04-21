@@ -13,6 +13,9 @@ import {
   useInView,
 } from "framer-motion";
 
+const randomHex = () => "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+const randomColors = (n) => Array.from({ length: n }, randomHex);
+
 /* ═══════════════════════════════════════════════════════════
    DATA
    ═══════════════════════════════════════════════════════════ */
@@ -85,20 +88,90 @@ function ScanlineOverlay() {
   );
 }
 
+/* ── Tubes Interactive Background (z-index 2 = behind content, above video) ── */
+/* Follows the reference component pattern: canvas is a React ref inside a
+   fixed wrapper div so Three.js reads clientHeight = viewport height, not
+   document.body.clientHeight (which was causing the 6076×2=12152px WebGPU crash) */
+function TubesBackground({ opacity }) {
+  const canvasRef = useRef(null);
+  const tubesRef  = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    let mounted = true;
+
+    import("https://cdn.jsdelivr.net/npm/threejs-components@0.0.19/build/cursors/tubes1.min.js")
+      .then((mod) => {
+        if (!mounted || !canvasRef.current) return;
+        const TubesCursor = mod.default ?? mod;
+        const app = TubesCursor(canvasRef.current, {
+          tubes: {
+            colors: ["#00F2FF", "#7000FF", "#ff3366"],
+            lights: {
+              intensity: 200,
+              colors: ["#00F2FF", "#7000FF", "#ff3366", "#00FFB2"],
+            },
+          },
+        });
+        tubesRef.current = app;
+      })
+      .catch((err) => console.warn("[TubesBackground] load error:", err));
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Clicking randomises tube colours (from the reference implementation)
+  const handleClick = () => {
+    if (!tubesRef.current) return;
+    const rnd = (n) => Array.from({ length: n }, () =>
+      "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")
+    );
+    tubesRef.current.tubes.setColors(rnd(3));
+    tubesRef.current.tubes.setLightsColors(rnd(4));
+  };
+
+  // motion.div drives opacity directly from the MotionValue — no .on() subscription needed
+  return (
+    <motion.div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2,          // behind page content (z≥3), above video background (z:auto)
+        pointerEvents: "none",
+        opacity,
+      }}
+      onClick={handleClick}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          touchAction: "none",
+        }}
+      />
+    </motion.div>
+  );
+}
+
+
 /* ── HUD Info Panel Item ── */
 function HudInfoItem({ info, phase, side, index }) {
   const isLeft = side === "left";
   const visible = phase > info.phase;
-  const itemProgress = visible ? Math.min((phase - info.phase) / 0.08, 1) : 0;
+  const itemProgress = visible ? Math.min((phase - info.phase) / 0.14, 1) : 0;
 
   return (
     <motion.div
       initial={false}
       animate={{
         opacity: itemProgress,
-        x: isLeft ? (itemProgress < 1 ? -40 * (1 - itemProgress) : 0) : (itemProgress < 1 ? 40 * (1 - itemProgress) : 0),
+        x: isLeft ? (itemProgress < 1 ? -32 * (1 - itemProgress) : 0) : (itemProgress < 1 ? 32 * (1 - itemProgress) : 0),
       }}
-      transition={{ duration: 0.1 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className={`relative flex items-start gap-3 ${isLeft ? "" : "flex-row-reverse"}`}
     >
       {/* Leader line */}
@@ -851,6 +924,9 @@ export default function LandingPage() {
   /* Video overlay opacity */
   const videoOverlayOpacity = useTransform(heroScrollProgress, [0, 0.8], [0.1, 0.55]);
 
+  /* Tubes opacity — full in hero, settles to ambient level for the rest of the page */
+  const tubesOpacity = useTransform(heroScrollProgress, [0, 0.25, 1], [0.32, 0.14, 0.08]);
+
   return (
     <div ref={containerRef} className="relative bg-(--lp-bg) text-(--lp-text-main) transition-colors duration-500" style={{ 
         fontFamily: "'Inter', system-ui, sans-serif",
@@ -874,6 +950,9 @@ export default function LandingPage() {
       }}>
       {/* Scanline overlay */}
       <ScanlineOverlay />
+
+      {/* Tubes cursor — fixed, covers full page */}
+      <TubesBackground opacity={tubesOpacity} />
 
       {/* Google Fonts */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -901,6 +980,7 @@ export default function LandingPage() {
             className="absolute inset-0 pointer-events-none"
             style={{
               background: "linear-gradient(180deg, var(--lp-video-fade1) 0%, var(--lp-video-fade2) 60%, var(--lp-video-fade3) 100%)",
+              zIndex: 2,
             }}
           />
 
@@ -910,6 +990,7 @@ export default function LandingPage() {
             style={{
               opacity: videoOverlayOpacity,
               background: "linear-gradient(180deg, var(--lp-video-overlay-start) 0%, var(--lp-video-overlay-end) 100%)",
+              zIndex: 3,
             }}
           />
 
@@ -1042,17 +1123,16 @@ export default function LandingPage() {
           </div>
 
           {/* Center glow */}
-          {deconstructPhase > 0.2 && (
-            <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-2 transition-all duration-300"
-              style={{
-                width: `${150 + deconstructPhase * 350}px`,
-                height: `${150 + deconstructPhase * 350}px`,
-                opacity: (deconstructPhase - 0.2) * 0.3,
-                background: "radial-gradient(circle, rgba(0,242,255,0.1) 0%, rgba(112,0,255,0.05) 40%, transparent 70%)",
-              }}
-            />
-          )}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-2"
+            style={{
+              width: `${150 + deconstructPhase * 400}px`,
+              height: `${150 + deconstructPhase * 400}px`,
+              opacity: Math.max(0, (deconstructPhase - 0.1) * 0.4),
+              background: "radial-gradient(circle, rgba(0,242,255,0.12) 0%, rgba(112,0,255,0.06) 40%, transparent 70%)",
+              transition: "width 0.6s cubic-bezier(0.16,1,0.3,1), height 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.6s ease",
+            }}
+          />
         </div>
       </div>
 
