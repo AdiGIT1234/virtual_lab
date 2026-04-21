@@ -45,30 +45,6 @@ export const MCUS = [
       "18 ADC inputs (12-bit) / 3.3V logic",
     ],
   },
-  {
-    id: "atmega2560",
-    name: "ATmega2560",
-    package: "TQFP-100",
-    description: "Mega-class MCU with 256KB Flash and 54 digital pins.",
-    supported: false,
-    portColors: {
-      A: "#22d3ee",
-      B: "#818cf8",
-      C: "#f97316",
-      D: "#f472b6",
-      E: "#facc15",
-    },
-    pinLayout: null,
-    docSlug: "wokwi-arduino-mega",
-    wokwiTag: "wokwi-arduino-mega",
-    voltage: 5,
-    adcBits: 10,
-    features: [
-      "54 digital I/O (15 PWM)",
-      "16 analog inputs (A0-A15)",
-      "4 UART, I2C, SPI buses",
-    ],
-  },
 ];
 
 export const MCU_MAP = MCUS.reduce((acc, mcu) => {

@@ -76,32 +76,6 @@ const UnoPreview = () => (
   </>
 );
 
-const MegaPreview = () => (
-  <>
-    <defs>
-      <linearGradient id="megaBg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#007a80" />
-        <stop offset="100%" stopColor="#004f52" />
-      </linearGradient>
-    </defs>
-    <rect x="5" y="8" width="110" height="104" rx="4" fill="url(#megaBg)" />
-    <rect x="5" y="8" width="110" height="104" rx="4" fill="none" stroke="#00b8bf" strokeWidth="1" opacity="0.4" />
-    <rect x="5" y="30" width="14" height="24" rx="2" fill="#1e293b" />
-    <rect x="7" y="34" width="10" height="16" rx="1" fill="#374151" />
-    {/* ATmega2560 chip */}
-    <rect x="32" y="30" width="44" height="44" rx="3" fill="#111827" stroke="#1e293b" strokeWidth="1.5" />
-    <text x="54" y="54" fill="#94a3b8" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="monospace">ATmega</text>
-    <text x="54" y="62" fill="#64748b" fontSize="5" textAnchor="middle" fontFamily="monospace">2560</text>
-    {Array.from({ length: 18 }).map((_, i) => (
-      <rect key={i} x={8 + i * 6} y="4" width="2.5" height="6" rx="0.5" fill="#cbd5e1" />
-    ))}
-    <text x="60" y="96" fill="#00b8bf" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Inter',sans-serif" letterSpacing="2">MEGA 2560</text>
-    <circle cx="96" cy="22" r="3" fill="#22c55e" />
-    <circle cx="96" cy="22" r="5" fill="#22c55e" opacity="0.15" />
-    <MountingHole cx={14} cy={14} />
-    <MountingHole cx={106} cy={14} />
-  </>
-);
 
 const ESP32Preview = () => (
   <>
@@ -968,7 +942,6 @@ const createInputModulePreview = (label, color = "#14b8a6", shortForm, type = "s
 
 export const NativeComponents = {
   "wokwi-arduino-uno":         createPreview(UnoPreview),
-  "wokwi-arduino-mega":        createPreview(MegaPreview),
   "wokwi-esp32-devkit-v1":     createPreview(ESP32Preview),
   "wokwi-lcd1602":             createPreview(LCDPreview),
   "wokwi-lcd2004":             createPreview(LCDPreview),
