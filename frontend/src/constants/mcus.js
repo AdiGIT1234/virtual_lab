@@ -10,9 +10,9 @@ const PORT_COLORS = {
 export const MCUS = [
   {
     id: "atmega328p",
-    name: "ATmega328P",
+    name: "Arduino Uno",
     package: "DIP-28",
-    description: "Arduino Uno classic with 32KB Flash and tri-port GPIO.",
+    description: "Classic 8-bit AVR MCU powering the Arduino Uno. 32KB Flash, 14 digital I/O pins.",
     supported: true,
     portColors: PORT_COLORS,
     pinLayout: PIN_LAYOUT,

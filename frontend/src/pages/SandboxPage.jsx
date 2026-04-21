@@ -171,7 +171,7 @@ void loop() {
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
-  const [chipTransform, setChipTransform] = useState({ x: 260, y: 100, scale: 1.2 });
+  const [chipTransform, setChipTransform] = useState({ x: 60, y: 80, scale: 0.9 });
   const chipDragDataRef = useRef(null);
   const [isChipDragging, setIsChipDragging] = useState(false);
 
@@ -299,7 +299,7 @@ void loop() {
           setTimeline([]);
         }
       } else {
-        // ATmega328P: compile to hex + avr8js WASM execution
+        // Arduino Uno: compile to hex + avr8js WASM execution
         const response = await fetch("http://127.0.0.1:8000/run-experiment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -633,7 +633,7 @@ void loop() {
     if (isESP32) {
       return currentRegisters?.GPIO_OUT?.[p] === 1;
     }
-    // ATmega328P: port-based model
+    // Arduino Uno: port-based model
     if (p <= 7) return currentRegisters?.PORTD?.[p] === 1;
     if (p <= 13) return currentRegisters?.PORTB?.[p - 8] === 1;
     if (p >= 14 && p <= 19) return currentRegisters?.PORTC?.[p - 14] === 1;

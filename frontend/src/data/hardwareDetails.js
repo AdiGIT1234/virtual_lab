@@ -1118,7 +1118,7 @@ const RAW_HARDWARE_DETAILS = {
       usage: "Use Serial.begin() at 9600+ baud and read logs in the docked console.",
       imageTag: "vlab-serial-monitor",
       datasheet: {
-        manufacturer: "ATmega328P Virtual Lab",
+        manufacturer: "Embedex",
         partNumber: "VLAB-SERIAL",
         baudRates: "300 – 2,000,000 bps",
         encoding: "8N1",
@@ -1136,7 +1136,7 @@ const RAW_HARDWARE_DETAILS = {
       usage: "Attach to pins in the sidebar, press Record, and inspect timing relationships.",
       imageTag: "vlab-logic-analyzer",
       datasheet: {
-        manufacturer: "ATmega328P Virtual Lab",
+        manufacturer: "Embedex",
         partNumber: "VLAB-LOGIC",
         sampleRate: "Up to 10 MSa/s (virtual)",
         channels: "8",

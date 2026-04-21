@@ -262,7 +262,7 @@ export default function DashboardPage() {
         >
           <span className="text-[#00F2FF] text-xl">⬡</span>
           <span className="font-bold text-sm tracking-tight text-[#E2E8F0]">
-            ATmega328P <span className="text-[#00F2FF]">Virtual Lab</span>
+            Embedex <span className="text-[#00F2FF]">Virtual Lab</span>
           </span>
         </button>
 

@@ -21,21 +21,21 @@ const randomColors = (n) => Array.from({ length: n }, randomHex);
    ═══════════════════════════════════════════════════════════ */
 
 const LEFT_SPECS = [
-  { phase: 0.12, title: "8-bit AVR RISC Core", desc: "131 documented instructions, most completing in a single clock cycle.", hex: "0x0E 0xAA" },
+  { phase: 0.12, title: "Arduino Uno — 8-bit AVR", desc: "131 instructions, most completing in a single clock cycle at 16 MHz.", hex: "0x0E 0xAA" },
   { phase: 0.22, title: "32 kB Flash Memory", desc: "Non-volatile program storage with 10,000-cycle endurance rating.", hex: "0x7FFF" },
-  { phase: 0.32, title: "2 kB SRAM", desc: "High-speed volatile memory for the stack and working registers.", hex: "0x08FF" },
-  { phase: 0.42, title: "1 kB EEPROM", desc: "Byte-addressable non-volatile data for calibration and user settings.", hex: "0x03FF" },
-  { phase: 0.52, title: "23 GPIO Pins", desc: "Ports B, C, and D expose configurable digital I/O for every pin.", hex: "0xDDRB" },
-  { phase: 0.62, title: "6-ch 10-bit ADC", desc: "Analog inputs (ADC0–ADC5) with up to 15 kSPS throughput.", hex: "0xADMUX" },
+  { phase: 0.32, title: "2 kB SRAM + 1 kB EEPROM", desc: "Volatile stack memory plus byte-addressable persistent data storage.", hex: "0x08FF" },
+  { phase: 0.42, title: "23 GPIO Pins", desc: "Ports B, C, and D with 6 PWM outputs and configurable pull-ups.", hex: "0xDDRB" },
+  { phase: 0.52, title: "6-ch 10-bit ADC", desc: "Analog inputs (ADC0–ADC5) at up to 15 kSPS throughput.", hex: "0xADMUX" },
+  { phase: 0.62, title: "USART · SPI · TWI", desc: "Hardware UART, SPI master/slave, and I²C-compatible TWI peripherals.", hex: "0xUCSR" },
 ];
 
 const RIGHT_SPECS = [
-  { phase: 0.12, title: "Up to 20 MHz Clock", desc: "Runs at 16 MHz on Arduino Uno boards with optional 20 MHz crystal.", hex: "0xCLKPR" },
-  { phase: 0.22, title: "3 Timer/Counters", desc: "Two 8-bit timers (0, 2) plus a 16-bit Timer1 with PWM outputs.", hex: "0xTCCR" },
-  { phase: 0.32, title: "USART, SPI, TWI", desc: "Hardware UART, SPI master/slave, and I²C-compatible TWI peripherals.", hex: "0xUCSR" },
-  { phase: 0.42, title: "External & Pin IRQs", desc: "INT0/INT1 plus 23 pin-change interrupts for responsive firmware.", hex: "0xEICRA" },
-  { phase: 0.52, title: "Watchdog Timer", desc: "Dedicated 128 kHz oscillator supervises and recovers stalled firmware.", hex: "0xWDTCSR" },
-  { phase: 0.62, title: "Power Management", desc: "Six sleep modes; power-down current is typically under 1 µA.", hex: "0xSMCR" },
+  { phase: 0.12, title: "ESP32 — Dual-Core 240 MHz", desc: "Two Xtensa LX6 cores running independently at up to 240 MHz.", hex: "0xCPU2" },
+  { phase: 0.22, title: "520 kB SRAM", desc: "Generous on-chip RAM for complex tasks and networking buffers.", hex: "0x82000" },
+  { phase: 0.32, title: "Wi-Fi 802.11 b/g/n", desc: "Built-in 2.4 GHz Wi-Fi with full TCP/IP stack for IoT connectivity.", hex: "0xWIFI" },
+  { phase: 0.42, title: "Bluetooth 4.2 + BLE", desc: "Classic BT and Bluetooth Low Energy for wireless sensor applications.", hex: "0xBLE4" },
+  { phase: 0.52, title: "34 GPIO · Touch · DAC", desc: "Rich I/O with capacitive touch inputs, 2 DAC channels, and Hall sensor.", hex: "0x3400" },
+  { phase: 0.62, title: "18-ch 12-bit ADC", desc: "High-resolution analog sampling across 18 input channels.", hex: "0xADC12" },
 ];
 
 const EXPERIMENTS = [
@@ -57,9 +57,9 @@ const EXPERIMENTS = [
 ];
 
 const FEATURES = [
-  { icon: "⬡", title: "Real-Time Simulation", desc: "Watch register states update live as your C code executes on the emulated AVR core." },
+  { icon: "⬡", title: "Multi-Board Simulation", desc: "Simulate Arduino Uno and ESP32 in real-time — watch register states update live as your code runs." },
   { icon: "🔬", title: "15 Guided Experiments", desc: "Progress from blinking LEDs to building Watchdog Timer recovery systems." },
-  { icon: "🤖", title: "AI Lab Assistant", desc: "Ask questions about registers, interrupts, or timers — get instant context-aware answers." },
+  { icon: "🤖", title: "AI Lab Assistant", desc: "Ask questions about registers, interrupts, or Wi-Fi — get instant context-aware answers." },
   { icon: "🧩", title: "Drag & Drop Components", desc: "Wire LEDs, buttons, servos, and sensors directly on the virtual breadboard." },
 ];
 
@@ -70,6 +70,15 @@ const CHIP_STATS = [
   { value: 23, suffix: "", label: "GPIO PINS" },
   { value: 16, suffix: "MHz", label: "CLOCK" },
   { value: 6, suffix: "", label: "ADC CH" },
+];
+
+const ESP32_CHIP_STATS = [
+  { value: 520, suffix: "kB", label: "SRAM" },
+  { value: 4, suffix: "MB", label: "FLASH" },
+  { value: 34, suffix: "", label: "GPIO PINS" },
+  { value: 240, suffix: "MHz", label: "CLOCK" },
+  { value: 18, suffix: "", label: "ADC CH" },
+  { value: 2, suffix: "", label: "CORES" },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -811,7 +820,7 @@ function TerminalFooter() {
   const isInView = useInView(ref, { once: true, amount: 0.5 });
   const [lines, setLines] = useState([]);
   const fullLines = [
-    { prefix: "[SYS]", text: "ATmega328P Virtual Lab v2.0.0" },
+    { prefix: "[SYS]", text: "Embedex v2.0.0" },
     { prefix: "[OK!]", text: "All 15 experiments loaded" },
     { prefix: "[OK!]", text: "AVR RISC emulator online" },
     { prefix: "[LOG]", text: "Built for students, by students" },
@@ -863,7 +872,7 @@ function TerminalFooter() {
         <div className="mt-8 pt-6 border-t border-(--lp-border-faint) flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-[#00F2FF] text-xl">⬡</span>
-            <span className="text-(--lp-text-main) font-bold text-sm">ATmega328P Virtual Lab</span>
+            <span className="text-(--lp-text-main) font-bold text-sm">Embedex</span>
           </div>
           <p className="text-(--lp-text-low) text-xs">
             © {new Date().getFullYear()} · Open Source · Free Forever
@@ -1008,7 +1017,7 @@ export default function LandingPage() {
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00F2FF]" />
                     </span>
                     <span className="text-[#00F2FF] text-xs font-semibold tracking-[0.15em] uppercase font-mono">
-                      Live Status — ATmega328P
+                      Live Status — Embedex
                     </span>
                   </div>
 
@@ -1025,7 +1034,7 @@ export default function LandingPage() {
                   </h1>
 
                   <p className="text-white/80 text-lg md:text-xl mb-10 font-light leading-relaxed max-w-xl" style={{ textShadow: "0 2px 12px rgba(0,0,0,0.7)" }}>
-                    Scroll down to deconstruct the chip and explore its architecture
+                    Simulate Arduino Uno and ESP32 in your browser — no hardware, no setup.
                   </p>
 
                   <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center lg:justify-start mb-6 w-full sm:w-auto relative z-20">
@@ -1148,7 +1157,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-3">
           <span className="text-[#00F2FF] text-xl">⬡</span>
           <span className="font-bold text-sm tracking-tight">
-            ATmega328P <span className="text-[#00F2FF]">Virtual Lab</span>
+            Embedex <span className="text-[#00F2FF]">Virtual Lab</span>
           </span>
         </div>
         <div className="flex items-center gap-6">
@@ -1298,6 +1307,84 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ════════════════ ESP32 CHIP SUMMARY ════════════════ */}
+      <section className="relative py-0 pb-24 md:pb-32 px-6">
+        <div className="relative max-w-5xl mx-auto">
+          <div
+            className="relative border border-(--lp-border) bg-(--lp-card-base) p-8 md:p-14"
+            style={{
+              clipPath: "polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px)",
+            }}
+          >
+            {/* Corner accents — purple for ESP32 */}
+            <div className="absolute top-0 left-0 w-8 h-8">
+              <div className="absolute top-0 left-6 w-px h-6 bg-[#7000FF]/40" />
+              <div className="absolute top-6 left-0 h-px w-6 bg-[#7000FF]/40" />
+            </div>
+            <div className="absolute bottom-0 right-0 w-8 h-8">
+              <div className="absolute bottom-6 right-0 w-px h-6 bg-[#7000FF]/40" />
+              <div className="absolute bottom-0 right-6 h-px w-6 bg-[#7000FF]/40" />
+            </div>
+
+            {/* Classification tag */}
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#7000FF] shadow-[0_0_6px_#7000FF]" />
+              <span className="text-[#7000FF] text-[10px] font-mono font-bold tracking-[0.2em] uppercase">
+                Wi-Fi + BLE Module
+              </span>
+            </div>
+
+            <h2
+              className="text-3xl md:text-4xl lg:text-5xl font-black tracking-[-0.03em] mb-4"
+              style={{ fontFamily: "'Heat Robox', 'Inter', sans-serif", fontFeatureSettings: "'liga' 0, 'dlig' 0", fontVariantLigatures: "none" }}
+            >
+              ESP
+              <span className="bg-linear-to-r from-[#7000FF] to-[#00F2FF] bg-clip-text text-transparent" style={{ fontFamily: "'Cyber Alert Numbers', 'Heat Robox', monospace" }}>32</span>
+            </h2>
+            <p className="text-(--lp-text-low) text-base md:text-lg leading-relaxed max-w-2xl mb-12 font-light">
+              Espressif's dual-core powerhouse. A 34-pin, 32-bit Xtensa LX6 module with built-in Wi-Fi and Bluetooth
+              — running at 240 MHz with 520 kB SRAM and deep IoT integration.
+            </p>
+
+            {/* Stats digital readout */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-6 md:gap-8 mb-10">
+              {ESP32_CHIP_STATS.map((stat, i) => (
+                <div key={i} className="flex flex-col items-center text-center">
+                  <AnimatedCounter value={stat.value} suffix={stat.suffix} inView={true} />
+                  <span className="text-[10px] text-(--lp-text-low) font-mono font-bold tracking-[0.15em] uppercase mt-1.5">
+                    {stat.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA buttons */}
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={() => navigate("/sandbox")}
+                className="px-8 py-3.5 font-bold text-sm tracking-wider uppercase cursor-pointer border-0 transition-all duration-300 hover:shadow-[0_0_30px_rgba(112,0,255,0.2)] focus:outline-none"
+                style={{
+                  background: "linear-gradient(135deg, #7000FF, #00F2FF)",
+                  color: "#ffffff",
+                  clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+                }}
+              >
+                ⚙️ Launch Sandbox
+              </button>
+              <button
+                onClick={() => document.getElementById("experiments")?.scrollIntoView({ behavior: "smooth" })}
+                className="px-8 py-3.5 font-semibold text-sm tracking-wider border border-[#7000FF]/20 bg-transparent text-[#7000FF] hover:border-[#7000FF]/40 hover:bg-[#7000FF]/4 transition-all duration-300 cursor-pointer focus:outline-none"
+                style={{
+                  clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+                }}
+              >
+                📖 Browse Experiments
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ════════════════ FEATURES GRID ════════════════ */}
       <section id="features" className="relative py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
@@ -1321,12 +1408,12 @@ export default function LandingPage() {
             >
               Why{" "}
               <span className="bg-linear-to-r from-[#00F2FF] to-[#7000FF] bg-clip-text text-transparent">
-                Virtual Lab
+                Embedex
               </span>
               ?
             </h2>
             <p className="text-(--lp-text-low) text-base md:text-lg max-w-xl mx-auto font-light">
-              Everything you need to learn embedded systems — zero hardware required.
+              Everything you need to learn embedded systems across multiple boards — zero hardware required.
             </p>
           </motion.div>
 
@@ -1430,7 +1517,7 @@ export default function LandingPage() {
             ?
           </h2>
           <p className="text-(--lp-text-low) text-lg md:text-xl mb-12 font-light leading-relaxed max-w-lg mx-auto">
-            Jump into the sandbox and write real AVR C code.
+            Pick a board, write real embedded C code, and simulate it live.
             <br />
             No downloads. No setup. Just code.
           </p>

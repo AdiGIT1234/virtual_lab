@@ -254,7 +254,7 @@ export default function ReferencePage() {
           <p style={styles.heroBadge}>Industrial Component Registry</p>
           <h1 style={styles.heroTitle}>Pulse Hardware Atlas</h1>
           <p style={styles.heroSub}>
-            Deep-spec documentation and register maps for the ATmega328P ecosystem. 
+            Deep-spec documentation and register maps for Arduino Uno and ESP32.
             Verified industrial-grade parameters for every supported module.
           </p>
           <div style={styles.heroActions}>

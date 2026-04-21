@@ -9,7 +9,7 @@ function ChatbotWidget({ context = "sandbox" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hi! I'm your ATmega328P Virtual Lab assistant. How can I help you today? (e.g. 'How do I configure Timer1 for PWM?')" },
+    { role: "assistant", content: "Hi! I'm your Embedex assistant. How can I help you today? (e.g. 'How do I configure Timer1 for PWM?' or 'How do I use ESP32 Wi-Fi?')" },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);

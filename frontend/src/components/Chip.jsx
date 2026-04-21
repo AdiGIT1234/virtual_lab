@@ -1,7 +1,16 @@
 import Pin from "./Pin";
 import { PIN_LAYOUT } from "../constants/pinLayout";
+import ArduinoUnoBoard from "./ArduinoUnoBoard";
 
 function Chip({ registers, toggleInput, mcu }) {
+  if (!mcu || mcu.id === "atmega328p") {
+    return (
+      <div style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <ArduinoUnoBoard registers={registers} toggleInput={toggleInput} mcu={mcu} />
+      </div>
+    );
+  }
+
   const layout = mcu?.pinLayout || PIN_LAYOUT;
   const isESP32 = mcu?.chipStyle === "module";
   const half = Math.floor(layout.length / 2);
