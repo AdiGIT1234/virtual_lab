@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
-import { 
+import {
   CPU,
-  AVRIOPort, 
-  portBConfig, 
-  portCConfig, 
+  avrInstruction,
+  AVRIOPort,
+  portBConfig,
+  portCConfig,
   portDConfig,
   AVRTimer,
   timer0Config,
@@ -70,7 +71,8 @@ export function useAVR(activeMcuId = "atmega328p") {
     try {
       let runLimit = 2000000; // Safeguard browser thread from absolute freezing
       while (cpu.cycles < targetCycle && runLimit > 0) {
-        cpu.tick();
+        avrInstruction(cpu); // Execute one AVR instruction (advances pc + cycles)
+        cpu.tick();          // Handle clock events & interrupts
         runLimit--;
       }
       if (runLimit === 0) {

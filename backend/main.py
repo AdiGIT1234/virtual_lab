@@ -50,7 +50,12 @@ else:
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 
 # Ensure local Vite dev server is always allowed during development
-for dev_origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
+for dev_origin in [
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:5174", "http://127.0.0.1:5174",
+    "http://localhost:5175", "http://127.0.0.1:5175",
+    "http://localhost:3000",
+]:
     if dev_origin not in allowed_origins and "*" not in allowed_origins:
         allowed_origins.append(dev_origin)
 
