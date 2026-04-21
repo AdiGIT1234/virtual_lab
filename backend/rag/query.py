@@ -17,7 +17,8 @@ import re
 from typing import Any, Optional
 
 import chromadb  # type: ignore
-import google.generativeai as genai  # type: ignore
+from google import genai  # type: ignore
+from google.genai import types as genai_types  # type: ignore
 
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chromadb_store")
 COLLECTION_NAME = "atmega328p_docs"
@@ -25,7 +26,7 @@ COLLECTION_NAME = "atmega328p_docs"
 
 class RAGEngine:
     """Retrieval-Augmented Generation engine for ATmega328P queries."""
-    
+
     def __init__(self) -> None:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
@@ -33,33 +34,31 @@ class RAGEngine:
                 "GEMINI_API_KEY not set! "
                 "Set it with: export GEMINI_API_KEY='your-key-here'"
             )
-        
-        genai.configure(api_key=api_key)
-        
+
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = "gemini-2.0-flash"
+
         # Connect to ChromaDB
         self.chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
-        
+
         try:
             self.collection = self.chroma_client.get_collection(COLLECTION_NAME)
             self.has_documents = self.collection.count() > 0
         except Exception:
             self.collection = None
             self.has_documents = False
-        
-        # Initialize Gemini model for generation
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
-        
+
         if not self.has_documents:
             print("⚠️  No documents in vector DB. Run ingestion first: python -m rag.ingest")
-    
+
     def _embed_query(self, query: str) -> list[float]:
         """Generate embedding for a search query."""
-        result = genai.embed_content(
+        result = self.client.models.embed_content(
             model="models/text-embedding-004",
-            content=query,
-            task_type="retrieval_query"
+            contents=query,
+            config=genai_types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
         )
-        return result["embedding"]
+        return result.embeddings[0].values
     
     def _retrieve(self, query: str, n_results: int = 5) -> list[dict[str, Any]]:
         """Search ChromaDB for the most relevant chunks."""
@@ -150,7 +149,7 @@ If you're not sure about specific register details, say so.
         
         # Step 3: Generate answer
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             answer = response.text
         except Exception as e:
             answer = f"Error generating response: {str(e)}"
@@ -257,7 +256,7 @@ Generate a COMPLETE experiment in the following JSON structure. Return ONLY vali
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response = self.model.generate_content(prompt)
+                response = self.client.models.generate_content(model=self.model_name, contents=prompt)
                 # Clean response — remove markdown code fences if present
                 text = response.text.strip()
                 if text.startswith("```"):

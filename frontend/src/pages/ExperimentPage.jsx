@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget";
 import allExperiments from "../data/all_experiments.json";
+import { API_BASE_URL } from "../lib/api";
 
 export default function ExperimentPage() {
   const { experimentId } = useParams();
@@ -18,7 +19,7 @@ export default function ExperimentPage() {
   useEffect(() => {
     if (!experimentId) return;
     setLoading(true);
-    fetch(`http://127.0.0.1:8000/api/experiments/${experimentId}`)
+    fetch(`${API_BASE_URL}/api/experiments/${experimentId}`)
       .then((res) => {
         if (!res.ok) throw new Error("Experiment not found");
         return res.json();

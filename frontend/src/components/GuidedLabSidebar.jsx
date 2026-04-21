@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../lib/api";
 
-const GuidedLabSidebar = ({ experimentId, apiBaseUrl = "http://127.0.0.1:8000" }) => {
+const GuidedLabSidebar = ({ experimentId, apiBaseUrl = API_BASE_URL }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("theory");

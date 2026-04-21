@@ -40,8 +40,8 @@ async def fetch_all_profiles() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     params = {
-        "select": "id,name,institute,created_at,updated_at,user:auth.users(email,last_sign_in_at)",
-        "order": "created_at.desc",
+        "select": "id,name,institute,updated_at,user:auth.users(email,last_sign_in_at)",
+        "order": "updated_at.desc",
     }
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(f"{supabase_url}/rest/v1/profiles", headers=headers, params=params)
@@ -73,7 +73,7 @@ async def fetch_admin_stats() -> Dict[str, Any]:
         new_resp = await client.get(
             f"{supabase_url}/rest/v1/profiles",
             headers={**headers, "Range": "0-0"},
-            params={"select": "id", "created_at": f"gte.{week_cutoff}"},
+            params={"select": "id", "updated_at": f"gte.{week_cutoff}"},
         )
 
     total = int(total_resp.headers.get("content-range", "0/0").split("/")[-1]) if total_resp.status_code in (200, 206) else 0
@@ -112,9 +112,8 @@ async def fetch_all_experiments() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(f"{supabase_url}/rest/v1/experiments", headers=headers, params={"order": "id.asc"})
+        resp = await client.get(f"{supabase_url}/rest/v1/saved_experiments", headers=headers, params={"order": "experiment_id.asc"})
     if resp.status_code != status.HTTP_200_OK:
-        # If table doesn't exist, return empty
         return []
     return resp.json()
 
@@ -130,9 +129,9 @@ async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str
     }
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.patch(
-            f"{supabase_url}/rest/v1/experiments",
+            f"{supabase_url}/rest/v1/saved_experiments",
             headers=headers,
-            params={"id": f"eq.{exp_id}"},
+            params={"experiment_id": f"eq.{exp_id}"},
             json=data,
         )
     if resp.status_code != status.HTTP_200_OK:

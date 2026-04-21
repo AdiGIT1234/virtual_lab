@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { MessageSquare, X, Send, Bot, User, Minimize2, Maximize2 } from "lucide-react";
 import "./ChatbotWidget.css";
+import { API_BASE_URL } from "../lib/api";
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const BACKEND_URL = API_BASE_URL;
 
 function ChatbotWidget({ context = "sandbox" }) {
   const [isOpen, setIsOpen] = useState(false);

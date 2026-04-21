@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { PeripheralSimulator } from './PeripheralSimulator';
+import { API_BASE_URL } from '../lib/api';
 
 // ─── Arduino C++ → async JS transpiler ────────────────────────────────────────
 
@@ -327,8 +328,7 @@ return { __setup, __loop };
 
       // Backend fallback
       try {
-        const apiBase = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || "http://127.0.0.1:8000";
-        const response = await fetch(`${apiBase}/run-esp32`, {
+        const response = await fetch(`${API_BASE_URL}/run-esp32`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, inputs, mcu: "esp32" }),

@@ -41,6 +41,7 @@ import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
 import { useTheme } from "../context/useTheme";
 import useMediaQuery from "../hooks/useMediaQuery";
+import { API_BASE_URL } from "../lib/api";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { useAuth } from "../context/useAuth";
 import ProtectedFeature from "../components/ProtectedFeature";
@@ -275,7 +276,7 @@ void loop() {
 
       if (isESP32) {
         // ESP32: interpretive simulation via backend
-        const response = await fetch("http://127.0.0.1:8000/run-esp32", {
+        const response = await fetch(`${API_BASE_URL}/run-esp32`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, inputs: inputs || {}, mcu: "esp32" }),
@@ -300,7 +301,7 @@ void loop() {
         }
       } else {
         // Arduino Uno: compile to hex + avr8js WASM execution
-        const response = await fetch("http://127.0.0.1:8000/run-experiment", {
+        const response = await fetch(`${API_BASE_URL}/run-experiment`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, inputs }),
