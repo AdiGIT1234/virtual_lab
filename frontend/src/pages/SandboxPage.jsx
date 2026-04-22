@@ -957,15 +957,29 @@ void loop() {
           <ProtectedFeature compact action="export workspaces">
             <button style={styles.actionBtn} onClick={handleExportWorkspace}>⤴ Export</button>
           </ProtectedFeature>
-          <select 
+          <select
             style={{...styles.componentSelect, marginLeft: "10px", width: "140px"}}
             onChange={(e) => {
-              if (e.target.value) {
-                if (window.confirm("Loading a preset will replace your current workspace. Continue?")) {
-                  loadPreset(e.target.value);
-                }
-                e.target.value = "";
-              }
+              const key = e.target.value;
+              if (!key) return;
+              e.target.value = "";
+              const preset = CIRCUIT_PRESETS[key];
+              if (!preset) return;
+
+              stopSimulation();
+              loadPreset(key);
+
+              // Wires
+              setWires(preset.wires || []);
+
+              // Code
+              if (preset.starterCode) setCode(preset.starterCode);
+
+              // MCU (switch board if preset targets a different MCU)
+              if (preset.mcu) setSelectedMcuId(preset.mcu);
+
+              // Open editor so the code is visible
+              setIsEditorOpen(true);
             }}
           >
             <option value="">Load Preset...</option>
