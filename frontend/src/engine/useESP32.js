@@ -36,6 +36,36 @@ function stripTypes(code) {
     .replace(/\bconst\s+let\b/g, 'const');
 }
 
+function injectLoopYields(code) {
+  const out = [];
+  let i = 0;
+  while (i < code.length) {
+    const loopMatch = /^(while|for)\s*\(/.exec(code.slice(i));
+    if (loopMatch) {
+      out.push(loopMatch[0]);
+      i += loopMatch[0].length;
+      let depth = 1;
+      while (i < code.length && depth > 0) {
+        const ch = code[i];
+        if (ch === '(') depth++;
+        else if (ch === ')') depth--;
+        out.push(ch);
+        i++;
+      }
+      // skip whitespace before '{'
+      while (i < code.length && /\s/.test(code[i])) { out.push(code[i]); i++; }
+      if (i < code.length && code[i] === '{') {
+        out.push('{ await __yield();');
+        i++;
+        continue;
+      }
+    }
+    out.push(code[i]);
+    i++;
+  }
+  return out.join('');
+}
+
 function applyApiSubs(code) {
   let js = code;
 
@@ -75,9 +105,10 @@ function applyApiSubs(code) {
   // Strip C++ types inside function bodies
   js = stripTypes(js);
 
-  // Add yield to loops so they don't block the event loop
-  js = js.replace(/while\s*\(([^)]*)\)\s*\{/g, (_, cond) => `while (${cond}) { await __yield();`);
-  js = js.replace(/for\s*\(([^)]*)\)\s*\{/g, (_, init) => `for (${init}) { await __yield();`);
+  // Add yield to loops so they don't block the event loop.
+  // Uses paren-counting so function calls in conditions (e.g. while (digitalRead(x) == LOW))
+  // are handled correctly instead of breaking on the first ')'.
+  js = injectLoopYields(js);
 
   return js;
 }
@@ -247,6 +278,7 @@ async function __setup() {
 
 async function __loop() {
   while (__isRunning()) {
+    await __yield();
     ${loopBody}
   }
 }

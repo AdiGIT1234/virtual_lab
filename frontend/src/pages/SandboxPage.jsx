@@ -96,6 +96,13 @@ void loop() {
     setBreakpointHandler,
   } = activeEngine;
 
+  // Stop BOTH engines when the user switches MCU to prevent orphaned rAF loops
+  useEffect(() => {
+    avr.stopSimulation();
+    esp32.stopSimulation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMcuId]);
+
   const [timeline, setTimeline] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -275,30 +282,11 @@ void loop() {
       setHexError("");
 
       if (isESP32) {
-        // ESP32: interpretive simulation via backend
-        const response = await fetch(`${API_BASE_URL}/run-esp32`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, inputs: inputs || {}, mcu: "esp32" }),
-        });
-
-        const data = await response.json();
-
-        if (data.timeline && data.timeline.length > 0) {
-          setTimeline(data.timeline);
-          setHexOutput("");
-          setHexError("");
-          setCurrentStep(0);
-          setIsPlaying(true);
-          setIsAnalyzerOpen(true);
-          // Feed the final registers into cpuState via startSimulation playback
-          startSimulation(code, manualRegisters, inputs, code);
-        } else if (data.registers) {
-          // No timeline, but we have registers — show static state
-          setTimeline([]);
-        } else {
-          setTimeline([]);
-        }
+        // ESP32: quantum JS runtime (handles backend fallback internally)
+        setTimeline([]);
+        setIsAnalyzerOpen(true);
+        setIsPlaying(true);
+        await startSimulation(code, manualRegisters, inputs, code);
       } else {
         // Arduino Uno: compile to hex + avr8js WASM execution
         const response = await fetch(`${API_BASE_URL}/run-experiment`, {
