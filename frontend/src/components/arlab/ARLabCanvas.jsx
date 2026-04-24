@@ -29,13 +29,13 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         shadows
         camera={{ position: [2.5, 3.5, 3.5], fov: 35, near: 0.01, far: 100 }}
         dpr={[1, 2]}
-        gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9 }}
       >
         <CameraController view={cameraView} />
         
-        {/* Clean white studio background */}
-        <color attach="background" args={["#f0f0f0"]} />
-        <fog attach="fog" args={["#f0f0f0", 8, 40]} />
+        {/* Dark lab atmosphere */}
+        <color attach="background" args={["#0d1117"]} />
+        <fog attach="fog" args={["#0d1117", 6, 28]} />
 
         <Suspense fallback={null}>
           <CircuitScene
@@ -51,13 +51,13 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           />
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
-              luminanceThreshold={0.8}
-              luminanceSmoothing={0.9}
-              intensity={0.4}
+              luminanceThreshold={0.25}
+              luminanceSmoothing={0.7}
+              intensity={1.8}
               mipmapBlur
-              radius={0.3}
+              radius={0.5}
             />
-            <Vignette eskil={false} offset={0.15} darkness={0.3} />
+            <Vignette eskil={false} offset={0.2} darkness={0.65} />
           </EffectComposer>
         </Suspense>
 
@@ -85,7 +85,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
 
       {/* Camera Control Buttons — matches withdiode.com style */}
       <div style={styles.cameraPanel}>
-        <span style={styles.cameraPanelLabel}>Camera</span>
+        <span style={styles.cameraPanelLabel}>VIEW</span>
         <div style={styles.cameraButtons}>
           <button
             style={{ ...styles.cameraBtn, ...(cameraView === "perspective" ? styles.cameraBtnActive : {}) }}
@@ -190,29 +190,29 @@ const styles = {
     alignItems: "flex-end",
   },
   cameraPanelLabel: {
-    fontSize: 11,
-    color: "#888",
-    fontWeight: 600,
+    fontSize: 10,
+    color: "#8b949e",
+    fontWeight: 700,
     fontFamily: "'Inter', sans-serif",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.12em",
   },
   cameraButtons: {
     display: "flex",
-    gap: 4,
-    background: "rgba(255,255,255,0.92)",
+    gap: 3,
+    background: "rgba(13,17,23,0.85)",
     borderRadius: 10,
     padding: 4,
-    border: "1px solid #e0e0e0",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(48,54,61,0.9)",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+    backdropFilter: "blur(12px)",
   },
   cameraBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 7,
     border: "none",
     background: "transparent",
-    color: "#666",
+    color: "#8b949e",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -220,20 +220,20 @@ const styles = {
     transition: "all 0.15s ease",
   },
   cameraBtnActive: {
-    background: "#333",
-    color: "#fff",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+    background: "rgba(0,229,255,0.15)",
+    color: "#00e5ff",
+    boxShadow: "0 0 8px rgba(0,229,255,0.25)",
   },
   inspector: {
     position: "absolute",
     right: 16,
     top: 80,
     width: 240,
-    background: "rgba(255,255,255,0.95)",
+    background: "rgba(13,17,23,0.92)",
     borderRadius: 12,
-    border: "1px solid #e0e0e0",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-    backdropFilter: "blur(10px)",
+    border: "1px solid #30363d",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+    backdropFilter: "blur(16px)",
     overflow: "hidden",
     fontFamily: "'Inter', sans-serif",
   },
@@ -242,18 +242,18 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "12px 16px",
-    borderBottom: "1px solid #eee",
+    borderBottom: "1px solid #30363d",
   },
   inspectorTitle: {
     fontSize: 13,
     fontWeight: 700,
-    color: "#333",
+    color: "#e6edf3",
   },
   inspectorClose: {
     background: "none",
     border: "none",
     fontSize: 18,
-    color: "#999",
+    color: "#8b949e",
     cursor: "pointer",
   },
   inspectorBody: {
@@ -267,13 +267,13 @@ const styles = {
   },
   inspectorLabel: {
     fontSize: 11,
-    color: "#888",
+    color: "#8b949e",
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.08em",
   },
   inspectorValue: {
     fontSize: 12,
-    color: "#333",
+    color: "#79c0ff",
     fontWeight: 600,
     fontFamily: "monospace",
   },

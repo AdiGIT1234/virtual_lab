@@ -72,7 +72,7 @@ export default function ARLabPage() {
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <button style={styles.logoBtn} onClick={() => navigate("/")} title="Home">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" strokeWidth="2">
               <hexagon cx="12" cy="12" r="10" />
               <path d="M12 2L2 7l10 5 10-5-10-5z"/>
             </svg>
@@ -136,7 +136,7 @@ export default function ARLabPage() {
                 key={part.id}
                 style={{
                   ...styles.partItem,
-                  background: hoveredPart === part.id ? "rgba(0,0,0,0.04)" : "transparent",
+                  background: hoveredPart === part.id ? "rgba(0,229,255,0.06)" : "transparent",
                 }}
                 onMouseEnter={() => setHoveredPart(part.id)}
                 onMouseLeave={() => setHoveredPart(null)}
@@ -177,7 +177,7 @@ const styles = {
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    background: "#f0f0f0",
+    background: "#0d1117",
     fontFamily: "'Inconsolata', 'Inter', monospace, sans-serif",
     overflow: "hidden",
   },
@@ -189,8 +189,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 16px",
-    background: "#fff",
-    borderBottom: "1px solid #e0e0e0",
+    background: "#161b22",
+    borderBottom: "1px solid #30363d",
     flexShrink: 0,
     zIndex: 100,
   },
@@ -210,16 +210,16 @@ const styles = {
   headerTitle: {
     fontSize: 16,
     fontWeight: 700,
-    color: "#333",
+    color: "#e6edf3",
   },
   headerDivider: {
-    color: "#ccc",
+    color: "#30363d",
     fontSize: 16,
   },
   headerLink: {
     fontSize: 14,
     fontWeight: 600,
-    color: "#555",
+    color: "#8b949e",
     cursor: "pointer",
     textDecoration: "none",
   },
@@ -234,14 +234,14 @@ const styles = {
     border: "none",
     fontSize: 14,
     fontWeight: 700,
-    color: "#333",
+    color: "#e6edf3",
     cursor: "pointer",
     fontFamily: "'Inconsolata', monospace",
     textAlign: "center",
   },
   presetArrow: {
     fontSize: 10,
-    color: "#888",
+    color: "#8b949e",
   },
   headerRight: {
     display: "flex",
@@ -252,10 +252,10 @@ const styles = {
     padding: "6px 14px",
     fontSize: 12,
     fontWeight: 600,
-    border: "1px solid #ddd",
+    border: "1px solid #30363d",
     borderRadius: 6,
-    background: "#fff",
-    color: "#333",
+    background: "#21262d",
+    color: "#c9d1d9",
     cursor: "pointer",
     fontFamily: "'Inconsolata', monospace",
   },
@@ -265,10 +265,11 @@ const styles = {
     fontWeight: 700,
     border: "none",
     borderRadius: 6,
-    background: "#ff4444",
+    background: "#238636",
     color: "#fff",
     cursor: "pointer",
     fontFamily: "'Inconsolata', monospace",
+    boxShadow: "0 0 10px rgba(35,134,54,0.4)",
   },
 
   // Main
@@ -281,8 +282,8 @@ const styles = {
 
   // Sidebar
   sidebar: {
-    background: "#fff",
-    borderRight: "1px solid #e0e0e0",
+    background: "#161b22",
+    borderRight: "1px solid #30363d",
     display: "flex",
     flexDirection: "column",
     flexShrink: 0,
@@ -292,19 +293,19 @@ const styles = {
   },
   sidebarHeader: {
     padding: "0 16px 12px",
-    borderBottom: "1px solid #eee",
+    borderBottom: "1px solid #30363d",
     marginBottom: 12,
   },
   sidebarLabel: {
     display: "block",
     fontSize: 14,
     fontWeight: 700,
-    color: "#333",
+    color: "#e6edf3",
     marginBottom: 2,
   },
   sidebarDate: {
     fontSize: 11,
-    color: "#999",
+    color: "#8b949e",
     fontFamily: "'Inconsolata', monospace",
   },
   sidebarSection: {
@@ -312,10 +313,11 @@ const styles = {
   },
   sidebarTitle: {
     margin: 0,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: 700,
-    color: "#333",
-    letterSpacing: "0.02em",
+    color: "#8b949e",
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
   },
   partsList: {
     display: "flex",
@@ -340,16 +342,17 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 16,
+    fontSize: 14,
     flexShrink: 0,
     borderRadius: 6,
-    background: "#f5f5f5",
-    border: "1px solid #eee",
+    background: "#21262d",
+    border: "1px solid #30363d",
+    color: "#8b949e",
   },
   partLabel: {
     fontSize: 13,
     fontWeight: 500,
-    color: "#333",
+    color: "#c9d1d9",
     fontFamily: "'Inconsolata', monospace",
     whiteSpace: "nowrap",
   },
@@ -362,11 +365,11 @@ const styles = {
     zIndex: 50,
     width: 20,
     height: 48,
-    border: "1px solid #ddd",
+    border: "1px solid #30363d",
     borderLeft: "none",
     borderRadius: "0 6px 6px 0",
-    background: "#fff",
-    color: "#888",
+    background: "#161b22",
+    color: "#8b949e",
     cursor: "pointer",
     fontSize: 10,
     display: "flex",

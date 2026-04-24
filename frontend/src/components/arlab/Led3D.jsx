@@ -5,12 +5,17 @@ import * as THREE from "three";
 export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], color = "#ff5555", level = 0, highlighted = false }) {
   const glowRef = useRef();
   const lensRef = useRef();
+  const lightRef = useRef();
 
   useFrame((_, delta) => {
     if (!glowRef.current || !lensRef.current) return;
     const target = 0.15 + level * 0.9 + (highlighted ? 0.35 : 0);
     glowRef.current.material.emissiveIntensity += (target - glowRef.current.material.emissiveIntensity) * delta * 4;
     lensRef.current.material.opacity += ((0.25 + level * 0.4) - lensRef.current.material.opacity) * delta * 4;
+    if (lightRef.current) {
+      const targetIntensity = level > 0.1 ? level * 4.5 : 0;
+      lightRef.current.intensity += (targetIntensity - lightRef.current.intensity) * delta * 5;
+    }
   });
 
   return (
@@ -65,6 +70,16 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
         <cylinderGeometry args={[0.006, 0.006, 0.32, 8]} />
         <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
       </mesh>
+
+      {/* Point light — illuminates surroundings when LED is on */}
+      <pointLight
+        ref={lightRef}
+        position={[0, 0.1, 0]}
+        color={color}
+        intensity={0}
+        distance={1.2}
+        decay={2}
+      />
 
       {highlighted && (
         <mesh position={[0, 0.05, 0]}>

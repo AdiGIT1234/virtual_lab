@@ -1,43 +1,48 @@
 export default function SceneLighting() {
   return (
     <group>
-      {/* Balanced neutral ambient fill */}
-      <ambientLight intensity={0.7} color="#ffffff" />
+      {/* Low ambient — dark lab feel */}
+      <ambientLight intensity={0.18} color="#1a2035" />
 
-      {/* Primary Key Light - Crisp and neutral */}
+      {/* Warm key light — main workbench illumination from upper-right */}
       <directionalLight
-        position={[2, 10, 5]}
-        intensity={1.2}
-        color="#ffffff"
+        position={[3, 9, 5]}
+        intensity={3.2}
+        color="#ffd4a0"
         castShadow
-        shadow-bias={-0.0001}
+        shadow-bias={-0.0002}
         shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={0.1}
+        shadow-camera-far={20}
+        shadow-camera-left={-4}
+        shadow-camera-right={4}
+        shadow-camera-top={4}
+        shadow-camera-bottom={-4}
       />
 
-      {/* Secondary Fill - Softens shadows from the left */}
+      {/* Cool fill — blue-purple from left, softens harsh shadows */}
       <directionalLight
-        position={[-5, 5, 2]}
-        intensity={0.6}
-        color="#f0f4ff"
+        position={[-6, 4, 2]}
+        intensity={0.8}
+        color="#8ab4f8"
       />
 
-      {/* Rim/Accent Light - Adds definition to edges */}
+      {/* Cyan rim light — defines component edges from behind */}
       <spotLight
-        position={[0, 8, -5]}
-        angle={0.4}
-        penumbra={1}
-        intensity={2}
-        color="#ffffff"
+        position={[-1, 6, -5]}
+        angle={0.5}
+        penumbra={0.8}
+        intensity={4}
+        color="#00e5ff"
       />
 
-      {/* Large soft box for uniform surface lighting */}
-      <rectAreaLight
-        width={10}
-        height={10}
-        color="#ffffff"
-        intensity={2.5}
-        position={[0, 6, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
+      {/* Subtle warm under-bounce from PCB surface */}
+      <pointLight
+        position={[0, 0.1, 0]}
+        intensity={0.4}
+        color="#ffaa55"
+        distance={3}
+        decay={2}
       />
     </group>
   );

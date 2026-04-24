@@ -64,23 +64,23 @@ export default function CircuitScene({
     <group position={[-0.8, 0, 0]}>
       <SceneLighting />
       
-      {/* Clean white studio environment */}
-      <Environment preset="studio" intensity={0.6} />
-      
-      {/* Infinite white ground plane */}
+      {/* Dark workshop environment */}
+      <Environment preset="warehouse" intensity={0.12} />
+
+      {/* Dark workbench surface */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.2, -0.041, 0]} receiveShadow>
         <planeGeometry args={[100, 100]} />
-        <meshStandardMaterial color="#f0eeea" roughness={1} metalness={0} />
+        <meshStandardMaterial color="#111720" roughness={0.95} metalness={0.05} />
       </mesh>
 
-      {/* Clean contact shadows */}
-      <ContactShadows 
-        opacity={0.25} 
-        blur={2.0} 
-        far={4} 
-        resolution={1024} 
-        color="#000" 
-        position={[0.2, -0.04, 0]} 
+      {/* Deep contact shadows for dark lab feel */}
+      <ContactShadows
+        opacity={0.85}
+        blur={2.5}
+        far={4}
+        resolution={1024}
+        color="#000510"
+        position={[0.2, -0.04, 0]}
       />
 
       {/* Arduino Uno Board */}
