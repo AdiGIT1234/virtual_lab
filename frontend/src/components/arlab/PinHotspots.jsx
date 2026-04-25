@@ -27,45 +27,63 @@ export default function PinHotspots() {
         const active = level > 0.5;
         const label = formatPinLabel(numPin);
 
+        const isHovered = hoveredPin === numPin;
+
         return (
           <group key={pin} position={[position[0], position[1] + 0.04, position[2]]}>
+            {/* Invisible larger hit area so the tiny sphere is easy to hover */}
             <mesh
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHoveredPin(numPin);
-              }}
-              onPointerOut={(e) => {
-                e.stopPropagation();
-                setHoveredPin((prev) => (prev === numPin ? null : prev));
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleInputPin(numPin, "arlab");
-              }}
+              onPointerOver={(e) => { e.stopPropagation(); setHoveredPin(numPin); }}
+              onPointerOut={(e) => { e.stopPropagation(); setHoveredPin((prev) => (prev === numPin ? null : prev)); }}
+              onClick={(e) => { e.stopPropagation(); toggleInputPin(numPin, "arlab"); }}
             >
-              <sphereGeometry args={[0.014, 16, 16]} />
+              <sphereGeometry args={[0.028, 8, 8]} />
+              <meshStandardMaterial transparent opacity={0} />
+            </mesh>
+
+            {/* Visible pin sphere */}
+            <mesh>
+              <sphereGeometry args={[0.016, 16, 16]} />
               <meshStandardMaterial
-                color={active ? "#00ffd2" : hoveredPin === numPin ? "#0a5bff" : "#0f1f2c"}
-                emissive={active ? "#00ffd2" : hoveredPin === numPin ? "#003060" : "#001015"}
-                emissiveIntensity={active ? 0.9 : 0.25}
-                metalness={0.4}
-                roughness={0.2}
+                color={active ? "#00ffd2" : isHovered ? "#4d8fff" : "#1a3a5c"}
+                emissive={active ? "#00ffd2" : isHovered ? "#1a4aff" : "#001830"}
+                emissiveIntensity={active ? 1.2 : isHovered ? 1.0 : 0.5}
+                metalness={0.3}
+                roughness={0.25}
               />
             </mesh>
-            {hoveredPin === numPin && (
-              <Html position={[0, 0.05, 0]} center distanceFactor={10}>
+
+            {/* Hover ring for extra visibility */}
+            {isHovered && (
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.026, 0.004, 8, 24]} />
+                <meshStandardMaterial
+                  color="#4d8fff"
+                  emissive="#1a4aff"
+                  emissiveIntensity={1.5}
+                  transparent
+                  opacity={0.85}
+                />
+              </mesh>
+            )}
+
+            {isHovered && (
+              <Html position={[0, 0.07, 0]} center distanceFactor={10}>
                 <div
                   style={{
-                    background: "rgba(2, 10, 20, 0.9)",
-                    border: "1px solid rgba(0, 255, 213, 0.4)",
-                    padding: "6px 10px",
+                    background: "rgba(2, 10, 22, 0.92)",
+                    border: "1px solid rgba(0, 229, 255, 0.5)",
+                    padding: "5px 11px",
                     borderRadius: "999px",
                     fontSize: "12px",
-                    color: "#d2f8ff",
+                    fontWeight: 600,
+                    color: "#a8f0ff",
                     whiteSpace: "nowrap",
+                    fontFamily: "'Inter', monospace",
+                    boxShadow: "0 2px 12px rgba(0,229,255,0.2)",
                   }}
                 >
-                  {label}: {active ? "HIGH" : "LOW"}
+                  {label} — {active ? "HIGH" : "LOW"}
                 </div>
               </Html>
             )}
