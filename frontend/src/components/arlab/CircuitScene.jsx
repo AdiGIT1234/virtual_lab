@@ -64,22 +64,28 @@ export default function CircuitScene({
     <group position={[-0.8, 0, 0]}>
       <SceneLighting />
       
-      {/* Dark workshop environment */}
-      <Environment preset="warehouse" intensity={0.12} />
+      {/* Workshop environment — slightly brighter to fill shadows */}
+      <Environment preset="warehouse" intensity={0.22} />
 
-      {/* Dark workbench surface */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.2, -0.041, 0]} receiveShadow>
+      {/* Workbench base — dark matte desk surface */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.2, -0.042, 0]} receiveShadow>
         <planeGeometry args={[100, 100]} />
-        <meshStandardMaterial color="#111720" roughness={0.95} metalness={0.05} />
+        <meshStandardMaterial color="#181f28" roughness={0.92} metalness={0.04} />
       </mesh>
 
-      {/* Deep contact shadows for dark lab feel */}
+      {/* Subtle grid overlay — gives depth + scale reference */}
+      <gridHelper
+        args={[20, 40, "#1e2d3d", "#151e28"]}
+        position={[0.2, -0.039, 0]}
+      />
+
+      {/* Soft contact shadows */}
       <ContactShadows
-        opacity={0.85}
-        blur={2.5}
-        far={4}
+        opacity={0.7}
+        blur={3}
+        far={5}
         resolution={1024}
-        color="#000510"
+        color="#000820"
         position={[0.2, -0.04, 0]}
       />
 

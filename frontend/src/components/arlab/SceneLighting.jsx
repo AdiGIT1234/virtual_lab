@@ -1,48 +1,55 @@
 export default function SceneLighting() {
   return (
     <group>
-      {/* Low ambient — dark lab feel */}
-      <ambientLight intensity={0.18} color="#1a2035" />
+      {/* Ambient — enough to read component colors clearly */}
+      <ambientLight intensity={0.55} color="#c8d8f0" />
 
-      {/* Warm key light — main workbench illumination from upper-right */}
+      {/* Main overhead lab light — broad warm-white, casts clean shadows */}
       <directionalLight
-        position={[3, 9, 5]}
-        intensity={3.2}
-        color="#ffd4a0"
+        position={[2, 8, 4]}
+        intensity={1.8}
+        color="#fff5e8"
         castShadow
         shadow-bias={-0.0002}
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={0.1}
         shadow-camera-far={20}
-        shadow-camera-left={-4}
-        shadow-camera-right={4}
-        shadow-camera-top={4}
-        shadow-camera-bottom={-4}
+        shadow-camera-left={-5}
+        shadow-camera-right={5}
+        shadow-camera-top={5}
+        shadow-camera-bottom={-5}
       />
 
-      {/* Cool fill — blue-purple from left, softens harsh shadows */}
+      {/* Secondary fill from the opposite side — reduces harsh shadows */}
       <directionalLight
-        position={[-6, 4, 2]}
-        intensity={0.8}
-        color="#8ab4f8"
+        position={[-4, 5, -2]}
+        intensity={0.9}
+        color="#b0c8e8"
       />
 
-      {/* Cyan rim light — defines component edges from behind */}
+      {/* Cyan accent rim — defines component edges from behind, feeds bloom */}
       <spotLight
-        position={[-1, 6, -5]}
-        angle={0.5}
-        penumbra={0.8}
-        intensity={4}
+        position={[-1, 5, -4]}
+        angle={0.55}
+        penumbra={0.85}
+        intensity={3}
         color="#00e5ff"
       />
 
-      {/* Subtle warm under-bounce from PCB surface */}
+      {/* Warm PCB bounce — subtle green-teal reflected from the board surface */}
       <pointLight
-        position={[0, 0.1, 0]}
-        intensity={0.4}
-        color="#ffaa55"
-        distance={3}
+        position={[-0.6, 0.15, 0]}
+        intensity={0.6}
+        color="#00c8a0"
+        distance={2.5}
         decay={2}
+      />
+
+      {/* Front fill — reduces silhouetting when viewed from front/side */}
+      <directionalLight
+        position={[0, 3, 8]}
+        intensity={0.5}
+        color="#e8f0ff"
       />
     </group>
   );

@@ -7,13 +7,16 @@ import CircuitScene from "./CircuitScene";
 
 const showStats = import.meta.env.DEV;
 
-// Camera presets like withdiode.com
+// Center of scene: midpoint of Arduino (world -1.4) and breadboard (world 0.4)
+const SCENE_CENTER = [-0.3, 0, 0];
 const CAMERA_PRESETS = {
-  perspective: { pos: [2.5, 3.5, 3.5], target: [0.2, 0, 0], fov: 35 },
-  front: { pos: [0, 1.5, 5], target: [0, 0, 0], fov: 35 },
-  top: { pos: [0, 6, 0.01], target: [0, 0, 0], fov: 35 },
-  side: { pos: [6, 1.5, 0], target: [0, 0, 0], fov: 35 },
+  perspective: { pos: [0.8, 2.8, 2.4], target: SCENE_CENTER, fov: 58 },
+  front:       { pos: [-0.3, 1.0, 5.0], target: SCENE_CENTER, fov: 48 },
+  top:         { pos: [-0.3, 6.0, 0.01], target: SCENE_CENTER, fov: 55 },
+  side:        { pos: [5.0, 1.2, 0], target: SCENE_CENTER, fov: 48 },
 };
+
+const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
 export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -23,19 +26,30 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
   const handleDragStart = useCallback(() => setIsDragging(true), []);
   const handleDragEnd = useCallback(() => setIsDragging(false), []);
 
+  // Keyboard shortcuts: 1-4 to switch camera views
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+      const view = VIEW_KEYS[e.key];
+      if (view) setCameraView(view);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
       <Canvas
         shadows
-        camera={{ position: [2.5, 3.5, 3.5], fov: 35, near: 0.01, far: 100 }}
+        camera={{ position: [0.8, 2.8, 2.4], fov: 58, near: 0.01, far: 100 }}
         dpr={[1, 2]}
-        gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9 }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
       >
         <CameraController view={cameraView} />
         
         {/* Dark lab atmosphere */}
         <color attach="background" args={["#0d1117"]} />
-        <fog attach="fog" args={["#0d1117", 6, 28]} />
+        <fog attach="fog" args={["#0d1117", 10, 40]} />
 
         <Suspense fallback={null}>
           <CircuitScene
@@ -51,13 +65,13 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           />
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
-              luminanceThreshold={0.25}
-              luminanceSmoothing={0.7}
-              intensity={1.8}
+              luminanceThreshold={0.45}
+              luminanceSmoothing={0.8}
+              intensity={0.9}
               mipmapBlur
-              radius={0.5}
+              radius={0.4}
             />
-            <Vignette eskil={false} offset={0.2} darkness={0.65} />
+            <Vignette eskil={false} offset={0.25} darkness={0.45} />
           </EffectComposer>
         </Suspense>
 
@@ -66,7 +80,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           dampingFactor={0.1}
           enablePan={!isDragging}
           enabled={!isDragging}
-          target={[0.2, 0, 0]}
+          target={[-0.3, 0, 0]}
           maxPolarAngle={Math.PI / 2.05}
           minPolarAngle={0.05}
           minDistance={0.5}
@@ -83,50 +97,53 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         {showStats && <Stats showPanel={0} className="arlab-stats" />}
       </Canvas>
 
-      {/* Camera Control Buttons — matches withdiode.com style */}
-      <div style={styles.cameraPanel}>
-        <span style={styles.cameraPanelLabel}>VIEW</span>
+      {/* Camera Control Buttons */}
+      <div style={styles.cameraPanel} role="toolbar" aria-label="Camera views">
+        <span style={styles.cameraPanelLabel} aria-hidden="true">VIEW</span>
         <div style={styles.cameraButtons}>
-          <button
-            style={{ ...styles.cameraBtn, ...(cameraView === "perspective" ? styles.cameraBtnActive : {}) }}
-            onClick={() => setCameraView("perspective")}
-            title="Orbit View"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </button>
-          <button
-            style={{ ...styles.cameraBtn, ...(cameraView === "front" ? styles.cameraBtnActive : {}) }}
-            onClick={() => setCameraView("front")}
-            title="Front View"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <path d="M12 8v8M8 12h8"/>
-            </svg>
-          </button>
-          <button
-            style={{ ...styles.cameraBtn, ...(cameraView === "top" ? styles.cameraBtnActive : {}) }}
-            onClick={() => setCameraView("top")}
-            title="Top View"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <circle cx="12" cy="12" r="9"/>
-            </svg>
-          </button>
-          <button
-            style={{ ...styles.cameraBtn, ...(cameraView === "side" ? styles.cameraBtnActive : {}) }}
-            onClick={() => setCameraView("side")}
-            title="Side View"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 4h16v16H4z"/>
-              <path d="M4 12h16"/>
-            </svg>
-          </button>
+          {[
+            { view: "perspective", label: "Orbit view (1)", key: "1", icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            )},
+            { view: "front", label: "Front view (2)", key: "2", icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            )},
+            { view: "top", label: "Top view (3)", key: "3", icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/>
+              </svg>
+            )},
+            { view: "side", label: "Side view (4)", key: "4", icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <line x1="4" y1="12" x2="20" y2="12"/>
+              </svg>
+            )},
+          ].map(({ view, label, icon }) => (
+            <button
+              key={view}
+              style={{ ...styles.cameraBtn, ...(cameraView === view ? styles.cameraBtnActive : {}) }}
+              onClick={() => setCameraView(view)}
+              aria-label={label}
+              aria-pressed={cameraView === view}
+            >
+              {icon}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {/* Controls hint — bottom-left */}
+      <div style={styles.hintsBar} aria-label="Navigation controls">
+        <span style={styles.hint}><kbd style={styles.kbd}>Drag</kbd> Rotate</span>
+        <span style={styles.hint}><kbd style={styles.kbd}>Scroll</kbd> Zoom</span>
+        <span style={styles.hint}><kbd style={styles.kbd}>Right-drag</kbd> Pan</span>
+        <span style={styles.hint}><kbd style={styles.kbd}>1–4</kbd> Views</span>
       </div>
 
       {/* Property Inspector */}
@@ -276,5 +293,38 @@ const styles = {
     color: "#79c0ff",
     fontWeight: 600,
     fontFamily: "monospace",
+  },
+  hintsBar: {
+    position: "absolute",
+    bottom: 14,
+    left: 14,
+    display: "flex",
+    gap: 14,
+    alignItems: "center",
+    background: "rgba(13,17,23,0.75)",
+    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(48,54,61,0.7)",
+    borderRadius: 8,
+    padding: "5px 12px",
+    pointerEvents: "none",
+  },
+  hint: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    fontSize: 11,
+    color: "#6e7681",
+    fontFamily: "'Inter', sans-serif",
+    whiteSpace: "nowrap",
+  },
+  kbd: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    color: "#8b949e",
+    background: "rgba(48,54,61,0.8)",
+    border: "1px solid #444c56",
+    borderRadius: 4,
+    padding: "1px 5px",
+    fontWeight: 600,
   },
 };

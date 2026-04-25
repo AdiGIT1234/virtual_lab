@@ -97,16 +97,16 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
 
   return (
     <group>
-      {/* PCB Body — off-white with slight warmth */}
+      {/* PCB Body — mid-tone warm gray, toned down in dark lab environment */}
       <mesh receiveShadow castShadow position={[0, -0.008, 0]}>
         <boxGeometry args={[boardWidth, 0.06, boardDepth]} />
-        <meshStandardMaterial color="#e8e2d4" roughness={0.85} metalness={0.02} />
+        <meshStandardMaterial color="#9e9890" roughness={0.92} metalness={0.03} />
       </mesh>
 
       {/* Subtle rounded edge bevel */}
       <mesh position={[0, -0.008, 0]}>
         <boxGeometry args={[boardWidth + 0.01, 0.058, boardDepth + 0.01]} />
-        <meshStandardMaterial color="#d4cfc4" roughness={0.9} metalness={0} transparent opacity={0.45} />
+        <meshStandardMaterial color="#8e8a82" roughness={0.92} metalness={0} transparent opacity={0.45} />
       </mesh>
 
       {/* Center channel divider */}
