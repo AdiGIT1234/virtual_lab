@@ -25,6 +25,11 @@ void loop() {
       { id: "blink-w3", source: "led-1::main", target: "gnd-1::main", bends: [], color: "#333" },
     ],
     outputs: { 13: 1 },
+    arlabPositions: {
+      "res-1": { pos: [0.175, 0.085, -0.065], rot: [0, 0, 0] },
+      "led-1": { pos: [0.675, 0.10, 0],       rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.875, 0.01, 0.24],    rot: [0, 0, 0] },
+    },
   },
 
   button_led: {
@@ -58,6 +63,12 @@ void loop() {
     ],
     outputs: { 13: 0 },
     inputs:  { 2: 0 },
+    arlabPositions: {
+      "btn-1": { pos: [-0.175, 0.085, 0],      rot: [0, 0, 0] },
+      "led-1": { pos: [0.675,  0.10,  0],      rot: [0, 0, 0] },
+      "res-1": { pos: [0.275,  0.085, -0.065], rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.875,  0.01,  0.24],   rot: [0, 0, 0] },
+    },
   },
 
   servo_sweep: {
@@ -93,6 +104,11 @@ void loop() {
       { id: "servo-w2", source: "vcc-1::main", target: "srv-1::main", bends: [], color: "#dc2626" },
     ],
     outputs: { 9: 0.5 },
+    arlabPositions: {
+      "srv-1": { pos: [0.575, 0.085, 0],    rot: [0, Math.PI/2, 0] },
+      "vcc-1": { pos: [0.0,   0.01, -0.24], rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.0,   0.01,  0.24], rot: [0, 0, 0] },
+    },
   },
 
   timer_555_blink: {
@@ -128,6 +144,15 @@ void loop() {}`,
       { id: "t555-w9", source: "cap-timing::t2",   target: "gnd-timer::main",   bends: [], color: "#333"    },
     ],
     outputs: { 3: 1 },
+    arlabPositions: {
+      "ic-555":        { pos: [0.475, 0.085, 0],      rot: [0, 0, 0] },
+      "led-timer":     { pos: [0.875, 0.10,  0],      rot: [0, 0, 0] },
+      "res-timing":    { pos: [0.175, 0.085, -0.115], rot: [0, 0, 0] },
+      "cap-timing":    { pos: [0.175, 0.085,  0.115], rot: [0, 0, 0] },
+      "res-discharge": { pos: [0.075, 0.085, -0.065], rot: [0, 0, 0] },
+      "vcc-timer":     { pos: [0.0,   0.01,  -0.24],  rot: [0, 0, 0] },
+      "gnd-timer":     { pos: [0.0,   0.01,   0.24],  rot: [0, 0, 0] },
+    },
   },
 
   npn_switch: {
@@ -162,6 +187,14 @@ void loop() {
       { id: "npn-w6", source: "q1::e",                target: "gnd-q::main",       bends: [], color: "#333"    },
     ],
     outputs: { 9: 0 },
+    arlabPositions: {
+      "q1":            { pos: [0.375, 0.085, 0],       rot: [0, 0, 0] },
+      "led-q":         { pos: [0.725, 0.10,  0],       rot: [0, 0, 0] },
+      "res-base":      { pos: [0.175, 0.085, -0.065],  rot: [0, 0, 0] },
+      "res-collector": { pos: [0.575, 0.085, -0.115],  rot: [0, 0, 0] },
+      "vcc-q":         { pos: [0.0,   0.01,  -0.24],   rot: [0, 0, 0] },
+      "gnd-q":         { pos: [0.0,   0.01,   0.24],   rot: [0, 0, 0] },
+    },
   },
 
   buzzer_alarm: {
@@ -195,6 +228,12 @@ void loop() {
     ],
     outputs: { 11: 0 },
     inputs:  { 4: 0 },
+    arlabPositions: {
+      "buzz-1":    { pos: [0.675, 0.085, 0],      rot: [0, 0, 0] },
+      "btn-alarm": { pos: [-0.175, 0.085, 0],     rot: [0, 0, 0] },
+      "res-buzz":  { pos: [0.375, 0.085, -0.065], rot: [0, 0, 0] },
+      "gnd-buzz":  { pos: [0.875, 0.01,  0.24],   rot: [0, 0, 0] },
+    },
   },
 
   // ── ESP32 / Gold Standard Presets ─────────────────────────────────────────
@@ -267,6 +306,12 @@ void loop() {
     ],
     outputs: {},
     inputs: { 34: 0.5, 35: 0.6 },
+    arlabPositions: {
+      "oled-1": { pos: [0.475, 0.085, 0],     rot: [0, 0, 0] },
+      "dht-1":  { pos: [-0.175, 0.085, 0],    rot: [0, 0, 0] },
+      "vcc-1":  { pos: [0.0,   0.01, -0.24],  rot: [0, 0, 0] },
+      "gnd-1":  { pos: [0.0,   0.01,  0.24],  rot: [0, 0, 0] },
+    },
   },
 
   piano_keyboard: {
@@ -329,6 +374,18 @@ void loop() {
     ],
     outputs: { 11: 0 },
     inputs:  { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 },
+    arlabPositions: {
+      "btn-0": { pos: [-0.375, 0.085, 0], rot: [0, 0, 0] },
+      "btn-1": { pos: [-0.325, 0.085, 0], rot: [0, 0, 0] },
+      "btn-2": { pos: [-0.275, 0.085, 0], rot: [0, 0, 0] },
+      "btn-3": { pos: [-0.225, 0.085, 0], rot: [0, 0, 0] },
+      "btn-4": { pos: [-0.175, 0.085, 0], rot: [0, 0, 0] },
+      "btn-5": { pos: [-0.125, 0.085, 0], rot: [0, 0, 0] },
+      "btn-6": { pos: [-0.075, 0.085, 0], rot: [0, 0, 0] },
+      "btn-7": { pos: [-0.025, 0.085, 0], rot: [0, 0, 0] },
+      "buz-1": { pos: [0.425,  0.085, 0], rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.875,  0.01,  0.24], rot: [0, 0, 0] },
+    },
   },
 
   industrial_dashboard: {
@@ -408,5 +465,11 @@ void loop() {
     ],
     outputs: {},
     inputs: { 34: 0.5 },
+    arlabPositions: {
+      "tft-1": { pos: [0.475, 0.085, 0],     rot: [0, 0, 0] },
+      "pot-1": { pos: [-0.175, 0.085, 0],    rot: [0, 0, 0] },
+      "vcc-1": { pos: [0.0,   0.01, -0.24],  rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.0,   0.01,  0.24],  rot: [0, 0, 0] },
+    },
   },
 };

@@ -3,6 +3,13 @@ import { useEffect, useState, useCallback } from "react";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
+import { UNO_PIN_COORDS } from "../constants/unoPinCoords";
+
+// Inline replica of CircuitScene's pinToSceneCoords helper (cannot be imported from a Three component).
+const pinToSceneCoords = (pinNum) => {
+  const local = UNO_PIN_COORDS[pinNum] || [0, 0.05, 0];
+  return [-0.6 + local[0], 0.01 + local[1] + 0.04, local[2]];
+};
 
 const presetOptions = Object.values(CIRCUIT_PRESETS);
 
@@ -114,6 +121,10 @@ export default function ARLabPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [occupiedHoles, setOccupiedHoles] = useState(new Set());
   const [hoveredPart, setHoveredPart] = useState(null);
+  const [simRunning, setSimRunning] = useState(false);
+  const [wiringMode, setWiringMode] = useState(false);
+  const [wiringFrom, setWiringFrom] = useState(null);
+  const [drawnWires, setDrawnWires] = useState([]);
 
   useEffect(() => {
     loadPreset(presetParam);
@@ -127,6 +138,28 @@ export default function ARLabPage() {
       return next;
     });
   }, []);
+
+  const handlePinClick = useCallback((pinNum) => {
+    if (!wiringMode) return;
+    if (wiringFrom === null) {
+      setWiringFrom(pinNum);
+      return;
+    }
+    if (wiringFrom === pinNum) {
+      // Click same pin to cancel
+      setWiringFrom(null);
+      return;
+    }
+    const p1 = pinToSceneCoords(wiringFrom);
+    const p2 = pinToSceneCoords(pinNum);
+    const mid = [
+      (p1[0] + p2[0]) / 2,
+      Math.max(p1[1], p2[1]) + 0.14,
+      (p1[2] + p2[2]) / 2,
+    ];
+    setDrawnWires((prev) => [...prev, { points: [p1, mid, p2], color: "#00e5ff" }]);
+    setWiringFrom(null);
+  }, [wiringMode, wiringFrom]);
 
   const handleInsertPart = useCallback((part) => {
     if (addComponent && part.type !== "BOARD" && part.type !== "WIRE") {
@@ -196,9 +229,26 @@ export default function ARLabPage() {
           >
             2D Workbench
           </button>
-          <button style={styles.simulateBtn} aria-label="Start simulation">
+          <button
+            style={{
+              ...styles.headerBtn,
+              background: wiringMode ? "rgba(0,229,255,0.15)" : "#21262d",
+              color: wiringMode ? "#00e5ff" : "#c9d1d9",
+              border: wiringMode ? "1px solid rgba(0,229,255,0.5)" : "1px solid #30363d",
+            }}
+            onClick={() => { setWiringMode(m => !m); setWiringFrom(null); }}
+            aria-label="Toggle wire drawing mode"
+            aria-pressed={wiringMode}
+          >
+            {wiringMode ? "Exit Wire Mode" : "Add Wire"}
+          </button>
+          <button
+            style={{ ...styles.simulateBtn, background: simRunning ? "#b91c1c" : "#1a7f37" }}
+            onClick={() => setSimRunning((r) => !r)}
+            aria-label="Toggle simulation"
+          >
             <span style={styles.simDot} aria-hidden="true"/>
-            Simulate
+            {simRunning ? "Stop" : "Simulate"}
           </button>
         </div>
       </header>
@@ -285,6 +335,9 @@ export default function ARLabPage() {
             componentStyles={{}}
             occupiedHoles={occupiedHoles}
             onHoleClick={handleHoleClick}
+            onPinClick={wiringMode ? handlePinClick : undefined}
+            wiringFrom={wiringFrom}
+            drawnWires={drawnWires}
           />
         </div>
       </div>

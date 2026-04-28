@@ -43,26 +43,46 @@ function vSegOverlaps(y1, y2, fx, chip, pad) {
   );
 }
 
-function buildOrthogonalPath(sx, sy, ex, ey, chip) {
-  const PAD = 20; 
-  const DROP = 18; // Vertical lead drop for standard components
-  const EXT = 35;  // Horizontal lead extension for MCU edge pins
+// Detect which side of a component a terminal sits on by comparing screen positions.
+// Returns 'top' | 'bottom' | 'left' | 'right', defaulting to 'bottom'.
+function detectTerminalSide(termNode) {
+  const compRoot = termNode?.parentElement?.parentElement;
+  if (!compRoot) return 'bottom';
+  const cr = compRoot.getBoundingClientRect();
+  if (cr.width < 20 || cr.height < 20) return 'bottom';
+  const tr = termNode.getBoundingClientRect();
+  const tx = tr.left + tr.width  / 2;
+  const ty = tr.top  + tr.height / 2;
+  const dTop    = Math.abs(ty - cr.top);
+  const dBottom = Math.abs(ty - cr.bottom);
+  const dLeft   = Math.abs(tx - cr.left);
+  const dRight  = Math.abs(tx - cr.right);
+  const minD = Math.min(dTop, dBottom, dLeft, dRight);
+  if (minD === dTop)    return 'top';
+  if (minD === dLeft)   return 'left';
+  if (minD === dRight)  return 'right';
+  return 'bottom';
+}
+
+// Build an orthogonal SVG path where wires exit each port perpendicularly.
+// srcSide / tgtSide: 'top' | 'bottom' | 'left' | 'right' | null
+// When null the function falls back to chip-edge detection (MCU pins), then 'bottom'.
+function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
+  const PAD  = 20;
+  const STUB = 32; // perpendicular exit length in px
 
   const toPath = (pts) => {
     if (pts.length < 2) return '';
-    // Use cubic bezier curves at each corner for a natural cable arch
     let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
       const prev = pts[i - 1];
       const curr = pts[i];
       if (Math.abs(curr.x - prev.x) < 0.1 && Math.abs(curr.y - prev.y) < 0.1) continue;
-      // Add a slight arch on long straight segments by offsetting mid control point
       const mx = (prev.x + curr.x) / 2;
       const my = (prev.y + curr.y) / 2;
       const dx = curr.x - prev.x;
       const dy = curr.y - prev.y;
       const len = Math.sqrt(dx * dx + dy * dy);
-      // Perpendicular offset proportional to segment length (max 6px)
       const sag = Math.min(len * 0.04, 6);
       const ox = -dy / (len || 1) * sag;
       const oy =  dx / (len || 1) * sag;
@@ -71,65 +91,97 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip) {
     return d;
   };
 
-  if (!chip) {
-    const midX = sx + (ex - sx) / 2;
-    return toPath([
-      { x: sx, y: sy },
-      { x: sx, y: sy + DROP },
-      { x: midX, y: sy + DROP },
-      { x: midX, y: ey },
-      { x: ex, y: ey }
-    ]);
+  // Resolve side — if not provided use chip-edge detection (handles MCU pins), else 'bottom'.
+  function resolveSide(x, y, given) {
+    if (given) return given;
+    if (chip) {
+      if (Math.abs(x - chip.left)  < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'left';
+      if (Math.abs(x - chip.right) < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'right';
+    }
+    return 'bottom';
   }
 
-  // Determine Safe Start Point (extracting outward if it's a chip pin)
-  const isSourceLeft = Math.abs(sx - chip.left) < 50 && sy >= chip.top - 10 && sy <= chip.bottom + 10;
-  const isSourceRight = Math.abs(sx - chip.right) < 50 && sy >= chip.top - 10 && sy <= chip.bottom + 10;
-  const sExtX = isSourceLeft ? sx - EXT : (isSourceRight ? sx + EXT : sx);
-  const sExtY = (isSourceLeft || isSourceRight) ? sy : sy + DROP;
+  const rSrc = resolveSide(sx, sy, srcSide);
+  // tgtSide == null means free target (active wire cursor) — no entry stub
+  const rTgt = tgtSide != null ? resolveSide(ex, ey, tgtSide) : null;
 
-  // Determine Safe End Point
-  const isTargetLeft = Math.abs(ex - chip.left) < 50 && ey >= chip.top - 10 && ey <= chip.bottom + 10;
-  const isTargetRight = Math.abs(ex - chip.right) < 50 && ey >= chip.top - 10 && ey <= chip.bottom + 10;
-  const eExtX = isTargetLeft ? ex - EXT : (isTargetRight ? ex + EXT : ex);
-  const eExtY = ey;
+  function stubPt(x, y, side) {
+    if (side === 'top')    return { x,        y: y - STUB };
+    if (side === 'bottom') return { x,        y: y + STUB };
+    if (side === 'left')   return { x: x - STUB, y };
+    /* right */            return { x: x + STUB, y };
+  }
 
-  let midX = sExtX + (eExtX - sExtX) / 2;
+  const sExt = stubPt(sx, sy, rSrc);
+  const eExt = rTgt ? stubPt(ex, ey, rTgt) : { x: ex, y: ey };
 
-  let pts = [
-    { x: sx, y: sy },
-    { x: sExtX, y: sExtY },
-    { x: midX, y: sExtY },
-    { x: midX, y: eExtY },
-    { x: eExtX, y: eExtY },
-    { x: ex, y: ey }
-  ];
+  const srcHoriz = rSrc === 'left' || rSrc === 'right';
+  const tgtHoriz = rTgt === 'left' || rTgt === 'right';
 
-  const checkPtsOverlap = (p) => {
+  let pts;
+
+  if (srcHoriz && (!rTgt || tgtHoriz)) {
+    // Both exits horizontal: Z-path through midY
+    const midY = (sExt.y + eExt.y) / 2;
+    pts = [
+      { x: sx,     y: sy },
+      sExt,
+      { x: sExt.x, y: midY },
+      { x: eExt.x, y: midY },
+      eExt,
+    ];
+  } else if (!srcHoriz && (!rTgt || !tgtHoriz)) {
+    // Both exits vertical: Z-path through midX
+    const midX = (sExt.x + eExt.x) / 2;
+    pts = [
+      { x: sx, y: sy },
+      sExt,
+      { x: midX, y: sExt.y },
+      { x: midX, y: eExt.y },
+      eExt,
+    ];
+  } else if (srcHoriz && rTgt && !tgtHoriz) {
+    // Horizontal source → vertical target: go vertical first from stub, then horizontal
+    pts = [
+      { x: sx,     y: sy },
+      sExt,
+      { x: sExt.x, y: eExt.y },
+      eExt,
+    ];
+  } else {
+    // Vertical source → horizontal target: go horizontal first from stub, then vertical
+    pts = [
+      { x: sx, y: sy },
+      sExt,
+      { x: eExt.x, y: sExt.y },
+      eExt,
+    ];
+  }
+
+  if (rTgt) pts.push({ x: ex, y: ey });
+
+  const checkOverlap = (p) => {
+    if (!chip) return false;
     for (let i = 0; i < p.length - 1; i++) {
-      if (Math.abs(p[i].y - p[i+1].y) < 0.1) {
-         if (hSegOverlaps(p[i].x, p[i+1].x, p[i].y, chip, PAD)) return true;
-      }
-      if (Math.abs(p[i].x - p[i+1].x) < 0.1) {
-         if (vSegOverlaps(p[i].y, p[i+1].y, p[i].x, chip, PAD)) return true;
-      }
+      if (Math.abs(p[i].y - p[i+1].y) < 0.1 && hSegOverlaps(p[i].x, p[i+1].x, p[i].y, chip, PAD)) return true;
+      if (Math.abs(p[i].x - p[i+1].x) < 0.1 && vSegOverlaps(p[i].y, p[i+1].y, p[i].x, chip, PAD)) return true;
     }
     return false;
   };
 
-  if (!checkPtsOverlap(pts)) return toPath(pts);
+  if (chip && checkOverlap(pts)) {
+    const bypassY = chip.bottom + PAD + 10;
+    pts = [
+      { x: sx,     y: sy },
+      sExt,
+      { x: sExt.x, y: bypassY },
+      { x: eExt.x, y: bypassY },
+      eExt,
+    ];
+    if (rTgt) pts.push({ x: ex, y: ey });
+  }
 
-  // Fallback: Bypass directly around the bottom of the chip if direct route is colliding
-  const bypassY = chip.bottom + PAD + 10;
-  
-  return toPath([
-    { x: sx, y: sy },
-    { x: sExtX, y: sExtY },
-    { x: sExtX, y: bypassY },
-    { x: eExtX, y: bypassY },
-    { x: eExtX, y: eExtY },
-    { x: ex, y: ey }
-  ]);
+  return toPath(pts);
 }
 
 function getMcuPin(portStr) {
@@ -174,8 +226,9 @@ const WiringCanvas = ({
           if (!node) return null;
           const rect = node.getBoundingClientRect();
           return {
-            x: (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-            y: (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
+            y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            side: null, // MCU pins: detected inside buildOrthogonalPath via chip bounds
           };
         } else {
           const [compId, termId] = portStr.split('::');
@@ -184,8 +237,9 @@ const WiringCanvas = ({
           if (!node) return null;
           const rect = node.getBoundingClientRect();
           return {
-            x: (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-            y: (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
+            y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            side: detectTerminalSide(node),
           };
         }
       };
@@ -248,26 +302,28 @@ const WiringCanvas = ({
     const chip = getChipRect(workspaceRect, viewScale, viewOffset);
 
     const resolveStart = (portStr, fallbackX, fallbackY) => {
-      if (!portStr || !workspaceNode) return { x: fallbackX, y: fallbackY };
+      if (!portStr || !workspaceNode) return { x: fallbackX, y: fallbackY, side: null };
       if (portStr.startsWith('mcu::')) {
         const pinVal = portStr.split('::')[1];
         let node = document.getElementById(`chip-pin-tip-${pinVal}`);
         if (!node) node = document.getElementById(`chip-pin-${pinVal}`);
-        if (!node) return { x: fallbackX, y: fallbackY };
+        if (!node) return { x: fallbackX, y: fallbackY, side: null };
         const rect = node.getBoundingClientRect();
         return {
-          x: (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-          y: (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
+          y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          side: null,
         };
       } else {
         const [compId, termId] = portStr.split('::');
         let node = document.getElementById(`comp-terminal-${compId}-${termId}`);
         if (!node) node = document.getElementById(`comp-terminal-${compId}`);
-        if (!node) return { x: fallbackX, y: fallbackY };
+        if (!node) return { x: fallbackX, y: fallbackY, side: null };
         const rect = node.getBoundingClientRect();
         return {
-          x: (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-          y: (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
+          y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          side: detectTerminalSide(node),
         };
       }
     };
@@ -278,7 +334,8 @@ const WiringCanvas = ({
       y: (activeWire.currentY - workspaceRect.top)  / viewScale,
     };
 
-    const path = buildOrthogonalPath(startP.x, startP.y, curP.x, curP.y, chip);
+    // tgtSide = null → no entry stub for the free cursor end
+    const path = buildOrthogonalPath(startP.x, startP.y, curP.x, curP.y, chip, startP.side, null);
     return (
       <path
         d={path}
@@ -310,6 +367,8 @@ const WiringCanvas = ({
             line.sourcePos.x, line.sourcePos.y,
             line.targetPos.x, line.targetPos.y,
             line.chip,
+            line.sourcePos.side,
+            line.targetPos.side,
           );
           const isSelected = selectedWireId === line.id;
           const isActive   = (line.logicLevel ?? 0) > 0;
@@ -452,15 +511,15 @@ const WiringCanvas = ({
             />
           ))}
           <button
-            style={{ 
-              gridColumn: '1 / -1', 
-              marginTop: '6px', 
-              padding: '8px 12px', 
-              borderRadius: '6px', 
-              border: '1px solid #ff4444', 
-              background: 'rgba(80,0,0,0.4)', 
-              color: '#ff8888', 
-              cursor: 'pointer', 
+            style={{
+              gridColumn: '1 / -1',
+              marginTop: '6px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #ff4444',
+              background: 'rgba(80,0,0,0.4)',
+              color: '#ff8888',
+              cursor: 'pointer',
               fontSize: '11px',
               fontWeight: 600,
             }}

@@ -4,21 +4,23 @@ import { OrbitControls, Stats } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import CircuitScene from "./CircuitScene";
+import Wire3D from "./Wire3D";
+import { useCircuitStore } from "../../state/useCircuitStore";
 
 const showStats = import.meta.env.DEV;
 
-// Center of scene: midpoint of Arduino (world -1.4) and breadboard (world 0.4)
-const SCENE_CENTER = [-0.3, 0, 0];
+// Scene center: midpoint between Arduino (world x≈-1.4) and breadboard mid (world x≈0.4)
+const SCENE_CENTER = [-0.2, 0, 0.1];
 const CAMERA_PRESETS = {
-  perspective: { pos: [0.8, 2.8, 2.4], target: SCENE_CENTER, fov: 58 },
-  front:       { pos: [-0.3, 1.0, 5.0], target: SCENE_CENTER, fov: 48 },
-  top:         { pos: [-0.3, 6.0, 0.01], target: SCENE_CENTER, fov: 55 },
-  side:        { pos: [5.0, 1.2, 0], target: SCENE_CENTER, fov: 48 },
+  perspective: { pos: [0.4, 2.0, 3.2], target: SCENE_CENTER, fov: 52 },
+  front:       { pos: [-0.2, 0.8, 5.0], target: SCENE_CENTER, fov: 44 },
+  top:         { pos: [-0.2, 6.0, 0.01], target: SCENE_CENTER, fov: 52 },
+  side:        { pos: [4.5, 1.0, 0.1], target: SCENE_CENTER, fov: 44 },
 };
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
-export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, drawnWires = [] }) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
@@ -41,7 +43,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
       <Canvas
         shadows
-        camera={{ position: [0.8, 2.8, 2.4], fov: 58, near: 0.01, far: 100 }}
+        camera={{ position: [0.4, 2.0, 3.2], fov: 52, near: 0.01, far: 100 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
       >
@@ -55,14 +57,18 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           <CircuitScene
             highlightedComponentId={highlightedId}
             componentStyles={componentStyles}
-            wires={wires}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onHoleClick={onHoleClick}
             occupiedHoles={occupiedHoles}
+            onPinClick={onPinClick}
+            wiringFrom={wiringFrom}
           />
+          {drawnWires.map((wire, i) => (
+            <Wire3D key={`drawn-${i}`} points={wire.points} color={wire.color || "#00e5ff"} />
+          ))}
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
               luminanceThreshold={0.45}
@@ -80,7 +86,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           dampingFactor={0.1}
           enablePan={!isDragging}
           enabled={!isDragging}
-          target={[-0.3, 0, 0]}
+          target={[-0.2, 0, 0.1]}
           maxPolarAngle={Math.PI / 2.05}
           minPolarAngle={0.05}
           minDistance={0.5}
@@ -180,17 +186,39 @@ function CameraController({ view }) {
 }
 
 function PropertyInspectorHUD({ selectedId, onClose }) {
+  const components = useCircuitStore((s) => s.components);
+  const outputs    = useCircuitStore((s) => s.outputs);
+  const component  = components.find((c) => c.id === selectedId);
+  if (!component) return null;
+
+  const level = outputs[component.pin] ?? 0;
+  const rows = [
+    { label: "Type",  value: component.type },
+    component.pin != null && { label: "Pin",  value: `D${component.pin}` },
+    component.resistance != null && { label: "Value", value: `${component.resistance} Ω` },
+    component.metadata?.capacitance != null && { label: "Value", value: `${component.metadata.capacitance} ${component.metadata.unit || "nF"}` },
+    component.pin != null && { label: "State", value: level > 0.5 ? "HIGH" : level > 0 ? `PWM ${Math.round(level * 100)}%` : "LOW" },
+  ].filter(Boolean);
+
   return (
     <div style={styles.inspector}>
       <div style={styles.inspectorHeader}>
-        <span style={styles.inspectorTitle}>{selectedId}</span>
-        <button onClick={onClose} style={styles.inspectorClose}>×</button>
+        <span style={styles.inspectorTitle}>{component.type}</span>
+        <button onClick={onClose} style={styles.inspectorClose} aria-label="Close inspector">×</button>
       </div>
       <div style={styles.inspectorBody}>
-        <div style={styles.inspectorRow}>
-          <span style={styles.inspectorLabel}>ID</span>
-          <span style={styles.inspectorValue}>{selectedId}</span>
+        <div style={{ ...styles.inspectorRow, borderBottom: "1px solid #21262d", paddingBottom: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: "#6e7681", fontFamily: "monospace" }}>{selectedId}</span>
         </div>
+        {rows.map((row) => (
+          <div key={row.label} style={styles.inspectorRow}>
+            <span style={styles.inspectorLabel}>{row.label}</span>
+            <span style={{
+              ...styles.inspectorValue,
+              color: row.label === "State" && level > 0.5 ? "#4ac26b" : row.label === "State" ? "#8b949e" : "#79c0ff",
+            }}>{row.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
