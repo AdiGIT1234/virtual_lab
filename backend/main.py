@@ -37,7 +37,7 @@ from starlette.requests import Request
 _rag_engine = None
 
 def get_rag_engine():
-    """Lazy-load the RAG engine so the server starts even without GEMINI_API_KEY."""
+    """Lazy-load the RAG engine so the server starts even without GROQ_API_KEY."""
     global _rag_engine
     if _rag_engine is None:
         from rag.query import RAGEngine  # type: ignore
@@ -297,9 +297,9 @@ def chat(payload: ChatInput, request:Request):
             "has_context": result.get("has_context", False)
         }
     except ValueError as e:
-        # GEMINI_API_KEY not set
+        # GROQ_API_KEY not set
         return {
-            "answer": "🔑 The AI assistant is not configured yet. Please set the GEMINI_API_KEY in the backend .env file.",
+            "answer": "🔑 The AI assistant is not configured yet. Please set the GROQ_API_KEY in the backend .env file.",
             "sources": [],
             "has_context": False
         }

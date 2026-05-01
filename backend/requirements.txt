@@ -13,8 +13,8 @@ supabase>=2.3.0
 # --- PDF / RAG ---
 pypdf>=4.0.0
 
-# --- Google AI ---
-google-genai>=1.0.0
+# --- Groq AI ---
+groq>=0.9.0
 
 # --- Vector DB (ChromaDB) ---
 chromadb>=0.5.0

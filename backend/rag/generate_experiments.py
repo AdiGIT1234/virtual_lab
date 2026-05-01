@@ -5,7 +5,7 @@ Uses the RAG engine to generate complete content for all 15 experiments.
 Saves each experiment as a JSON file in backend/data/experiments/.
 
 Usage:
-    export GEMINI_API_KEY='your-key-here'
+    export GROQ_API_KEY='your-key-here'
     python -m rag.generate_experiments
 """
 
