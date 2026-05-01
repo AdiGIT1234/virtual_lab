@@ -74,14 +74,32 @@ class RAGEngine:
 
         return retrieved
 
-    def _generate(self, prompt: str, max_tokens: int = 1024) -> str:
-        """Call Groq chat completions."""
+    SYSTEM_PROMPT = (
+        "You are Embedex, a friendly teaching assistant for an ATmega328P and ESP32 virtual electronics lab. "
+        "For casual greetings or small talk, respond briefly and warmly — do NOT launch into technical content unprompted. "
+        "For technical questions, give concise, accurate answers referencing register names and bit positions where relevant. "
+        "Never write multi-page essays. Keep answers focused and proportional to the question asked."
+    )
+
+    def _generate(self, messages: list[dict[str, str]], max_tokens: int = 1024) -> str:
+        """Call Groq chat completions with a system prompt."""
         response = self.client.chat.completions.create(
             model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": self.SYSTEM_PROMPT}] + messages,
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content or ""
+
+    def _is_technical(self, question: str) -> bool:
+        """Return True if the question looks like a technical query worth running RAG on."""
+        q = question.lower().strip()
+        # Skip RAG for very short or clearly conversational messages
+        if len(q) < 10:
+            return False
+        greetings = {"hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "bye", "cool", "nice", "great"}
+        if q.rstrip("!.,?") in greetings:
+            return False
+        return True
 
     def ask(self, question: str, context_mode: str = "chatbot") -> dict[str, Any]:
         """
@@ -94,11 +112,11 @@ class RAGEngine:
         Returns:
             {"answer": str, "sources": list[dict], "has_context": bool}
         """
-        # Step 1: Retrieve relevant chunks
-        retrieved = self._retrieve(question, n_results=5)
+        # Step 1: Retrieve relevant chunks only for technical questions
+        retrieved = self._retrieve(question, n_results=5) if self._is_technical(question) else []
         has_context = len(retrieved) > 0
 
-        # Step 2: Build the prompt
+        # Step 2: Build the user message
         if has_context:
             context_text = "\n\n---\n\n".join([
                 f"[Source: {r['source']}, Page {r['page']}]\n{r['text']}"
@@ -106,45 +124,24 @@ class RAGEngine:
             ])
 
             if context_mode == "chatbot":
-                prompt = f"""You are an expert ATmega328P microcontroller teaching assistant for a virtual lab.
-Answer the student's question using ONLY the information from the datasheet excerpts below.
-Be concise, practical, and include register names and bit positions when relevant.
-If the excerpts don't contain enough information, say so honestly and provide general guidance.
-
-## Datasheet Excerpts:
-{context_text}
-
-## Student's Question:
-{question}
-
-## Your Answer:"""
-            else:  # theory mode
-                prompt = f"""You are writing educational content about the ATmega328P microcontroller.
-Using the datasheet excerpts below, write a clear, thorough explanation suitable for engineering students.
-Include register names, bit configurations, and practical examples where appropriate.
-
-## Datasheet Excerpts:
-{context_text}
-
-## Topic:
-{question}
-
-## Educational Content:"""
+                user_content = (
+                    f"Use the datasheet excerpts below to answer the question. "
+                    f"Be concise and practical.\n\n"
+                    f"## Datasheet Excerpts:\n{context_text}\n\n"
+                    f"## Question:\n{question}"
+                )
+            else:
+                user_content = (
+                    f"Using the datasheet excerpts below, write a clear explanation for engineering students.\n\n"
+                    f"## Datasheet Excerpts:\n{context_text}\n\n"
+                    f"## Topic:\n{question}"
+                )
         else:
-            # No documents ingested — use model's built-in knowledge
-            prompt = f"""You are an expert ATmega328P microcontroller teaching assistant.
-Answer the following question about the ATmega328P microcontroller.
-Be specific — include register names (DDRx, PORTx, PINx, TCCR, etc.), bit positions, and practical code examples where relevant.
-If you're not sure about specific register details, say so.
-
-## Question:
-{question}
-
-## Answer:"""
+            user_content = question
 
         # Step 3: Generate answer
         try:
-            answer = self._generate(prompt)
+            answer = self._generate([{"role": "user", "content": user_content}])
         except Exception as e:
             answer = f"Error generating response: {str(e)}"
 
@@ -242,7 +239,7 @@ Generate a COMPLETE experiment in the following JSON structure. Return ONLY vali
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                text = self._generate(prompt, max_tokens=2048).strip()
+                text = self._generate([{"role": "user", "content": prompt}], max_tokens=2048).strip()
                 if text.startswith("```"):
                     text = text.split("\n", 1)[1]
                 if text.endswith("```"):
