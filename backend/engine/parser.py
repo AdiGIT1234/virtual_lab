@@ -8,6 +8,78 @@ delay_pattern = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# -------------------------
+# AVR port/bit name maps
+# -------------------------
+# Named bit aliases (PB0..PB7, PC0..PC7, PD0..PD7) -> bit index
+_AVR_BIT_NAMES: dict[str, int] = {}
+for _port in "BCD":
+    for _bit in range(8):
+        _AVR_BIT_NAMES[f"P{_port}{_bit}"] = _bit
+# Also accept plain integers as bit positions
+
+# Register -> (gpio attribute name, is_ddr, port_letter)
+_AVR_REGISTER_MAP = {
+    "DDRB":  ("DDRB",  True,  "B"),
+    "DDRC":  ("DDRC",  True,  "C"),
+    "DDRD":  ("DDRD",  True,  "D"),
+    "PORTB": ("PORTB", False, "B"),
+    "PORTC": ("PORTC", False, "C"),
+    "PORTD": ("PORTD", False, "D"),
+}
+
+# AVR direct register bit-op pattern: REG op= (1<<BIT) or REG op= (1<<PXN)
+# Supports |=, &= ~, ^=
+_avr_reg_set_pattern = re.compile(
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\|=\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+_avr_reg_clr_pattern = re.compile(
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*&=\s*~\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+_avr_reg_tog_pattern = re.compile(
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\^=\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _resolve_avr_bit(bit_str: str) -> int | None:
+    """Resolve a bit name like PB5, PC3, 5, etc. to an integer bit index."""
+    bit_str = bit_str.strip().upper()
+    if bit_str in _AVR_BIT_NAMES:
+        return _AVR_BIT_NAMES[bit_str]
+    try:
+        return int(bit_str)
+    except ValueError:
+        return None
+
+
+def _apply_avr_reg_op(gpio, reg_name: str, bit: int, op: str) -> None:
+    """Apply |=, &=~, or ^= to an AVR register bit in the gpio state."""
+    reg_name = reg_name.upper()
+    info = _AVR_REGISTER_MAP.get(reg_name)
+    if info is None:
+        return
+    attr_name, is_ddr, _ = info
+    reg_list: list[int] = getattr(gpio, attr_name)
+    if bit < 0 or bit >= len(reg_list):
+        return
+    if op == "set":
+        reg_list[bit] = 1
+    elif op == "clr":
+        reg_list[bit] = 0
+    elif op == "tog":
+        reg_list[bit] ^= 1
+    if gpio.clock:
+        gpio.timeline.append({
+            "time": gpio.clock.now(),
+            "type": "REG_WRITE",
+            "reg": reg_name,
+            "bit": bit,
+            "op": op,
+            "registers": gpio._snapshot()
+        })
 
 def _inside_any(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
     """Return True if [start, end) overlaps any of the given spans."""
@@ -27,6 +99,7 @@ def parse_code(code, gpio):
       - digitalRead(pin)
       - delay(ms)
       - if (digitalRead(pin) == HIGH) { digitalWrite(...) } else { digitalWrite(...) }
+      - DDRB |= (1<<PB5), PORTB |= (1<<5), PORTB &= ~(1<<PB5), PORTB ^= (1<<5)  [AVR direct register writes]
     """
 
     if not isinstance(code, str):
@@ -125,6 +198,19 @@ def parse_code(code, gpio):
     for m in serial_print_pattern.finditer(code_str):
         if not _inside_any(m.start(), m.end(), if_else_spans):
             actions.append((m.start(), "serial_print", m))
+
+    # AVR direct register writes (bare-metal style: DDRB |= (1<<PB5) etc.)
+    for m in _avr_reg_set_pattern.finditer(code_str):
+        if not _inside_any(m.start(), m.end(), if_else_spans):
+            actions.append((m.start(), "avr_reg_set", m))
+
+    for m in _avr_reg_clr_pattern.finditer(code_str):
+        if not _inside_any(m.start(), m.end(), if_else_spans):
+            actions.append((m.start(), "avr_reg_clr", m))
+
+    for m in _avr_reg_tog_pattern.finditer(code_str):
+        if not _inside_any(m.start(), m.end(), if_else_spans):
+            actions.append((m.start(), "avr_reg_tog", m))
 
     actions.sort(key=lambda x: x[0])
 
@@ -236,3 +322,15 @@ def parse_code(code, gpio):
                 msg += "\n"
 
             gpio.serial_print(msg)
+
+        elif action_type in ("avr_reg_set", "avr_reg_clr", "avr_reg_tog"):
+            try:
+                reg_name = match.group("reg").upper()
+                bit_str = match.group("bit")
+                bit = _resolve_avr_bit(bit_str)
+                if bit is None:
+                    continue
+                op_map = {"avr_reg_set": "set", "avr_reg_clr": "clr", "avr_reg_tog": "tog"}
+                _apply_avr_reg_op(gpio, reg_name, bit, op_map[action_type])
+            except (TypeError, ValueError, AttributeError):
+                continue

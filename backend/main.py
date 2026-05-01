@@ -139,10 +139,10 @@ def run_experiment(payload: CodeInput):
     print("RECEIVED CODE:")
     print(payload.code)
 
-    # ✅ Create virtual clock
+    # Create virtual clock
     clock = VirtualClock()
 
-    # ✅ Inject clock into GPIO
+    # Inject clock into GPIO
     gpio = GPIO(clock=clock)
 
     # Inject external input signals (if any)
@@ -154,7 +154,7 @@ def run_experiment(payload: CodeInput):
     # Parse & execute code on virtual hardware
     parse_code(payload.code, gpio)
 
-    # Compile the code to verifiable Intel Hex using avr-gcc toolchain!
+    # Compile the code to verifiable Intel Hex using avr-gcc toolchain
     hex_output = ""
     hex_error = ""
     try:
@@ -175,24 +175,36 @@ def run_experiment(payload: CodeInput):
         "PIND": list(gpio.PIND),
     }
 
-    # ✅ Capture timeline
+    # Capture timeline
     timeline = gpio.timeline
 
-    # Validation
-    validator = Validator(gpio)
-    runner = ExperimentRunner(LED_BASIC_EXPERIMENT, validator)
-    experiment_result = runner.run()
+    # Validation — only run LED experiment validation if the code looks like LED blinking.
+    # For all other experiments the simulator relies on hex/WASM execution, not register inspection.
+    code_lower = payload.code.lower()
+    is_led_experiment = (
+        ("pb5" in code_lower or "pin 13" in code_lower or "pinmode(13" in code_lower)
+        and "ddrb" in code_lower or "pinmode" in code_lower
+    )
 
-    return {
-        "experiment": {
+    if is_led_experiment:
+        validator = Validator(gpio)
+        runner = ExperimentRunner(LED_BASIC_EXPERIMENT, validator)
+        experiment_result = runner.run()
+        experiment_meta = {
             "id": LED_BASIC_EXPERIMENT["id"],
             "title": LED_BASIC_EXPERIMENT["title"],
             "description": LED_BASIC_EXPERIMENT["description"],
-        },
-        "led": gpio.read_led(),  # Final state
+        }
+    else:
+        experiment_result = {"passed": None, "results": {}, "feedback": []}
+        experiment_meta = {"id": None, "title": None, "description": None}
+
+    return {
+        "experiment": experiment_meta,
+        "led": gpio.read_led(),  # Final state from register simulation
         "button": "HIGH" if gpio.digital_read(2) == 1 else "LOW",
         "registers": registers,
-        "timeline": timeline,  # ✅ New
+        "timeline": timeline,
         "validation": experiment_result,
         "hex": hex_output,
         "hex_error": hex_error

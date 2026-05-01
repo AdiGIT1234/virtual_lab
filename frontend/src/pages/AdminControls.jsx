@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../context/useAuth";
 import { supabase } from "../lib/supabase";
+import { API_BASE_URL } from "../lib/api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const API_BASE = API_BASE_URL;
 
 const fontLinks = (
   <>
