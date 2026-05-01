@@ -7,7 +7,7 @@ from engine.validator import Validator  # type: ignore
 from engine.clock import VirtualClock  # type: ignore
 from fastapi import FastAPI, HTTPException, Header  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
-from pydantic import BaseModel  # type: ignore
+
 from typing import Dict, Optional, Any, List
 import json
 import os
@@ -63,7 +63,7 @@ for dev_origin in [
     if dev_origin not in allowed_origins and "*" not in allowed_origins:
         allowed_origins.append(dev_origin)
 
-import os
+
 app = FastAPI(
     docs_url="/docs" if os.getenv("ENV") != "production" else None,
     redoc_url="/redoc" if os.getenv("ENV") != "production" else None,
