@@ -12,7 +12,7 @@ from typing import Dict, Optional, Any, List
 import json
 import os
 import glob
-
+from pydantic import BaseModel, Field 
 from services.admin_portal import (  # type: ignore
     ensure_admin_email,
     fetch_all_profiles,
@@ -28,6 +28,10 @@ from engine.parser import parse_code  # type: ignore
 from engine.compiler import compile_code  # type: ignore
 from engine.esp32_gpio import ESP32GPIO  # type: ignore
 from engine.esp32_parser import parse_esp32_code  # type: ignore
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from starlette.requests import Request
 
 # RAG engine (lazy-loaded — only initialized when first chatbot request arrives)
 _rag_engine = None
@@ -59,8 +63,14 @@ for dev_origin in [
     if dev_origin not in allowed_origins and "*" not in allowed_origins:
         allowed_origins.append(dev_origin)
 
-app = FastAPI()
-
+import os
+app = FastAPI(
+    docs_url="/docs" if os.getenv("ENV") != "production" else None,
+    redoc_url="/redoc" if os.getenv("ENV") != "production" else None,
+)
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -73,11 +83,11 @@ app.add_middleware(
 # Models
 # -------------------------
 class CodeInput(BaseModel):
-    code: str
+    code: str = Field(...,max_length=50000) #limit to 50k characters
     inputs: Optional[Dict[int, int]] = None
 
 class ESP32CodeInput(BaseModel):
-    code: str
+    code: str = Field(...,max_length=50000) #limit to 50k characters
     inputs: Optional[Dict[int, int]] = None
     mcu: Optional[str] = "esp32"
 
@@ -135,9 +145,10 @@ def get_experiment_details(experiment_id: str):
 
 
 @app.post("/run-experiment")
-def run_experiment(payload: CodeInput):
-    print("RECEIVED CODE:")
-    print(payload.code)
+@limiter.limit("10/minute")
+def run_experiment(payload: CodeInput, request:Request):
+    #print("RECEIVED CODE:")
+    #print(payload.code)
 
     # Create virtual clock
     clock = VirtualClock()
@@ -212,10 +223,11 @@ def run_experiment(payload: CodeInput):
 
 
 @app.post("/run-esp32")
-def run_esp32_experiment(payload: ESP32CodeInput):
+@limiter.limit("10/minute")
+def run_esp32_experiment(payload: ESP32CodeInput, request:Request):
     """Run ESP32 Arduino code through the interpretive simulator."""
-    print("[ESP32] RECEIVED CODE:")
-    print(payload.code)
+    #print("[ESP32] RECEIVED CODE:")
+    #print(payload.code)
 
     clock = VirtualClock()
     gpio = ESP32GPIO(clock=clock)
@@ -256,7 +268,8 @@ def run_esp32_experiment(payload: ESP32CodeInput):
 # Chatbot (RAG-powered)
 # -------------------------
 @app.post("/api/chat")
-def chat(payload: ChatInput):
+@limiter.limit("10/minute")
+def chat(payload: ChatInput, request:Request):
     """RAG-powered chatbot for ATmega328P questions."""
     try:
         engine = get_rag_engine()
