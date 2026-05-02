@@ -8,16 +8,16 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
-        value: "" # Required — set on Render Dashboard
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
-        value: "" # Required — set on Render Dashboard
+        sync: false
       - key: SUPABASE_ANON_KEY
-        value: "" # Required — set on Render Dashboard
+        sync: false
       - key: GROQ_API_KEY
-        value: "" # Required — set on Render Dashboard
+        sync: false
       - key: ADMIN_EMAILS
-        value: "" # Required — comma-separated admin emails
+        sync: false
       - key: FRONTEND_ORIGINS
-        value: "" # Required — comma-separated allowed frontend URLs
+        sync: false
       - key: ENV
         value: "production"
