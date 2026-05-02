@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, Suspense } from "react";
+import { useState, useCallback, useEffect, Suspense, Component } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stats } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -6,6 +6,22 @@ import * as THREE from "three";
 import CircuitScene from "./CircuitScene";
 import Wire3D from "./Wire3D";
 import { useCircuitStore } from "../../state/useCircuitStore";
+
+class CanvasErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", background: "#0d1117", color: "#8b949e", fontSize: 13, fontFamily: "Inter, sans-serif", flexDirection: "column", gap: 8 }}>
+          <span>3D view encountered an error.</span>
+          <button onClick={() => this.setState({ error: null })} style={{ padding: "4px 12px", background: "#21262d", border: "1px solid #30363d", borderRadius: 6, color: "#e6edf3", cursor: "pointer", fontSize: 12 }}>Retry</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const showStats = import.meta.env.DEV;
 
@@ -41,6 +57,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+    <CanvasErrorBoundary>
       <Canvas
         shadows
         camera={{ position: [0.4, 2.0, 3.2], fov: 52, near: 0.01, far: 100 }}
@@ -102,6 +119,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         />
         {showStats && <Stats showPanel={0} className="arlab-stats" />}
       </Canvas>
+    </CanvasErrorBoundary>
 
       {/* Camera Control Buttons */}
       <div style={styles.cameraPanel} role="toolbar" aria-label="Camera views">
