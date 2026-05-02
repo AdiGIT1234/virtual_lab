@@ -44,13 +44,14 @@ function ChatbotWidget({ context = "sandbox" }) {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 3;
     let lastError = null;
+    let isColdStart = false;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000); // 60s for cold starts
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         const response = await fetch(`${BACKEND_URL}/api/chat`, {
           method: "POST",
@@ -60,6 +61,12 @@ function ChatbotWidget({ context = "sandbox" }) {
         });
         clearTimeout(timeout);
 
+        // 503 = Render cold start (service waking up) — wait and retry
+        if (response.status === 503) {
+          isColdStart = true;
+          throw new Error("cold_start");
+        }
+
         if (!response.ok) {
           throw new Error(`Server error: ${response.status}`);
         }
@@ -67,19 +74,15 @@ function ChatbotWidget({ context = "sandbox" }) {
         const data = await response.json();
         setMessages((prev) => [
           ...prev,
-          {
-            role: "assistant",
-            content: data.answer,
-            sources: data.sources,
-          },
+          { role: "assistant", content: data.answer, sources: data.sources },
         ]);
-        break; // success — exit retry loop
+        break;
       } catch (error) {
         lastError = error;
         console.error(`Chat attempt ${attempt + 1} failed:`, error);
         if (attempt < MAX_RETRIES) {
-          // Brief pause before retry (server may be waking up)
-          await new Promise((r) => setTimeout(r, 3000));
+          const wait = isColdStart ? 8000 : 3000;
+          await new Promise((r) => setTimeout(r, wait));
           continue;
         }
       }
@@ -91,8 +94,8 @@ function ChatbotWidget({ context = "sandbox" }) {
         ...prev,
         {
           role: "assistant",
-          content: isTimeout
-            ? "⏳ The server is taking too long to respond (it may be waking up). Please try again in a moment."
+          content: isTimeout || isColdStart
+            ? "⏳ The server is waking up from sleep. Please send your message again in a few seconds."
             : "⚠️ Could not reach the server. Please check your connection and try again.",
         },
       ]);
