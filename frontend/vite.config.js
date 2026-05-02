@@ -15,6 +15,7 @@ export default defineConfig({
           'vendor-motion':   ['framer-motion'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
+          'vendor-markdown': ['react-markdown'],
         },
       },
     },
