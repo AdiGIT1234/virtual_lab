@@ -44,37 +44,60 @@ function ChatbotWidget({ context = "sandbox" }) {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, context: context }),
-      });
+    const MAX_RETRIES = 2;
+    let lastError = null;
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000); // 60s for cold starts
 
-      const data = await response.json();
-      
-      // Add assistant response to UI
-      setMessages((prev) => [
-        ...prev, 
-        { 
-          role: "assistant", 
-          content: data.answer,
-          sources: data.sources // We can optionally show sources
+        const response = await fetch(`${BACKEND_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMessage, context: context }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
         }
-      ]);
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev, 
-        { role: "assistant", content: "⚠️ Sorry, I encountered an error connecting to the server. Please ensure the backend is running and the API key is set." }
-      ]);
-    } finally {
-      setIsLoading(false);
+
+        const data = await response.json();
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.answer,
+            sources: data.sources,
+          },
+        ]);
+        break; // success — exit retry loop
+      } catch (error) {
+        lastError = error;
+        console.error(`Chat attempt ${attempt + 1} failed:`, error);
+        if (attempt < MAX_RETRIES) {
+          // Brief pause before retry (server may be waking up)
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+      }
     }
+
+    if (lastError) {
+      const isTimeout = lastError.name === "AbortError";
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: isTimeout
+            ? "⏳ The server is taking too long to respond (it may be waking up). Please try again in a moment."
+            : "⚠️ Could not reach the server. Please check your connection and try again.",
+        },
+      ]);
+    }
+    setIsLoading(false);
   };
 
   return (
