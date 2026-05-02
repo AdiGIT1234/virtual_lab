@@ -105,6 +105,14 @@ function ChatbotWidget({ context = "sandbox" }) {
 
   return (
     <>
+      {/* Floating Action Button - shown when chat is completely closed or minimized */}
+      {(!isOpen || isMinimized) && (
+        <button className="chat-fab" onClick={toggleChat} aria-label="Open Chat">
+          <MessageSquare size={24} />
+          {isMinimized && <span className="chat-notification-dot"></span>}
+        </button>
+      )}
+
       {/* Chat Window */}
       <div className={`chatbot-window ${isOpen && !isMinimized ? "open" : "closed"}`}>
         {/* Header */}
