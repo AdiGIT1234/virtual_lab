@@ -938,6 +938,381 @@ const createInputModulePreview = (label, color = "#14b8a6", shortForm, type = "s
   );
 };
 
+// ── Additional component previews ─────────────────────────────────────────
+
+const AABatteryPreview = () => (
+  <>
+    <defs>
+      <radialGradient id="aaBatteryBody" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stopColor="#5eead4" />
+        <stop offset="60%" stopColor="#14b8a6" />
+        <stop offset="100%" stopColor="#0f766e" />
+      </radialGradient>
+      <radialGradient id="aaBatteryTerminal" cx="50%" cy="40%" r="55%">
+        <stop offset="0%" stopColor="#f1f5f9" />
+        <stop offset="100%" stopColor="#94a3b8" />
+      </radialGradient>
+    </defs>
+    {/* Outer cylinder (top-down) */}
+    <circle cx="60" cy="60" r="44" fill="url(#aaBatteryBody)" stroke="#0f766e" strokeWidth="1.5" />
+    {/* Outer ring highlight */}
+    <circle cx="60" cy="60" r="44" fill="none" stroke="#5eead4" strokeWidth="1" opacity="0.4" />
+    {/* Inner positive terminal */}
+    <circle cx="60" cy="60" r="18" fill="url(#aaBatteryTerminal)" stroke="#64748b" strokeWidth="1.5" />
+    <circle cx="60" cy="60" r="10" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+    {/* Plus / minus indicators on outer ring */}
+    <text x="60" y="32" fill="#f0fdfa" fontSize="11" fontWeight="800" textAnchor="middle" fontFamily="monospace">+</text>
+    <text x="60" y="96" fill="#f0fdfa" fontSize="13" fontWeight="800" textAnchor="middle" fontFamily="monospace">−</text>
+    {/* Side label */}
+    <text x="32" y="63" fill="#f0fdfa" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="monospace">AA</text>
+    <text x="88" y="63" fill="#f0fdfa" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="monospace">1.5V</text>
+  </>
+);
+
+const DCMotorPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="motorBody" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#a16207" />
+        <stop offset="50%" stopColor="#facc15" />
+        <stop offset="100%" stopColor="#a16207" />
+      </linearGradient>
+      <linearGradient id="motorEnd" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#78350f" />
+        <stop offset="100%" stopColor="#92400e" />
+      </linearGradient>
+    </defs>
+    {/* Wire leads at back */}
+    <path d="M14 50 Q22 50 30 54" stroke="#dc2626" strokeWidth="3" fill="none" strokeLinecap="round" />
+    <path d="M14 70 Q22 70 30 66" stroke="#111827" strokeWidth="3" fill="none" strokeLinecap="round" />
+    {/* End cap (back) */}
+    <rect x="28" y="42" width="8" height="36" rx="2" fill="url(#motorEnd)" stroke="#451a03" strokeWidth="1" />
+    {/* Cylindrical body */}
+    <rect x="36" y="34" width="56" height="52" rx="4" fill="url(#motorBody)" stroke="#854d0e" strokeWidth="1.5" />
+    {/* Body ribs */}
+    <line x1="48" y1="34" x2="48" y2="86" stroke="#854d0e" strokeWidth="0.5" opacity="0.5" />
+    <line x1="60" y1="34" x2="60" y2="86" stroke="#854d0e" strokeWidth="0.5" opacity="0.5" />
+    <line x1="72" y1="34" x2="72" y2="86" stroke="#854d0e" strokeWidth="0.5" opacity="0.5" />
+    <line x1="84" y1="34" x2="84" y2="86" stroke="#854d0e" strokeWidth="0.5" opacity="0.5" />
+    {/* Front end cap */}
+    <rect x="92" y="42" width="6" height="36" rx="2" fill="#78350f" stroke="#451a03" strokeWidth="1" />
+    {/* Shaft */}
+    <rect x="98" y="56" width="14" height="8" rx="1" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
+    {/* Body highlight */}
+    <rect x="36" y="36" width="56" height="6" rx="3" fill="white" opacity="0.18" />
+    {/* Label */}
+    <text x="64" y="64" fill="#451a03" fontSize="7" fontWeight="800" textAnchor="middle" fontFamily="monospace">DC MOTOR</text>
+  </>
+);
+
+const L298NDriverPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="l298Pcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#b71c1c" />
+        <stop offset="100%" stopColor="#8b0000" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="6" y="14" width="108" height="92" rx="3" fill="url(#l298Pcb)" stroke="#7f1d1d" strokeWidth="1" />
+    <MountingHole cx={14} cy={22} />
+    <MountingHole cx={106} cy={22} />
+    <MountingHole cx={14} cy={98} />
+    <MountingHole cx={106} cy={98} />
+    {/* Heatsink behind IC */}
+    <rect x="40" y="28" width="40" height="16" rx="1" fill="#475569" stroke="#1e293b" strokeWidth="0.8" />
+    {[0,1,2,3,4,5,6].map(i => (
+      <line key={i} x1={42 + i * 5.5} y1="28" x2={42 + i * 5.5} y2="44" stroke="#1e293b" strokeWidth="0.8" />
+    ))}
+    {/* Main IC */}
+    <rect x="34" y="46" width="52" height="32" rx="2" fill="#111827" stroke="#1e293b" strokeWidth="1" />
+    <text x="60" y="62" fill="#cbd5e1" fontSize="9" fontWeight="700" textAnchor="middle" fontFamily="monospace">L298N</text>
+    <text x="60" y="72" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">H-BRIDGE</text>
+    {/* Left screw terminals (motor A) */}
+    <rect x="8" y="44" width="22" height="20" rx="2" fill="#1e3a8a" stroke="#1e40af" strokeWidth="0.8" />
+    <circle cx="14" cy="54" r="3" fill="#0f172a" stroke="#475569" strokeWidth="0.8" />
+    <line x1="12" y1="54" x2="16" y2="54" stroke="#94a3b8" strokeWidth="1" />
+    <circle cx="24" cy="54" r="3" fill="#0f172a" stroke="#475569" strokeWidth="0.8" />
+    <line x1="22" y1="54" x2="26" y2="54" stroke="#94a3b8" strokeWidth="1" />
+    {/* Right screw terminals (motor B) */}
+    <rect x="90" y="44" width="22" height="20" rx="2" fill="#1e3a8a" stroke="#1e40af" strokeWidth="0.8" />
+    <circle cx="96" cy="54" r="3" fill="#0f172a" stroke="#475569" strokeWidth="0.8" />
+    <line x1="94" y1="54" x2="98" y2="54" stroke="#94a3b8" strokeWidth="1" />
+    <circle cx="106" cy="54" r="3" fill="#0f172a" stroke="#475569" strokeWidth="0.8" />
+    <line x1="104" y1="54" x2="108" y2="54" stroke="#94a3b8" strokeWidth="1" />
+    {/* Power screw terminals (top) */}
+    <rect x="46" y="14" width="28" height="12" rx="2" fill="#1e3a8a" stroke="#1e40af" strokeWidth="0.8" />
+    <circle cx="54" cy="20" r="2.5" fill="#0f172a" />
+    <circle cx="60" cy="20" r="2.5" fill="#0f172a" />
+    <circle cx="66" cy="20" r="2.5" fill="#0f172a" />
+    {/* Pin header bottom */}
+    {Array.from({ length: 9 }).map((_, i) => (
+      <rect key={i} x={26 + i * 8} y="86" width="5" height="14" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+    {/* Capacitor */}
+    <circle cx="22" cy="80" r="6" fill="#0f172a" stroke="#334155" strokeWidth="1" />
+    <circle cx="22" cy="80" r="3" fill="#1e293b" />
+  </>
+);
+
+const HC05BluetoothPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="hc05Pcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1565c0" />
+        <stop offset="100%" stopColor="#1a3a6b" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="14" y="16" width="92" height="88" rx="3" fill="url(#hc05Pcb)" stroke="#0d47a1" strokeWidth="1" />
+    {/* Antenna trace (zig-zag on left) */}
+    <path d="M22 24 L26 28 L22 32 L26 36 L22 40 L26 44 L22 48 L26 52 L22 56 L26 60"
+      stroke="#cbd5e1" strokeWidth="1.5" fill="none" />
+    <rect x="20" y="22" width="10" height="42" rx="1" fill="none" stroke="#60a5fa" strokeWidth="0.5" opacity="0.6" />
+    {/* Main chip */}
+    <rect x="38" y="36" width="56" height="36" rx="2" fill="#111827" stroke="#1e293b" strokeWidth="1" />
+    <text x="66" y="52" fill="#cbd5e1" fontSize="9" fontWeight="700" textAnchor="middle" fontFamily="monospace">HC-05</text>
+    <text x="66" y="62" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">BT SERIAL</text>
+    {/* Status LED */}
+    <circle cx="92" cy="26" r="2.5" fill="#3b82f6" />
+    <circle cx="92" cy="26" r="4.5" fill="#3b82f6" opacity="0.25" />
+    {/* Crystal */}
+    <rect x="42" y="78" width="14" height="6" rx="1" fill="#94a3b8" stroke="#475569" strokeWidth="0.5" />
+    {/* 6-pin header (bottom) */}
+    {Array.from({ length: 6 }).map((_, i) => (
+      <rect key={i} x={30 + i * 10} y="92" width="6" height="12" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+    {/* Pin labels */}
+    {["EN","VCC","GND","TX","RX","ST"].map((p, i) => (
+      <text key={p} x={33 + i * 10} y="90" fill="#cbd5e1" fontSize="3.5" textAnchor="middle" fontFamily="monospace">{p}</text>
+    ))}
+  </>
+);
+
+const RC522RFIDPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="rc522Pcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1565c0" />
+        <stop offset="100%" stopColor="#1a3a6b" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="8" y="10" width="104" height="100" rx="3" fill="url(#rc522Pcb)" stroke="#0d47a1" strokeWidth="1" />
+    <MountingHole cx={16} cy={18} />
+    <MountingHole cx={104} cy={18} />
+    <MountingHole cx={16} cy={102} />
+    <MountingHole cx={104} cy={102} />
+    {/* Antenna coil (top-right area) */}
+    <rect x="42" y="18" width="60" height="44" rx="3" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+    <rect x="46" y="22" width="52" height="36" rx="2" fill="none" stroke="#cbd5e1" strokeWidth="1.2" opacity="0.85" />
+    <rect x="50" y="26" width="44" height="28" rx="2" fill="none" stroke="#cbd5e1" strokeWidth="1" opacity="0.7" />
+    <rect x="54" y="30" width="36" height="20" rx="1" fill="none" stroke="#cbd5e1" strokeWidth="0.8" opacity="0.55" />
+    {/* MFRC522 chip */}
+    <rect x="14" y="68" width="50" height="26" rx="2" fill="#111827" stroke="#1e293b" strokeWidth="1" />
+    <text x="39" y="80" fill="#cbd5e1" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="monospace">MFRC522</text>
+    <text x="39" y="89" fill="#94a3b8" fontSize="4.5" textAnchor="middle" fontFamily="monospace">13.56 MHz</text>
+    {/* Crystal */}
+    <rect x="70" y="72" width="14" height="6" rx="1" fill="#94a3b8" stroke="#475569" strokeWidth="0.5" />
+    {/* Capacitors */}
+    <circle cx="92" cy="76" r="3" fill="#0f172a" stroke="#334155" strokeWidth="0.5" />
+    <circle cx="100" cy="76" r="3" fill="#0f172a" stroke="#334155" strokeWidth="0.5" />
+    {/* SPI pin header bottom */}
+    {Array.from({ length: 8 }).map((_, i) => (
+      <rect key={i} x={22 + i * 10} y="98" width="6" height="10" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+    {/* Label */}
+    <text x="93" y="92" fill="#cbd5e1" fontSize="5" fontWeight="700" textAnchor="middle" fontFamily="monospace">RFID</text>
+  </>
+);
+
+const TTP223TouchPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="ttp223Pcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2d7a2d" />
+        <stop offset="100%" stopColor="#1a5c1a" />
+      </linearGradient>
+      <radialGradient id="touchPad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#fde68a" />
+        <stop offset="100%" stopColor="#d4a373" />
+      </radialGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="14" y="14" width="92" height="92" rx="4" fill="url(#ttp223Pcb)" stroke="#15803d" strokeWidth="1" />
+    {/* Sensing pad - large circle */}
+    <circle cx="60" cy="54" r="32" fill="url(#touchPad)" stroke="#92400e" strokeWidth="1.5" />
+    <circle cx="60" cy="54" r="32" fill="none" stroke="#fbbf24" strokeWidth="0.8" opacity="0.6" />
+    {/* Inner ring (decorative) */}
+    <circle cx="60" cy="54" r="22" fill="none" stroke="#92400e" strokeWidth="0.6" opacity="0.5" />
+    <circle cx="60" cy="54" r="14" fill="none" stroke="#92400e" strokeWidth="0.6" opacity="0.4" />
+    {/* Touch label */}
+    <text x="60" y="58" fill="#451a03" fontSize="8" fontWeight="800" textAnchor="middle" fontFamily="monospace">TOUCH</text>
+    {/* Status LED */}
+    <circle cx="98" cy="22" r="2.5" fill="#22c55e" />
+    <circle cx="98" cy="22" r="4" fill="#22c55e" opacity="0.25" />
+    {/* 3-pin header */}
+    {Array.from({ length: 3 }).map((_, i) => (
+      <rect key={i} x={48 + i * 10} y="94" width="6" height="12" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+    {["GND","VCC","SIG"].map((p, i) => (
+      <text key={p} x={51 + i * 10} y="92" fill="#86efac" fontSize="3.5" textAnchor="middle" fontFamily="monospace">{p}</text>
+    ))}
+  </>
+);
+
+const RainSensorPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="rainPcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2d7a2d" />
+        <stop offset="100%" stopColor="#1a5c1a" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="10" y="14" width="100" height="92" rx="3" fill="url(#rainPcb)" stroke="#15803d" strokeWidth="1" />
+    {/* Detection grid: parallel trace lines */}
+    <rect x="20" y="22" width="80" height="40" rx="1" fill="#0f172a" stroke="#374151" strokeWidth="0.6" />
+    {Array.from({ length: 14 }).map((_, i) => (
+      <rect key={i} x={22 + i * 5.6} y="24" width="2" height="36" rx="0.3" fill="#fbbf24" opacity="0.85" />
+    ))}
+    {/* Interlace traces */}
+    <path d="M22 60 L98 60" stroke="#92400e" strokeWidth="0.6" opacity="0.5" />
+    <path d="M22 24 L98 24" stroke="#92400e" strokeWidth="0.6" opacity="0.5" />
+    {/* Comparator IC */}
+    <rect x="34" y="70" width="34" height="20" rx="2" fill="#111827" stroke="#1e293b" strokeWidth="1" />
+    <text x="51" y="82" fill="#cbd5e1" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="monospace">LM393</text>
+    {/* Trimpot */}
+    <rect x="76" y="72" width="16" height="16" rx="1" fill="#1e40af" stroke="#1d4ed8" strokeWidth="0.8" />
+    <circle cx="84" cy="80" r="5" fill="#0f172a" />
+    <line x1="84" y1="76" x2="84" y2="84" stroke="#fbbf24" strokeWidth="1" />
+    {/* Status LEDs */}
+    <circle cx="22" cy="76" r="2" fill="#22c55e" />
+    <circle cx="22" cy="84" r="2" fill="#ef4444" />
+    {/* 4-pin header */}
+    {Array.from({ length: 4 }).map((_, i) => (
+      <rect key={i} x={42 + i * 9} y="94" width="6" height="12" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+    {["VCC","GND","DO","AO"].map((p, i) => (
+      <text key={p} x={45 + i * 9} y="92" fill="#86efac" fontSize="3.5" textAnchor="middle" fontFamily="monospace">{p}</text>
+    ))}
+  </>
+);
+
+const TCS34725ColorPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="colorPcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f1f5f9" />
+        <stop offset="100%" stopColor="#cbd5e1" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="14" y="14" width="92" height="92" rx="3" fill="url(#colorPcb)" stroke="#94a3b8" strokeWidth="1" />
+    <MountingHole cx={22} cy={22} />
+    <MountingHole cx={98} cy={22} />
+    <MountingHole cx={22} cy={98} />
+    <MountingHole cx={98} cy={98} />
+    {/* Central sensor body */}
+    <rect x="48" y="44" width="24" height="24" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="1" />
+    <rect x="52" y="48" width="16" height="16" rx="1" fill="#1e293b" />
+    <circle cx="60" cy="56" r="4" fill="#020617" stroke="#475569" strokeWidth="0.5" />
+    {/* 4 bright LEDs around the sensor */}
+    <circle cx="40" cy="40" r="4" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
+    <circle cx="40" cy="40" r="6" fill="#f8fafc" opacity="0.4" />
+    <circle cx="80" cy="40" r="4" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
+    <circle cx="80" cy="40" r="6" fill="#f8fafc" opacity="0.4" />
+    <circle cx="40" cy="72" r="4" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
+    <circle cx="40" cy="72" r="6" fill="#f8fafc" opacity="0.4" />
+    <circle cx="80" cy="72" r="4" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
+    <circle cx="80" cy="72" r="6" fill="#f8fafc" opacity="0.4" />
+    {/* Label */}
+    <text x="60" y="92" fill="#1e293b" fontSize="7" fontWeight="800" textAnchor="middle" fontFamily="monospace">COLOR</text>
+    {/* Pin header */}
+    {Array.from({ length: 5 }).map((_, i) => (
+      <rect key={i} x={36 + i * 10} y="106" width="6" height="10" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+  </>
+);
+
+const SW420VibrationPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="vibPcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2d7a2d" />
+        <stop offset="100%" stopColor="#1a5c1a" />
+      </linearGradient>
+      <linearGradient id="vibSensor" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#94a3b8" />
+        <stop offset="50%" stopColor="#e2e8f0" />
+        <stop offset="100%" stopColor="#94a3b8" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="14" y="14" width="92" height="92" rx="3" fill="url(#vibPcb)" stroke="#15803d" strokeWidth="1" />
+    {/* Cylindrical metal sensor (centered) */}
+    <rect x="36" y="40" width="48" height="14" rx="7" fill="url(#vibSensor)" stroke="#475569" strokeWidth="1" />
+    <rect x="36" y="42" width="48" height="3" rx="1.5" fill="white" opacity="0.4" />
+    {/* End caps */}
+    <circle cx="36" cy="47" r="6" fill="#475569" stroke="#1e293b" strokeWidth="0.6" />
+    <circle cx="84" cy="47" r="6" fill="#475569" stroke="#1e293b" strokeWidth="0.6" />
+    {/* Comparator IC */}
+    <rect x="36" y="62" width="28" height="16" rx="2" fill="#111827" stroke="#1e293b" strokeWidth="1" />
+    <text x="50" y="72" fill="#cbd5e1" fontSize="5" fontWeight="700" textAnchor="middle" fontFamily="monospace">LM393</text>
+    {/* Trimpot */}
+    <rect x="72" y="62" width="14" height="14" rx="1" fill="#1e40af" stroke="#1d4ed8" strokeWidth="0.6" />
+    <circle cx="79" cy="69" r="4" fill="#0f172a" />
+    <line x1="79" y1="66" x2="79" y2="72" stroke="#fbbf24" strokeWidth="0.8" />
+    {/* Status LEDs */}
+    <circle cx="22" cy="68" r="2" fill="#22c55e" />
+    <circle cx="22" cy="76" r="2" fill="#ef4444" />
+    {/* Label */}
+    <text x="60" y="90" fill="#86efac" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">VIBRATION</text>
+    {/* 3-pin header */}
+    {Array.from({ length: 3 }).map((_, i) => (
+      <rect key={i} x={48 + i * 10} y="94" width="6" height="12" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+  </>
+);
+
+const MAX30102PulsePreview = () => (
+  <>
+    <defs>
+      <linearGradient id="pulsePcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#b71c1c" />
+        <stop offset="100%" stopColor="#8b0000" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="18" y="18" width="84" height="84" rx="3" fill="url(#pulsePcb)" stroke="#7f1d1d" strokeWidth="1" />
+    <MountingHole cx={26} cy={26} />
+    <MountingHole cx={94} cy={26} />
+    <MountingHole cx={26} cy={94} />
+    <MountingHole cx={94} cy={94} />
+    {/* Sensor body */}
+    <rect x="42" y="40" width="36" height="24" rx="2" fill="#0f172a" stroke="#1e293b" strokeWidth="1" />
+    <rect x="44" y="42" width="32" height="20" rx="1" fill="#1e293b" />
+    {/* Red LED */}
+    <circle cx="50" cy="52" r="3.5" fill="#ef4444" />
+    <circle cx="50" cy="52" r="5.5" fill="#ef4444" opacity="0.4" />
+    {/* IR LED */}
+    <circle cx="60" cy="52" r="3.5" fill="#7f1d1d" stroke="#450a0a" strokeWidth="0.5" />
+    <circle cx="60" cy="52" r="5.5" fill="#7f1d1d" opacity="0.3" />
+    {/* Photodetector */}
+    <rect x="66" y="48" width="8" height="8" rx="1" fill="#020617" stroke="#475569" strokeWidth="0.5" />
+    <rect x="67.5" y="49.5" width="5" height="5" rx="0.5" fill="#1e293b" />
+    {/* Heartbeat waveform decoration */}
+    <path d="M28 80 L36 80 L40 72 L44 88 L48 76 L52 80 L92 80"
+      stroke="#fca5a5" strokeWidth="1.2" fill="none" opacity="0.85" strokeLinecap="round" strokeLinejoin="round" />
+    {/* Label */}
+    <text x="60" y="74" fill="#fecaca" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">PULSE OX</text>
+    {/* Pin header */}
+    {Array.from({ length: 5 }).map((_, i) => (
+      <rect key={i} x={36 + i * 10} y="102" width="6" height="10" rx="1" fill="#d4a373" stroke="#92400e" strokeWidth="0.5" />
+    ))}
+  </>
+);
+
 // ── Exports ──────────────────────────────────────────────────────────────────
 
 export const NativeComponents = {
@@ -1007,6 +1382,18 @@ export const NativeComponents = {
   "wokwi-tv":                      createSensorModulePreview("TV OUT",    "#6366f1", "TV",    "chip"),
   "vlab-relay-module":             createSensorModulePreview("RELAY",     "#ef4444", "RLY",   "gas"),
   "wokwi-neopixel-matrix":         createSensorModulePreview("NEOPIXEL",  "#8b5cf6", "NxN",   "chip"),
+
+  // Additional electronic components
+  "vlab-aa-battery":         createPreview(AABatteryPreview),
+  "vlab-dc-motor":           createPreview(DCMotorPreview),
+  "vlab-l298n-driver":       createPreview(L298NDriverPreview),
+  "vlab-hc05-bluetooth":     createPreview(HC05BluetoothPreview),
+  "vlab-rc522-rfid":         createPreview(RC522RFIDPreview),
+  "vlab-ttp223-touch":       createPreview(TTP223TouchPreview),
+  "vlab-rain-sensor":        createPreview(RainSensorPreview),
+  "vlab-tcs34725-color":     createPreview(TCS34725ColorPreview),
+  "vlab-sw420-vibration":    createPreview(SW420VibrationPreview),
+  "vlab-max30102-pulse":     createPreview(MAX30102PulsePreview),
 
   // Fallback
   "generic": createSensorModulePreview("COMPONENT", "#94a3b8", "IC"),
