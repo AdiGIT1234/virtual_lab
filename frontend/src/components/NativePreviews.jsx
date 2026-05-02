@@ -1313,6 +1313,471 @@ const MAX30102PulsePreview = () => (
   </>
 );
 
+// ── NeoPixel rings (12, 16, 24) ────────────────────────────────────────────
+
+const createNeopixelRingPreview = (ledCount, label, ringRadius, ledRadius) => () => {
+  const ledColor = "#c084fc";
+  const innerHole = ringRadius - ledRadius - 6;
+  return (
+    <>
+      <defs>
+        <radialGradient id={`neoRing${ledCount}Glow`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={ledColor} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={ledColor} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Outer glow */}
+      <circle cx="60" cy="60" r={ringRadius + 8} fill={`url(#neoRing${ledCount}Glow)`} />
+      {/* PCB ring (black) */}
+      <circle cx="60" cy="60" r={ringRadius + ledRadius + 4} fill="#0f172a" stroke="#1e293b" strokeWidth="1" />
+      <circle cx="60" cy="60" r={Math.max(innerHole, 6)} fill="#020617" stroke="#1e293b" strokeWidth="0.8" />
+      {/* RGB LEDs */}
+      {Array.from({ length: ledCount }).map((_, i) => {
+        const angle = (i / ledCount) * Math.PI * 2 - Math.PI / 2;
+        const x = 60 + ringRadius * Math.cos(angle);
+        const y = 60 + ringRadius * Math.sin(angle);
+        return (
+          <React.Fragment key={i}>
+            <circle cx={x} cy={y} r={ledRadius + 1.5} fill={ledColor} opacity="0.25" />
+            <circle cx={x} cy={y} r={ledRadius} fill={ledColor} />
+            <circle cx={x - ledRadius * 0.3} cy={y - ledRadius * 0.3} r={ledRadius * 0.35} fill="white" opacity="0.5" />
+          </React.Fragment>
+        );
+      })}
+      {/* Center label */}
+      <text x="60" y="62" fill="#94a3b8" fontSize="8" fontWeight="700" textAnchor="middle" fontFamily="monospace">{label}</text>
+    </>
+  );
+};
+
+const NeopixelRing12Preview = createNeopixelRingPreview(12, "12 RGB", 28, 3.5);
+const NeopixelRing16Preview = createNeopixelRingPreview(16, "16 RGB", 38, 3.2);
+const NeopixelRing24Preview = createNeopixelRingPreview(24, "24 RGB", 48, 3);
+
+// ── Breadboards (mini, half, full) ─────────────────────────────────────────
+
+const BreadboardMiniPreview = () => (
+  <>
+    <rect x="20" y="30" width="80" height="60" rx="4" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+    {/* Top tie-points */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 8 }).map((_, c) => (
+        <circle key={`t-${r}-${c}`} cx={26 + c * 9} cy={36 + r * 4.2} r="1.4" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    {/* Center gap */}
+    <rect x="20" y="58" width="80" height="3" rx="0.5" fill="#cbd5e1" />
+    {/* Bottom tie-points */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 8 }).map((_, c) => (
+        <circle key={`b-${r}-${c}`} cx={26 + c * 9} cy={64 + r * 4.2} r="1.4" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    <text x="60" y="100" fill="#475569" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="monospace">MINI 170</text>
+  </>
+);
+
+const BreadboardHalfPreview = () => (
+  <>
+    <rect x="6" y="20" width="108" height="80" rx="4" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+    {/* Top power rails */}
+    <rect x="6" y="24" width="108" height="5" rx="1" fill="#fee2e2" stroke="#ef4444" strokeWidth="0.4" opacity="0.55" />
+    <rect x="6" y="29" width="108" height="5" rx="1" fill="#dbeafe" stroke="#3b82f6" strokeWidth="0.4" opacity="0.55" />
+    {Array.from({ length: 15 }).map((_, c) => (
+      <React.Fragment key={`prt-${c}`}>
+        <circle cx={12 + c * 7} cy="26.5" r="1.1" fill="#ef4444" opacity="0.6" />
+        <circle cx={12 + c * 7} cy="31.5" r="1.1" fill="#3b82f6" opacity="0.6" />
+      </React.Fragment>
+    ))}
+    {/* Top tie-points */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 15 }).map((_, c) => (
+        <circle key={`th-${r}-${c}`} cx={12 + c * 7} cy={40 + r * 3.5} r="1.2" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    {/* Center gap */}
+    <rect x="6" y="60" width="108" height="3" rx="0.5" fill="#cbd5e1" />
+    {/* Bottom tie-points */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 15 }).map((_, c) => (
+        <circle key={`bh-${r}-${c}`} cx={12 + c * 7} cy={66 + r * 3.5} r="1.2" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    {/* Bottom power rails */}
+    <rect x="6" y="86" width="108" height="5" rx="1" fill="#dbeafe" stroke="#3b82f6" strokeWidth="0.4" opacity="0.55" />
+    <rect x="6" y="91" width="108" height="5" rx="1" fill="#fee2e2" stroke="#ef4444" strokeWidth="0.4" opacity="0.55" />
+    {Array.from({ length: 15 }).map((_, c) => (
+      <React.Fragment key={`prb-${c}`}>
+        <circle cx={12 + c * 7} cy="88.5" r="1.1" fill="#3b82f6" opacity="0.6" />
+        <circle cx={12 + c * 7} cy="93.5" r="1.1" fill="#ef4444" opacity="0.6" />
+      </React.Fragment>
+    ))}
+    <text x="60" y="108" fill="#475569" fontSize="6.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">HALF 400</text>
+  </>
+);
+
+const BreadboardFullPreview = () => (
+  <>
+    <rect x="2" y="14" width="116" height="92" rx="3" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+    {/* Top power rails */}
+    <rect x="2" y="18" width="116" height="4" rx="1" fill="#fee2e2" stroke="#ef4444" strokeWidth="0.3" opacity="0.55" />
+    <rect x="2" y="22" width="116" height="4" rx="1" fill="#dbeafe" stroke="#3b82f6" strokeWidth="0.3" opacity="0.55" />
+    {Array.from({ length: 30 }).map((_, c) => (
+      <React.Fragment key={`fpt-${c}`}>
+        <circle cx={6 + c * 3.7} cy="20" r="0.8" fill="#ef4444" opacity="0.6" />
+        <circle cx={6 + c * 3.7} cy="24" r="0.8" fill="#3b82f6" opacity="0.6" />
+      </React.Fragment>
+    ))}
+    {/* Top tie-points 5x30 */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 30 }).map((_, c) => (
+        <circle key={`tf-${r}-${c}`} cx={6 + c * 3.7} cy={32 + r * 3} r="0.9" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    {/* Center divider */}
+    <rect x="2" y="58" width="116" height="4" rx="0.5" fill="#cbd5e1" />
+    {/* Bottom tie-points 5x30 */}
+    {Array.from({ length: 5 }).map((_, r) =>
+      Array.from({ length: 30 }).map((_, c) => (
+        <circle key={`bf-${r}-${c}`} cx={6 + c * 3.7} cy={64 + r * 3} r="0.9" fill="#94a3b8" opacity="0.7" />
+      ))
+    )}
+    {/* Bottom power rails */}
+    <rect x="2" y="92" width="116" height="4" rx="1" fill="#dbeafe" stroke="#3b82f6" strokeWidth="0.3" opacity="0.55" />
+    <rect x="2" y="96" width="116" height="4" rx="1" fill="#fee2e2" stroke="#ef4444" strokeWidth="0.3" opacity="0.55" />
+    {Array.from({ length: 30 }).map((_, c) => (
+      <React.Fragment key={`fpb-${c}`}>
+        <circle cx={6 + c * 3.7} cy="94" r="0.8" fill="#3b82f6" opacity="0.6" />
+        <circle cx={6 + c * 3.7} cy="98" r="0.8" fill="#ef4444" opacity="0.6" />
+      </React.Fragment>
+    ))}
+    <text x="60" y="113" fill="#475569" fontSize="6.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">FULL 830</text>
+  </>
+);
+
+// ── Power supply components ────────────────────────────────────────────────
+
+const BenchPSUPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="psuBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#374151" />
+        <stop offset="100%" stopColor="#1f2937" />
+      </linearGradient>
+    </defs>
+    {/* Body */}
+    <rect x="8" y="14" width="104" height="92" rx="4" fill="url(#psuBody)" stroke="#475569" strokeWidth="1.5" />
+    {/* Digital readout */}
+    <rect x="16" y="22" width="58" height="22" rx="2" fill="#020617" stroke="#22d3ee" strokeWidth="1" />
+    <text x="45" y="37" fill="#22d3ee" fontSize="11" fontWeight="800" textAnchor="middle" fontFamily="monospace">5.00V</text>
+    {/* Knobs */}
+    <circle cx="86" cy="33" r="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
+    <line x1="86" y1="33" x2="86" y2="26" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="86" cy="33" r="2.5" fill="#475569" />
+    <text x="86" y="50" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">V</text>
+    <circle cx="30" cy="64" r="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
+    <line x1="30" y1="64" x2="36" y2="58" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="30" cy="64" r="2.5" fill="#475569" />
+    <text x="30" y="81" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">V SET</text>
+    <circle cx="60" cy="64" r="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
+    <line x1="60" y1="64" x2="66" y2="60" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="60" cy="64" r="2.5" fill="#475569" />
+    <text x="60" y="81" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">I SET</text>
+    {/* Output terminals */}
+    <circle cx="84" cy="86" r="6" fill="#dc2626" stroke="#7f1d1d" strokeWidth="1.5" />
+    <circle cx="84" cy="86" r="2" fill="#0f172a" />
+    <text x="84" y="102" fill="#fca5a5" fontSize="5" fontWeight="700" textAnchor="middle" fontFamily="monospace">+</text>
+    <circle cx="100" cy="86" r="6" fill="#0f172a" stroke="#374151" strokeWidth="1.5" />
+    <circle cx="100" cy="86" r="2" fill="#1e293b" />
+    <text x="100" y="102" fill="#94a3b8" fontSize="5" fontWeight="700" textAnchor="middle" fontFamily="monospace">−</text>
+    <text x="60" y="14" fill="#22d3ee" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="monospace">BENCH PSU</text>
+  </>
+);
+
+const BuckConverterPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="buckPcb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1d4ed8" />
+        <stop offset="100%" stopColor="#1e3a8a" />
+      </linearGradient>
+    </defs>
+    {/* PCB */}
+    <rect x="10" y="20" width="100" height="80" rx="3" fill="url(#buckPcb)" stroke="#1e40af" strokeWidth="1" />
+    <MountingHole cx={18} cy={28} />
+    <MountingHole cx={102} cy={28} />
+    <MountingHole cx={18} cy={92} />
+    <MountingHole cx={102} cy={92} />
+    {/* Inductor coil (large circle) */}
+    <circle cx="44" cy="56" r="16" fill="#374151" stroke="#1f2937" strokeWidth="1.5" />
+    <circle cx="44" cy="56" r="11" fill="#1f2937" />
+    {[0,1,2,3,4,5].map(i => {
+      const a = (i / 6) * Math.PI * 2;
+      return <line key={i} x1={44 + 8 * Math.cos(a)} y1={56 + 8 * Math.sin(a)} x2={44 + 14 * Math.cos(a)} y2={56 + 14 * Math.sin(a)} stroke="#94a3b8" strokeWidth="1" />;
+    })}
+    {/* Trim pot */}
+    <rect x="66" y="44" width="14" height="14" rx="1" fill="#1e3a8a" stroke="#0f172a" strokeWidth="0.6" />
+    <circle cx="73" cy="51" r="5" fill="#fbbf24" stroke="#92400e" strokeWidth="0.5" />
+    <line x1="73" y1="48" x2="73" y2="54" stroke="#0f172a" strokeWidth="1" />
+    {/* IC */}
+    <rect x="86" y="44" width="18" height="14" rx="1" fill="#111827" stroke="#1e293b" strokeWidth="0.8" />
+    <text x="95" y="53" fill="#cbd5e1" fontSize="4" fontWeight="700" textAnchor="middle" fontFamily="monospace">U1</text>
+    {/* Input screw terminals (left) */}
+    <rect x="14" y="70" width="20" height="20" rx="2" fill="#1e3a8a" stroke="#1e40af" strokeWidth="0.8" />
+    <circle cx="20" cy="80" r="2.5" fill="#0f172a" stroke="#475569" strokeWidth="0.5" />
+    <circle cx="28" cy="80" r="2.5" fill="#0f172a" stroke="#475569" strokeWidth="0.5" />
+    {/* Output screw terminals (right) */}
+    <rect x="86" y="70" width="20" height="20" rx="2" fill="#1e3a8a" stroke="#1e40af" strokeWidth="0.8" />
+    <circle cx="92" cy="80" r="2.5" fill="#0f172a" stroke="#475569" strokeWidth="0.5" />
+    <circle cx="100" cy="80" r="2.5" fill="#0f172a" stroke="#475569" strokeWidth="0.5" />
+    <text x="60" y="100" fill="#bfdbfe" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="monospace">LM2596</text>
+    <text x="24" y="68" fill="#bfdbfe" fontSize="4.5" textAnchor="middle" fontFamily="monospace">IN</text>
+    <text x="96" y="68" fill="#bfdbfe" fontSize="4.5" textAnchor="middle" fontFamily="monospace">OUT</text>
+  </>
+);
+
+const LM7805Preview = () => (
+  <>
+    {/* Heatsink fins */}
+    <rect x="38" y="14" width="44" height="38" rx="2" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+    {Array.from({ length: 7 }).map((_, i) => (
+      <line key={i} x1={42 + i * 6} y1="14" x2={42 + i * 6} y2="52" stroke="#64748b" strokeWidth="1" />
+    ))}
+    {/* Highlight */}
+    <rect x="38" y="14" width="44" height="3" rx="1" fill="white" opacity="0.4" />
+    {/* TO-220 body */}
+    <rect x="42" y="50" width="36" height="36" rx="2" fill="#1f2937" stroke="#0f172a" strokeWidth="1" />
+    {/* Mounting hole in tab area */}
+    <circle cx="60" cy="58" r="3" fill="#0f172a" stroke="#475569" strokeWidth="0.5" />
+    <text x="60" y="74" fill="#f8fafc" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">LM7805</text>
+    <text x="60" y="83" fill="#22c55e" fontSize="5.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">+5V</text>
+    {/* 3 leads */}
+    {[48, 60, 72].map((x, i) => (
+      <rect key={i} x={x - 2} y="86" width="4" height="22" rx="0.5" fill="#cbd5e1" />
+    ))}
+    {["IN","GND","OUT"].map((l, i) => (
+      <text key={l} x={[48, 60, 72][i]} y="116" fill="#94a3b8" fontSize="5" textAnchor="middle" fontFamily="monospace">{l}</text>
+    ))}
+  </>
+);
+
+// ── Function generator ────────────────────────────────────────────────────
+
+const FunctionGeneratorPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="funcGenBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1e293b" />
+        <stop offset="100%" stopColor="#0f172a" />
+      </linearGradient>
+    </defs>
+    {/* Body */}
+    <rect x="6" y="14" width="108" height="92" rx="6" fill="url(#funcGenBody)" stroke="#475569" strokeWidth="1.5" />
+    {/* Display */}
+    <rect x="14" y="20" width="60" height="20" rx="2" fill="#020617" stroke="#22d3ee" strokeWidth="0.8" />
+    <text x="44" y="33" fill="#22d3ee" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="monospace">1.00 kHz</text>
+    {/* Waveform buttons */}
+    <rect x="14" y="46" width="18" height="14" rx="2" fill="#0f172a" stroke="#22d3ee" strokeWidth="0.8" />
+    <path d="M17 53 Q20 48 23 53 T29 53" stroke="#22d3ee" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+    <rect x="36" y="46" width="18" height="14" rx="2" fill="#0f172a" stroke="#22d3ee" strokeWidth="0.8" />
+    <path d="M39 56 V50 H45 V56 H51 V50" stroke="#22d3ee" strokeWidth="1.4" fill="none" strokeLinecap="square" />
+    <rect x="58" y="46" width="18" height="14" rx="2" fill="#0f172a" stroke="#22d3ee" strokeWidth="0.8" />
+    <path d="M61 56 L66 49 L71 56 L74 53" stroke="#22d3ee" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    {/* Frequency knob */}
+    <circle cx="92" cy="34" r="12" fill="#374151" stroke="#94a3b8" strokeWidth="1.2" />
+    <line x1="92" y1="34" x2="92" y2="26" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="92" cy="34" r="3" fill="#1f2937" />
+    <text x="92" y="52" fill="#94a3b8" fontSize="4.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">FREQ</text>
+    {/* Amplitude knob */}
+    <circle cx="36" cy="78" r="11" fill="#374151" stroke="#94a3b8" strokeWidth="1.2" />
+    <line x1="36" y1="78" x2="42" y2="73" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="36" cy="78" r="2.5" fill="#1f2937" />
+    <text x="36" y="95" fill="#94a3b8" fontSize="4.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">AMP</text>
+    {/* BNC output */}
+    <circle cx="86" cy="78" r="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
+    <circle cx="86" cy="78" r="6" fill="#1f2937" stroke="#475569" strokeWidth="1" />
+    <circle cx="86" cy="78" r="2" fill="#fbbf24" />
+    <text x="86" y="96" fill="#94a3b8" fontSize="4.5" fontWeight="700" textAnchor="middle" fontFamily="monospace">OUT</text>
+    <text x="60" y="106" fill="#22d3ee" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">FUNC GEN</text>
+  </>
+);
+
+// ── Power control devices (MOSFETs, optocoupler) ──────────────────────────
+
+const createMosfetPreview = (label, accent) => () => (
+  <>
+    <defs>
+      <linearGradient id={`mosfet_${label}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#374151" />
+        <stop offset="100%" stopColor="#1f2937" />
+      </linearGradient>
+    </defs>
+    {/* Heatsink tab */}
+    <rect x="36" y="14" width="48" height="14" rx="1" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+    <circle cx="60" cy="21" r="3" fill="#0f172a" stroke="#64748b" strokeWidth="0.6" />
+    {/* TO-220 body */}
+    <path d="M34 28 H86 V78 H34 Z" fill={`url(#mosfet_${label})`} stroke="#475569" strokeWidth="1.5" />
+    {/* Body highlight */}
+    <rect x="34" y="30" width="52" height="4" rx="2" fill="white" opacity="0.15" />
+    <text x="60" y="50" fill="#f8fafc" fontSize="11" fontWeight="800" textAnchor="middle" fontFamily="monospace">{label}</text>
+    <text x="60" y="62" fill={accent} fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="monospace">MOSFET</text>
+    {/* Accent band */}
+    <rect x="34" y="70" width="52" height="6" fill={accent} opacity="0.25" />
+    {/* 3 leads */}
+    {[46, 60, 74].map((x, i) => (
+      <rect key={i} x={x - 2.5} y="78" width="5" height="30" rx="0.5" fill="#cbd5e1" />
+    ))}
+    {/* Lead labels */}
+    <text x="46" y="116" fill={accent} fontSize="6" textAnchor="middle" fontFamily="monospace">G</text>
+    <text x="60" y="116" fill={accent} fontSize="6" textAnchor="middle" fontFamily="monospace">D</text>
+    <text x="74" y="116" fill={accent} fontSize="6" textAnchor="middle" fontFamily="monospace">S</text>
+  </>
+);
+
+const NMOSPreview = createMosfetPreview("N-MOS", "#22d3ee");
+const PMOSPreview = createMosfetPreview("P-MOS", "#fb7185");
+
+const OptocouplerPreview = () => (
+  <>
+    {/* DIP-4 body */}
+    <rect x="28" y="22" width="64" height="76" rx="4" fill="#111827" stroke="#334155" strokeWidth="2" />
+    {/* Notch */}
+    <rect x="51" y="22" width="18" height="6" rx="3" fill="#374151" />
+    {/* Internal divider line */}
+    <line x1="60" y1="32" x2="60" y2="86" stroke="#334155" strokeWidth="0.8" strokeDasharray="2 2" />
+    {/* LED side (left) */}
+    <g transform="translate(36, 48)">
+      <path d="M2 8 L10 8 M10 4 L10 12 L18 8 Z" stroke="#ef4444" strokeWidth="1.4" fill="#ef4444" />
+      <path d="M14 4 L18 0 M16 -1 L20 -3" stroke="#ef4444" strokeWidth="1" />
+      <path d="M16 12 L20 16 M18 13 L22 15" stroke="#ef4444" strokeWidth="1" />
+    </g>
+    {/* Phototransistor side (right) */}
+    <g transform="translate(66, 50)">
+      <circle cx="9" cy="6" r="9" fill="none" stroke="#22c55e" strokeWidth="1" />
+      <line x1="9" y1="0" x2="9" y2="-6" stroke="#22c55e" strokeWidth="1.2" />
+      <line x1="9" y1="12" x2="9" y2="18" stroke="#22c55e" strokeWidth="1.2" />
+      <line x1="0" y1="6" x2="-4" y2="6" stroke="#22c55e" strokeWidth="1.2" />
+      <path d="M-2 0 L2 -4 M0 -2 L4 -6" stroke="#fbbf24" strokeWidth="0.9" />
+    </g>
+    <text x="60" y="92" fill="#fbbf24" fontSize="7" fontWeight="800" textAnchor="middle" fontFamily="monospace">PC817</text>
+    {/* Pins (4 — 2 each side) */}
+    {[34, 50].map((y, i) => (
+      <React.Fragment key={i}>
+        <rect x="18" y={y} width="10" height="4" rx="1" fill="#dbe4ef" />
+        <rect x="92" y={y} width="10" height="4" rx="1" fill="#dbe4ef" />
+      </React.Fragment>
+    ))}
+    {[68, 84].map((y, i) => (
+      <React.Fragment key={`b-${i}`}>
+        <rect x="18" y={y} width="10" height="4" rx="1" fill="#dbe4ef" />
+        <rect x="92" y={y} width="10" height="4" rx="1" fill="#dbe4ef" />
+      </React.Fragment>
+    ))}
+  </>
+);
+
+// ── Connectors ────────────────────────────────────────────────────────────
+
+const USBConnectorPreview = () => (
+  <>
+    <defs>
+      <linearGradient id="usbBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#cbd5e1" />
+        <stop offset="100%" stopColor="#94a3b8" />
+      </linearGradient>
+    </defs>
+    {/* Outer shell */}
+    <rect x="14" y="34" width="92" height="52" rx="3" fill="url(#usbBody)" stroke="#64748b" strokeWidth="1.5" />
+    {/* Inner cavity */}
+    <rect x="22" y="42" width="76" height="36" rx="2" fill="#1e293b" stroke="#0f172a" strokeWidth="1" />
+    {/* White plastic insert */}
+    <rect x="26" y="48" width="68" height="14" rx="1" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.6" />
+    {/* 4 gold pins inside */}
+    {[0,1,2,3].map(i => (
+      <rect key={i} x={32 + i * 15} y="51" width="10" height="8" rx="0.5" fill="#fbbf24" stroke="#a16207" strokeWidth="0.5" />
+    ))}
+    {/* Top highlight */}
+    <rect x="14" y="36" width="92" height="4" rx="2" fill="white" opacity="0.3" />
+    {/* USB logo (trident) */}
+    <g transform="translate(54, 22) scale(0.9)">
+      <circle cx="6" cy="6" r="2" fill="#475569" />
+      <line x1="6" y1="6" x2="6" y2="-2" stroke="#475569" strokeWidth="1.5" />
+      <path d="M6 0 L2 -4 L4 -4 L4 -6" stroke="#475569" strokeWidth="1.2" fill="none" />
+      <path d="M6 2 L10 -2 L8 -2 L8 -4" stroke="#475569" strokeWidth="1.2" fill="none" />
+      <rect x="9" y="-1" width="3" height="3" fill="#475569" />
+    </g>
+    {/* Mounting tabs / pins */}
+    <rect x="20" y="86" width="6" height="14" rx="0.5" fill="#94a3b8" />
+    <rect x="94" y="86" width="6" height="14" rx="0.5" fill="#94a3b8" />
+    <text x="60" y="108" fill="#475569" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">USB-A</text>
+  </>
+);
+
+const BarrelJackPreview = () => (
+  <>
+    <defs>
+      <radialGradient id="barrelOuter" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#1f2937" />
+        <stop offset="100%" stopColor="#0f172a" />
+      </radialGradient>
+    </defs>
+    {/* Outer cylinder (top-down view) */}
+    <circle cx="60" cy="56" r="40" fill="url(#barrelOuter)" stroke="#334155" strokeWidth="1.5" />
+    {/* Outer ring (negative) */}
+    <circle cx="60" cy="56" r="36" fill="none" stroke="#475569" strokeWidth="2" />
+    <text x="60" y="22" fill="#cbd5e1" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="monospace">−</text>
+    {/* Inner barrel */}
+    <circle cx="60" cy="56" r="22" fill="#1e293b" stroke="#475569" strokeWidth="1" />
+    {/* Center pin (positive) */}
+    <circle cx="60" cy="56" r="8" fill="#fbbf24" stroke="#92400e" strokeWidth="1" />
+    <circle cx="60" cy="56" r="4" fill="#a16207" />
+    <text x="60" y="58" fill="#0f172a" fontSize="6" fontWeight="900" textAnchor="middle" fontFamily="monospace">+</text>
+    {/* Mounting tabs */}
+    <rect x="14" y="50" width="10" height="12" rx="1" fill="#475569" />
+    <rect x="96" y="50" width="10" height="12" rx="1" fill="#475569" />
+    <text x="60" y="108" fill="#cbd5e1" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">DC 5.5mm</text>
+  </>
+);
+
+const createScrewTerminalPreview = (count) => () => {
+  const totalWidth = count * 22;
+  const startX = (120 - totalWidth) / 2;
+  return (
+    <>
+      <defs>
+        <linearGradient id={`screwTerm${count}Body`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#1d4ed8" />
+        </linearGradient>
+      </defs>
+      {/* Body */}
+      <rect x={startX} y="32" width={totalWidth} height="56" rx="2" fill={`url(#screwTerm${count}Body)`} stroke="#1e3a8a" strokeWidth="1.5" />
+      {/* Top highlight */}
+      <rect x={startX} y="34" width={totalWidth} height="3" rx="1" fill="white" opacity="0.25" />
+      {/* Screws + wire holes for each pin */}
+      {Array.from({ length: count }).map((_, i) => {
+        const cx = startX + 11 + i * 22;
+        return (
+          <React.Fragment key={i}>
+            {/* Screw head */}
+            <circle cx={cx} cy="46" r="7" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
+            <line x1={cx - 5} y1="46" x2={cx + 5} y2="46" stroke="#1e293b" strokeWidth="1.5" />
+            {/* Wire entry hole */}
+            <rect x={cx - 6} y="64" width="12" height="14" rx="1" fill="#0f172a" stroke="#1e3a8a" strokeWidth="0.6" />
+            <rect x={cx - 4} y="66" width="8" height="10" rx="0.5" fill="#020617" />
+            {/* Pin */}
+            <rect x={cx - 1.5} y="88" width="3" height="20" rx="0.5" fill="#cbd5e1" />
+          </React.Fragment>
+        );
+      })}
+      <text x="60" y="28" fill="#bfdbfe" fontSize="6.5" fontWeight="800" textAnchor="middle" fontFamily="monospace">SCREW × {count}</text>
+    </>
+  );
+};
+
+const ScrewTerminal2Preview = createScrewTerminalPreview(2);
+const ScrewTerminal3Preview = createScrewTerminalPreview(3);
+
 // ── Exports ──────────────────────────────────────────────────────────────────
 
 export const NativeComponents = {
@@ -1394,6 +1859,44 @@ export const NativeComponents = {
   "vlab-tcs34725-color":     createPreview(TCS34725ColorPreview),
   "vlab-sw420-vibration":    createPreview(SW420VibrationPreview),
   "vlab-max30102-pulse":     createPreview(MAX30102PulsePreview),
+
+  // NeoPixel rings (variants)
+  "vlab-neopixel-ring-12":   createPreview(NeopixelRing12Preview),
+  "vlab-neopixel-ring-16":   createPreview(NeopixelRing16Preview),
+  "vlab-neopixel-ring-24":   createPreview(NeopixelRing24Preview),
+
+  // Breadboard variants
+  "vlab-breadboard-mini":    createPreview(BreadboardMiniPreview),
+  "vlab-breadboard-half":    createPreview(BreadboardHalfPreview),
+  "vlab-breadboard-full":    createPreview(BreadboardFullPreview),
+
+  // Power supply
+  "vlab-bench-psu":          createPreview(BenchPSUPreview),
+  "vlab-buck-converter":     createPreview(BuckConverterPreview),
+  "vlab-lm7805":             createPreview(LM7805Preview),
+
+  // Function generator tool
+  "vlab-function-generator": createPreview(FunctionGeneratorPreview),
+
+  // Power control devices
+  "vlab-nmosfet":            createPreview(NMOSPreview),
+  "vlab-pmosfet":            createPreview(PMOSPreview),
+  "vlab-optocoupler":        createPreview(OptocouplerPreview),
+
+  // Connectors
+  "vlab-usb-conn":           createPreview(USBConnectorPreview),
+  "vlab-barrel-jack":        createPreview(BarrelJackPreview),
+  "vlab-screw-term-2":       createPreview(ScrewTerminal2Preview),
+  "vlab-screw-term-3":       createPreview(ScrewTerminal3Preview),
+
+  // Logic gate ICs (74HC series, 14-pin DIP)
+  "vlab-74hc08":             createPreview(createDipIcPreview("74HC08 AND",  7, "#22c55e")),
+  "vlab-74hc32":             createPreview(createDipIcPreview("74HC32 OR",   7, "#3b82f6")),
+  "vlab-74hc04":             createPreview(createDipIcPreview("74HC04 NOT",  7, "#f59e0b")),
+  "vlab-74hc00":             createPreview(createDipIcPreview("74HC00 NAND", 7, "#ef4444")),
+  "vlab-74hc02":             createPreview(createDipIcPreview("74HC02 NOR",  7, "#8b5cf6")),
+  "vlab-74hc86":             createPreview(createDipIcPreview("74HC86 XOR",  7, "#ec4899")),
+  "vlab-74hc74":             createPreview(createDipIcPreview("74HC74 D-FF", 7, "#14b8a6")),
 
   // Fallback
   "generic": createSensorModulePreview("COMPONENT", "#94a3b8", "IC"),
