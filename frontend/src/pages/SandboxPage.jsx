@@ -615,19 +615,15 @@ void loop() {
     });
   };
 
-  const getPinLogic = (p) => {
+  const getPinLogic = useCallback((p) => {
     if (p === "" || isNaN(p) || p == null) return false;
     if (currentRegisters?.PWM?.[p] > 0 && currentRegisters?.PWM?.[p] < 255) return "PWM";
-    // ESP32: flat GPIO model
-    if (isESP32) {
-      return currentRegisters?.GPIO_OUT?.[p] === 1;
-    }
-    // Arduino Uno: port-based model
+    if (isESP32) return currentRegisters?.GPIO_OUT?.[p] === 1;
     if (p <= 7) return currentRegisters?.PORTD?.[p] === 1;
     if (p <= 13) return currentRegisters?.PORTB?.[p - 8] === 1;
     if (p >= 14 && p <= 19) return currentRegisters?.PORTC?.[p - 14] === 1;
     return false;
-  };
+  }, [currentRegisters, isESP32]);
 
   const getPinAnalog = (p, totalRes = 0) => {
     if (p === "" || isNaN(p) || p == null) return 0;
@@ -644,6 +640,15 @@ void loop() {
     return Math.min(1, Math.max(0.1, ratio));
   };
 
+  const GATE_FN_MAP = {
+    LOGIC_AND:  (a, b) => a && b,
+    LOGIC_OR:   (a, b) => a || b,
+    LOGIC_NAND: (a, b) => !(a && b),
+    LOGIC_NOR:  (a, b) => !(a || b),
+    LOGIC_XOR:  (a, b) => Boolean(a) !== Boolean(b),
+    LOGIC_NOT:  (a)    => !a,
+  };
+
   const resolveConnection = useCallback((compId, termId, visited = new Set(), currentResistance = 0) => {
     const key = `${compId}::${termId}`;
     if (visited.has(key)) return { pin: null, resistance: currentResistance };
@@ -652,33 +657,74 @@ void loop() {
     const item = workspaceItems.find(i => i.id === compId);
     if (!item) return { pin: null, resistance: currentResistance };
 
-    // 1. Traverse all wires touching this pin
+    // VCC / GND short-circuit
+    if (item.type === "VCC_NODE") return { pin: null, resistance: currentResistance, logicValue: true };
+    if (item.type === "GROUND_NODE") return { pin: null, resistance: currentResistance, logicValue: false };
+
+    // 1. Traverse all wires touching this terminal
     const touchingWires = wires.filter(w => w.source === key || w.target === key);
-    
     for (const wire of touchingWires) {
-       const otherEnd = wire.source === key ? wire.target : wire.source;
-       if (!otherEnd) continue;
-
-       if (otherEnd.startsWith("mcu::")) {
-         return { pin: parseInt(otherEnd.split("::")[1], 10), resistance: currentResistance };
-       }
-
-       const [oComp, oTerm] = otherEnd.split("::");
-       const result = resolveConnection(oComp, oTerm, visited, currentResistance);
-       if (result.pin != null) return result;
+      const otherEnd = wire.source === key ? wire.target : wire.source;
+      if (!otherEnd) continue;
+      if (otherEnd.startsWith("mcu::")) {
+        return { pin: parseInt(otherEnd.split("::")[1], 10), resistance: currentResistance };
+      }
+      const [oComp, oTerm] = otherEnd.split("::");
+      const result = resolveConnection(oComp, oTerm, visited, currentResistance);
+      if (result.pin != null || result.logicValue !== undefined) return result;
     }
 
-    // 2. Across the component?
+    // 2. Cross resistor
     if (item.type === "RESISTOR") {
       const otherTerm = termId === "t1" ? "t2" : "t1";
       const rVal = (item.resistance || 330) * (item.resMultiplier || 1);
-      const hopResistance = currentResistance + rVal;
-      const result = resolveConnection(compId, otherTerm, visited, hopResistance);
-      if (result.pin != null) return result;
+      const result = resolveConnection(compId, otherTerm, visited, currentResistance + rVal);
+      if (result.pin != null || result.logicValue !== undefined) return result;
+    }
+
+    // 3. Logic gate output propagation
+    if (termId === "out" && GATE_FN_MAP[item.type]) {
+      const ra = resolveConnection(compId, "in1", visited);
+      const a = ra.pin != null ? getPinLogic(ra.pin) : (ra.logicValue ?? false);
+      if (item.type === "LOGIC_NOT") {
+        return { pin: null, resistance: currentResistance, logicValue: GATE_FN_MAP[item.type](!!a) };
+      }
+      const rb = resolveConnection(compId, "in2", visited);
+      const b = rb.pin != null ? getPinLogic(rb.pin) : (rb.logicValue ?? false);
+      return { pin: null, resistance: currentResistance, logicValue: GATE_FN_MAP[item.type](!!a, !!b) };
+    }
+    if (item.type === "LOGIC_DFLIPFLOP" && (termId === "q" || termId === "qn")) {
+      const rd = resolveConnection(compId, "d", visited);
+      const d = rd.pin != null ? getPinLogic(rd.pin) : (rd.logicValue ?? false);
+      return { pin: null, resistance: currentResistance, logicValue: termId === "q" ? !!d : !d };
+    }
+
+    // 4. MOSFET switching: D-S conducts when gate threshold met
+    if ((item.type === "NMOSFET" || item.type === "PMOSFET") &&
+        (termId === "d" || termId === "s")) {
+      const gConn = resolveConnection(compId, "g", visited);
+      const gateHigh = gConn.pin != null ? !!getPinLogic(gConn.pin) : (gConn.logicValue ?? false);
+      const conducting = item.type === "NMOSFET" ? gateHigh : !gateHigh;
+      if (conducting) {
+        const otherTerm = termId === "d" ? "s" : "d";
+        const result = resolveConnection(compId, otherTerm, visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+    }
+
+    // 5. Optocoupler isolation switching: C-E conducts when LED is on
+    if (item.type === "OPTOCOUPLER" && (termId === "col" || termId === "emit")) {
+      const aConn = resolveConnection(compId, "ano", visited);
+      const ledOn = aConn.pin != null ? !!getPinLogic(aConn.pin) : (aConn.logicValue ?? false);
+      if (ledOn) {
+        const otherTerm = termId === "col" ? "emit" : "col";
+        const result = resolveConnection(compId, otherTerm, visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
     }
 
     return { pin: null, resistance: currentResistance };
-  }, [workspaceItems, wires]);
+  }, [workspaceItems, wires, getPinLogic]);
 
   const handleSaveWorkspace = async () => {
     const payload = { items: workspaceItems, inputs, wireColors, wires };
@@ -1179,6 +1225,35 @@ void loop() {
                   { id: "b", label: "B", color: "#666" },
                   { id: "e", label: "E", color: "#666" },
                 ];
+              } else if (item.type === "NMOSFET" || item.type === "PMOSFET") {
+                terminals = [
+                  { id: "g", label: "G", color: "#facc15" },
+                  { id: "d", label: "D", color: "#666" },
+                  { id: "s", label: "S", color: "#666" },
+                ];
+              } else if (item.type === "OPTOCOUPLER") {
+                terminals = [
+                  { id: "ano",  label: "A",  color: "#f97316" },
+                  { id: "cat",  label: "K",  color: "#666" },
+                  { id: "col",  label: "C",  color: "#22d3ee" },
+                  { id: "emit", label: "E",  color: "#666" },
+                ];
+              } else if (item.type === "DC_MOTOR") {
+                terminals = [
+                  { id: "m+", label: "M+", color: "#f97316" },
+                  { id: "m-", label: "M−", color: "#666" },
+                ];
+              } else if (item.type === "L298N_DRIVER") {
+                terminals = [
+                  { id: "ena", label: "ENA", color: "#22c55e" },
+                  { id: "in1", label: "IN1", color: "#94a3b8" },
+                  { id: "in2", label: "IN2", color: "#94a3b8" },
+                  { id: "in3", label: "IN3", color: "#94a3b8" },
+                  { id: "in4", label: "IN4", color: "#94a3b8" },
+                  { id: "enb", label: "ENB", color: "#22c55e" },
+                  { id: "vcc", label: "VCC", color: "#facc15" },
+                  { id: "gnd", label: "GND", color: "#555" },
+                ];
               } else if (item.type === "TIMER_555") {
                 terminals = [
                   { id: "gnd", label: "1 (GND)", color: "#111" },
@@ -1413,13 +1488,14 @@ void loop() {
                 const wiredPins = {};
                 const layout = LIBRARY_TERMINAL_LAYOUTS[item.type] || [];
                 layout.forEach(tl => {
-                   const conn = resolveConnection(item.id, tl.id);
-                   pinStates[tl.id] = getPinLogic(conn.pin);
-                   analogStates[tl.id] = getPinAnalog(conn.pin, conn.resistance);
-                   wiredPins[tl.id] = conn.pin;
+                  const conn = resolveConnection(item.id, tl.id);
+                  const signal = conn.pin != null ? getPinLogic(conn.pin) : (conn.logicValue ?? false);
+                  pinStates[tl.id] = signal;
+                  analogStates[tl.id] = conn.pin != null ? getPinAnalog(conn.pin, conn.resistance) : 0;
+                  wiredPins[tl.id] = conn.pin;
                 });
 
-                renderedContent = <CustomLibComp id={item.id} pinStates={pinStates} analogStates={analogStates} wiredPins={wiredPins} />;
+                renderedContent = <CustomLibComp id={item.id} type={item.type} pinStates={pinStates} analogStates={analogStates} wiredPins={wiredPins} />;
               }
 
               if (!renderedContent) {

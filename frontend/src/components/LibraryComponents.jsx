@@ -713,17 +713,18 @@ export const MembraneKeypad = ({ id, wiredPins }) => {
 // ══════════════════════════════════════════════════════════════════════════
 // NeoPixel Ring — live WS2812B color rendering
 // ══════════════════════════════════════════════════════════════════════════
-export const NeopixelRing = ({ id, wiredPins }) => {
-  const [colors, setColors] = useState(new Array(12).fill('#1e293b'));
+export const NeopixelRing = ({ id, type, wiredPins }) => {
+  const ringSize = type === 'NEOPIXEL_RING_24' ? 24 : type === 'NEOPIXEL_RING_16' ? 16 : 12;
+  const [colors, setColors] = useState(new Array(ringSize).fill('#1e293b'));
 
   useEffect(() => {
     if (!id || !wiredPins?.din) return;
     PeripheralSimulator.registerComponent(id, 'NEOPIXEL', {
       pin: wiredPins['din'],
-      length: 12,
+      length: ringSize,
       onRenderTarget: (buffer) => {
         const c = [];
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < ringSize; i++) {
           const g = buffer[i * 3];
           const r = buffer[i * 3 + 1] ?? 0;
           const b = buffer[i * 3 + 2] ?? 0;
@@ -733,9 +734,7 @@ export const NeopixelRing = ({ id, wiredPins }) => {
       },
     });
     return () => PeripheralSimulator.unregisterComponent(id);
-  }, [id, wiredPins]);
-
-  const isActive = colors.some(c => c !== '#1e293b');
+  }, [id, wiredPins, ringSize]);
 
   return (
     <svg width={105} height={110} viewBox="0 0 105 110" style={{ display: 'block', overflow: 'visible' }}>
@@ -748,10 +747,11 @@ export const NeopixelRing = ({ id, wiredPins }) => {
       {/* PCB ring */}
       <circle cx={52} cy={48} r={44} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
       <circle cx={52} cy={48} r={26} fill={`url(#ring-inner-${id})`} />
-      <text x={52} y={52} fill="#475569" fontSize={7} fontWeight="700" textAnchor="middle" fontFamily="monospace">WS2812B</text>
+      <text x={52} y={49} fill="#475569" fontSize={7} fontWeight="700" textAnchor="middle" fontFamily="monospace">WS2812B</text>
+      <text x={52} y={58} fill="#334155" fontSize={6} textAnchor="middle" fontFamily="monospace">{ringSize} LED</text>
       {/* LEDs */}
       {colors.map((c, i) => {
-        const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
+        const angle = (i / ringSize) * Math.PI * 2 - Math.PI / 2;
         const x = 52 + 36 * Math.cos(angle);
         const y = 48 + 36 * Math.sin(angle);
         const active = c !== '#1e293b';
@@ -1343,5 +1343,472 @@ export const LedMatrix8x8 = ({ pinStates = {} }) => (
     }))}
     {[0,1,2,3,4,5,6,7].map(i => <Pin key={`T${i}`} x={13 + i * 10} y={5} label={`C${i}`} />)}
     {[0,1,2,3,4,5,6,7].map(i => <Pin key={`B${i}`} x={13 + i * 10} y={89} label={`R${i}`} />)}
+  </svg>
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// Logic Gate IC — visual simulation for AND/OR/NOT/NAND/NOR/XOR/DFF
+// ══════════════════════════════════════════════════════════════════════════
+const GATE_FN = {
+  LOGIC_AND:  (a, b) => a && b,
+  LOGIC_OR:   (a, b) => a || b,
+  LOGIC_NAND: (a, b) => !(a && b),
+  LOGIC_NOR:  (a, b) => !(a || b),
+  LOGIC_XOR:  (a, b) => Boolean(a) !== Boolean(b),
+  LOGIC_NOT:  (a)    => !a,
+  LOGIC_DFLIPFLOP: (d) => d,
+};
+const GATE_LABEL = {
+  LOGIC_AND: 'AND', LOGIC_OR: 'OR', LOGIC_NAND: 'NAND',
+  LOGIC_NOR: 'NOR', LOGIC_XOR: 'XOR', LOGIC_NOT: 'NOT',
+  LOGIC_DFLIPFLOP: 'DFF',
+};
+const sigColor = (v) => v ? '#22c55e' : '#ef4444';
+
+export const LogicGateIC = ({ id: _id, type, pinStates = {} }) => {
+  const isNOT = type === 'LOGIC_NOT';
+  const isDFF = type === 'LOGIC_DFLIPFLOP';
+
+  const inA = !!(pinStates['in1'] || pinStates['d']);
+  const inB = !!(pinStates['in2'] || pinStates['clk']);
+
+  let outQ, outQN;
+  if (isDFF) {
+    outQ = inA;       // simplified: Q = D (edge not tracked)
+    outQN = !inA;
+  } else if (isNOT) {
+    outQ = GATE_FN[type](inA);
+  } else {
+    outQ = GATE_FN[type] ? GATE_FN[type](inA, inB) : false;
+  }
+
+  const label = GATE_LABEL[type] || '?';
+
+  return (
+    <svg width={90} height={70} style={{ overflow: 'visible', display: 'block' }}>
+      {/* IC body */}
+      <rect x={12} y={4} width={66} height={62} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+      {/* Pin-1 dot */}
+      <circle cx={18} cy={12} r={2} fill="#475569" />
+      {/* Gate label */}
+      <text x={45} y={28} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle" fontFamily="monospace">{label}</text>
+      <text x={45} y={40} fill="#475569" fontSize={7} textAnchor="middle" fontFamily="monospace">74HC</text>
+
+      {/* Input A (in1 / d) */}
+      <line x1={0} y1={22} x2={12} y2={22} stroke="#475569" strokeWidth={1.5} />
+      <circle cx={8} cy={22} r={3} fill={sigColor(inA)} />
+      <text x={15} y={20} fill="#64748b" fontSize={6} fontFamily="monospace">{isDFF ? 'D' : 'A'}</text>
+
+      {/* Input B (in2 / clk) — hidden for NOT */}
+      {!isNOT && (
+        <>
+          <line x1={0} y1={48} x2={12} y2={48} stroke="#475569" strokeWidth={1.5} />
+          <circle cx={8} cy={48} r={3} fill={sigColor(inB)} />
+          <text x={15} y={46} fill="#64748b" fontSize={6} fontFamily="monospace">{isDFF ? 'CLK' : 'B'}</text>
+        </>
+      )}
+
+      {/* Output Y / Q */}
+      <line x1={78} y1={isDFF ? 22 : 35} x2={90} y2={isDFF ? 22 : 35} stroke="#475569" strokeWidth={1.5} />
+      <circle cx={82} cy={isDFF ? 22 : 35} r={3} fill={sigColor(outQ)} />
+      <text x={74} y={isDFF ? 20 : 33} fill="#64748b" fontSize={6} textAnchor="end" fontFamily="monospace">{isDFF ? 'Q' : 'Y'}</text>
+
+      {/* Output QN — only for DFF */}
+      {isDFF && (
+        <>
+          <line x1={78} y1={48} x2={90} y2={48} stroke="#475569" strokeWidth={1.5} />
+          <circle cx={82} cy={48} r={3} fill={sigColor(outQN)} />
+          <text x={74} y={46} fill="#64748b" fontSize={6} textAnchor="end" fontFamily="monospace">Q̄</text>
+        </>
+      )}
+
+      {/* NAND/NOR inversion bubble */}
+      {(type === 'LOGIC_NAND' || type === 'LOGIC_NOR') && (
+        <circle cx={76} cy={35} r={3} fill="none" stroke="#94a3b8" strokeWidth={1} />
+      )}
+    </svg>
+  );
+};
+
+export const DcMotor = ({ type: _t, pinStates = {} }) => {
+  const mPlus  = pinStates['m+'];
+  const mMinus = pinStates['m-'];
+  // determine speed/direction
+  const isOn = !!mPlus && !mMinus;
+  const isPWM = mPlus === 'PWM';
+  const spinDur = isPWM ? '0.4s' : isOn ? '0.9s' : null;
+
+  return (
+    <svg width={80} height={86} style={{ overflow: 'visible', display: 'block' }}>
+      {/* Body */}
+      <rect x={5} y={4} width={70} height={72} rx={35} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+      {/* Inner circle / rotor — spins when active */}
+      <g style={spinDur ? { transformOrigin: '40px 40px', animation: `spin ${spinDur} linear infinite` } : {}}>
+        <circle cx={40} cy={40} r={18} fill="none" stroke="#475569" strokeWidth={2} />
+        <line x1={40} y1={22} x2={40} y2={58} stroke="#94a3b8" strokeWidth={1.5} />
+        <line x1={22} y1={40} x2={58} y2={40} stroke="#94a3b8" strokeWidth={1.5} />
+        {/* Rotor indicator */}
+        <circle cx={40} cy={25} r={3} fill={isOn || isPWM ? '#22c55e' : '#334155'} />
+      </g>
+      {/* Shaft */}
+      <rect x={36} y={2} width={8} height={8} rx={1} fill="#64748b" />
+      {/* Status label */}
+      <text x={40} y={68} fill={isOn || isPWM ? '#22c55e' : '#475569'} fontSize={7}
+            textAnchor="middle" fontFamily="monospace">
+        {isPWM ? 'PWM' : isOn ? 'ON' : 'OFF'}
+      </text>
+      {/* Terminal leads */}
+      <line x1={22} y1={76} x2={22} y2={86} stroke="#64748b" strokeWidth={2} />
+      <line x1={58} y1={76} x2={58} y2={86} stroke="#64748b" strokeWidth={2} />
+      <text x={22} y={93} fill="#f97316" fontSize={6} textAnchor="middle" fontFamily="monospace">M+</text>
+      <text x={58} y={93} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">M−</text>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </svg>
+  );
+};
+
+const getMotorState = (en, in1, in2) => {
+  if (!en && en !== 'PWM') return 'OFF';
+  if (in1 && !in2) return 'CW';
+  if (!in1 && in2) return 'CCW';
+  if (in1 && in2)  return 'BRAKE';
+  return 'STOP';
+};
+const motorColor = (s) => ({ CW: '#22c55e', CCW: '#3b82f6', BRAKE: '#ef4444', STOP: '#f59e0b', OFF: '#475569' })[s];
+
+export const L298nDriver = ({ type: _t, pinStates = {} }) => {
+  const stateA = getMotorState(pinStates['ena'], pinStates['in1'], pinStates['in2']);
+  const stateB = getMotorState(pinStates['enb'], pinStates['in3'], pinStates['in4']);
+  return (
+    <svg width={120} height={116} style={{ display: 'block', overflow: 'visible' }}>
+      {/* IC body */}
+      <rect x={8} y={4} width={104} height={108} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+      <text x={60} y={20} fill="#64748b" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">L298N</text>
+      {/* Channel A */}
+      <rect x={16} y={26} width={40} height={36} rx={3} fill="#0f172a" stroke="#1e3a5f" strokeWidth={1} />
+      <text x={36} y={39} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="monospace">CH-A</text>
+      <text x={36} y={52} fill={motorColor(stateA)} fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">{stateA}</text>
+      {/* Channel B */}
+      <rect x={64} y={26} width={40} height={36} rx={3} fill="#0f172a" stroke="#1e3a5f" strokeWidth={1} />
+      <text x={84} y={39} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="monospace">CH-B</text>
+      <text x={84} y={52} fill={motorColor(stateB)} fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">{stateB}</text>
+      {/* Left-side pin leads and labels */}
+      {[['ENA',20],['IN1',38],['IN2',56],['IN3',74],['IN4',92],['ENB',110]].map(([lbl,y]) => (
+        <g key={lbl}>
+          <line x1={0} y1={y} x2={8} y2={y} stroke="#475569" strokeWidth={1.5} />
+          <text x={10} y={y+3} fill="#64748b" fontSize={6} fontFamily="monospace">{lbl}</text>
+        </g>
+      ))}
+      {/* Right-side pin leads */}
+      {[['VCC',20],['GND',38]].map(([lbl,y]) => (
+        <g key={lbl}>
+          <line x1={112} y1={y} x2={120} y2={y} stroke="#475569" strokeWidth={1.5} />
+          <text x={100} y={y+3} fill="#64748b" fontSize={6} textAnchor="end" fontFamily="monospace">{lbl}</text>
+        </g>
+      ))}
+    </svg>
+  );
+};
+
+export const MosfetIC = ({ type, pinStates = {} }) => {
+  const isP     = type === 'PMOSFET';
+  const gate    = !!pinStates['g'];
+  const conducting = isP ? !gate : gate;  // N: on when G high; P: on when G low
+  const chanColor  = conducting ? '#22c55e' : '#ef4444';
+  const label      = isP ? 'P-MOS' : 'N-MOS';
+
+  return (
+    <svg width={60} height={82} style={{ display: 'block', overflow: 'visible' }}>
+      {/* Body */}
+      <rect x={10} y={4} width={40} height={54} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+      <text x={30} y={22} fill="#94a3b8" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">{label}</text>
+      {/* Channel indicator */}
+      <rect x={18} y={28} width={24} height={14} rx={2} fill={conducting ? '#14532d' : '#450a0a'} stroke={chanColor} strokeWidth={1} />
+      <text x={30} y={39} fill={chanColor} fontSize={7} fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+        {conducting ? 'ON' : 'OFF'}
+      </text>
+      {/* Gate dot */}
+      <circle cx={10} cy={31} r={3} fill={gate ? '#22c55e' : '#ef4444'} />
+      {/* Three leads */}
+      <line x1={15} y1={58} x2={15} y2={75} stroke="#64748b" strokeWidth={2} />
+      <line x1={30} y1={58} x2={30} y2={75} stroke="#64748b" strokeWidth={2} />
+      <line x1={45} y1={58} x2={45} y2={75} stroke="#64748b" strokeWidth={2} />
+      <text x={15} y={82} fill="#94a3b8" fontSize={6} textAnchor="middle" fontFamily="monospace">G</text>
+      <text x={30} y={82} fill="#94a3b8" fontSize={6} textAnchor="middle" fontFamily="monospace">D</text>
+      <text x={45} y={82} fill="#94a3b8" fontSize={6} textAnchor="middle" fontFamily="monospace">S</text>
+    </svg>
+  );
+};
+
+export const OptocouplerIC = ({ type: _t, pinStates = {} }) => {
+  const ledOn = !!pinStates['ano'] && !pinStates['cat'];
+  const xColor = ledOn ? '#f59e0b' : '#475569';
+  const tColor = ledOn ? '#22c55e' : '#ef4444';
+  return (
+    <svg width={60} height={80} style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={6} y={4} width={48} height={62} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+      <text x={30} y={16} fill="#64748b" fontSize={7} fontWeight="bold" textAnchor="middle" fontFamily="monospace">PC817</text>
+      {/* Isolation barrier */}
+      <line x1={30} y1={20} x2={30} y2={60} stroke="#1e3a5f" strokeWidth={1} strokeDasharray="2,2" />
+      {/* LED symbol */}
+      <polygon points="14,28 14,44 24,36" fill={ledOn ? '#fbbf24' : '#374151'} stroke={xColor} strokeWidth={1} />
+      <line x1={24} y1={28} x2={24} y2={44} stroke={xColor} strokeWidth={1.5} />
+      {/* Light rays */}
+      {ledOn && <>
+        <line x1={26} y1={30} x2={30} y2={26} stroke="#fbbf24" strokeWidth={1} />
+        <line x1={26} y1={36} x2={31} y2={32} stroke="#fbbf24" strokeWidth={1} />
+      </>}
+      {/* Transistor symbol */}
+      <line x1={36} y1={28} x2={36} y2={44} stroke={tColor} strokeWidth={1.5} />
+      <line x1={36} y1={32} x2={46} y2={26} stroke={tColor} strokeWidth={1.5} />
+      <line x1={36} y1={40} x2={46} y2={46} stroke={tColor} strokeWidth={1.5} />
+      {/* Pin leads */}
+      <line x1={0}  y1={22} x2={6}  y2={22} stroke="#475569" strokeWidth={1.5} />
+      <line x1={0}  y1={58} x2={6}  y2={58} stroke="#475569" strokeWidth={1.5} />
+      <line x1={54} y1={22} x2={60} y2={22} stroke="#475569" strokeWidth={1.5} />
+      <line x1={54} y1={58} x2={60} y2={58} stroke="#475569" strokeWidth={1.5} />
+      <text x={8}  y={20} fill="#64748b" fontSize={6} fontFamily="monospace">A</text>
+      <text x={8}  y={56} fill="#64748b" fontSize={6} fontFamily="monospace">K</text>
+      <text x={50} y={20} fill="#64748b" fontSize={6} fontFamily="monospace">C</text>
+      <text x={50} y={56} fill="#64748b" fontSize={6} fontFamily="monospace">E</text>
+    </svg>
+  );
+};
+
+// ── TTP223 Touch Sensor ────────────────────────────────────────────────────
+export const Ttp223Touch = ({ id, wiredPins = {} }) => {
+  const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    const pin = wiredPins.io;
+    if (pin == null) return;
+    PeripheralSimulator.setButtonState(String(pin), touched);
+  }, [touched, wiredPins.io]);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={70} height={74} style={{ display: 'block', overflow: 'visible' }}>
+        {/* PCB */}
+        <rect x={3} y={4} width={64} height={58} rx={4} fill="#166534" stroke="#15803d" strokeWidth={1.5} />
+        {/* Touch pad */}
+        <circle cx={35} cy={28} r={18}
+          fill={touched ? '#22c55e' : '#0f172a'}
+          stroke={touched ? '#4ade80' : '#334155'} strokeWidth={2}
+          style={{ cursor: 'pointer', transition: 'fill 0.1s, stroke 0.1s' }}
+          onMouseDown={() => setTouched(true)}
+          onMouseUp={() => setTouched(false)}
+          onMouseLeave={() => setTouched(false)}
+        />
+        <text x={35} y={32} fill={touched ? '#fff' : '#475569'} fontSize={8}
+              fontWeight="bold" textAnchor="middle" fontFamily="monospace">TOUCH</text>
+        <text x={35} y={52} fill="#64748b" fontSize={6.5} textAnchor="middle" fontFamily="monospace">TTP223</text>
+        {/* Pins */}
+        {[['VCC',12,'#facc15'],['IO',34,'#22d3ee'],['GND',56,'#94a3b8']].map(([l,x,c]) => (
+          <Pin key={l} x={x} y={68} label={l} color={c} />
+        ))}
+      </svg>
+      <div style={{ ...SENSOR_PANEL, textAlign: 'center' }}>
+        <span style={{ color: touched ? '#22c55e' : '#475569', fontSize: 8, fontFamily: 'monospace' }}>
+          {touched ? 'TOUCHED — HIGH' : 'Hold to touch'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// ── SW420 Vibration Sensor ─────────────────────────────────────────────────
+export const Sw420Vibration = ({ id, wiredPins = {} }) => {
+  const [vibrating, setVibrating] = useState(false);
+
+  const triggerVibration = useCallback(() => {
+    const pin = wiredPins.dout;
+    if (pin == null) return;
+    setVibrating(true);
+    PeripheralSimulator.setButtonState(String(pin), true);
+    setTimeout(() => {
+      setVibrating(false);
+      PeripheralSimulator.setButtonState(String(pin), false);
+    }, 300);
+  }, [wiredPins.dout]);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={70} height={74} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={3} y={4} width={64} height={58} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+        {/* Vibration coil symbol */}
+        {[0,1,2,3].map(i => (
+          <ellipse key={i} cx={35} cy={28} rx={6+i*4} ry={6+i*4}
+            fill="none" stroke={vibrating ? '#f59e0b' : '#334155'}
+            strokeWidth={1} opacity={1 - i*0.2}
+          />
+        ))}
+        <circle cx={35} cy={28} r={4} fill={vibrating ? '#f59e0b' : '#475569'} />
+        <text x={35} y={52} fill="#64748b" fontSize={6.5} textAnchor="middle" fontFamily="monospace">SW-420</text>
+        {[['VCC',12,'#facc15'],['DOUT',34,'#22d3ee'],['GND',56,'#94a3b8']].map(([l,x,c]) => (
+          <Pin key={l} x={x} y={68} label={l} color={c} />
+        ))}
+      </svg>
+      <div style={{ ...SENSOR_PANEL, textAlign: 'center' }}>
+        <button
+          onMouseDown={triggerVibration}
+          style={{
+            background: vibrating ? '#92400e' : '#1e293b',
+            color: vibrating ? '#f59e0b' : '#94a3b8',
+            border: `1px solid ${vibrating ? '#f59e0b' : '#334155'}`,
+            borderRadius: 3, padding: '2px 10px', fontSize: 8,
+            fontFamily: 'monospace', cursor: 'pointer',
+          }}
+        >
+          {vibrating ? 'VIBRATING!' : 'Trigger vibration'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── Rain Sensor ────────────────────────────────────────────────────────────
+export const RainSensorComp = ({ id, wiredPins = {} }) => {
+  const [wetness, setWetness] = useState(0);
+  const isWet = wetness > 40;
+
+  useEffect(() => {
+    const aPin = wiredPins.aout;
+    const dPin = wiredPins.dout;
+    if (aPin != null) PeripheralSimulator.setAnalogValue(String(aPin), wetness / 100);
+    if (dPin != null) PeripheralSimulator.setButtonState(String(dPin), isWet);
+  }, [wetness, wiredPins.aout, wiredPins.dout, isWet]);
+
+  const dropColor = isWet ? '#3b82f6' : '#1e3a5f';
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={90} height={94} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={4} y={4} width={82} height={78} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+        {/* Sensor tracks */}
+        {[0,1,2,3,4,5].map(i => (
+          <line key={i} x1={12 + i*12} y1={14} x2={12 + i*12} y2={62}
+            stroke={isWet ? '#3b82f6' : '#334155'} strokeWidth={3}
+            strokeDasharray="4,3" strokeLinecap="round" />
+        ))}
+        {/* Rain drops */}
+        {isWet && [20,40,60,30,50].map((x, i) => (
+          <ellipse key={i} cx={x} cy={20 + i * 8} rx={2} ry={3.5}
+            fill={dropColor} opacity={0.7 - i*0.1} />
+        ))}
+        <text x={45} y={74} fill={isWet ? '#3b82f6' : '#64748b'} fontSize={7}
+              textAnchor="middle" fontFamily="monospace">{isWet ? 'WET' : 'DRY'} ({wetness}%)</text>
+        {[['AOUT',10],['DOUT',30],['VCC',50],['GND',70]].map(([l,x],i) => (
+          <Pin key={l} x={x} y={88} label={l}
+            color={i===2?'#facc15':i===3?'#94a3b8':i===1&&isWet?'#22c55e':'#22d3ee'} />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="~" value={wetness} min={0} max={100} step={1} unit="%" color="#3b82f6" onChange={setWetness} />
+      </div>
+    </div>
+  );
+};
+
+// ── MAX30102 Pulse Oximeter ────────────────────────────────────────────────
+export const Max30102 = ({ id: _id }) => {
+  const [bpm, setBpm] = useState(72);
+  const [spo2, setSpo2] = useState(98);
+  const [beat, setBeat] = useState(false);
+
+  useEffect(() => {
+    const iv = setInterval(() => setBeat(b => !b), (60000 / bpm) / 2);
+    return () => clearInterval(iv);
+  }, [bpm]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={80} height={88} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={4} y={4} width={72} height={72} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+        {/* Heart */}
+        <text x={40} y={35} fontSize={22} textAnchor="middle"
+              style={{ transition: 'transform 0.15s', transform: beat ? 'scale(1.15)' : 'scale(1)', transformOrigin: '40px 30px', display: 'inline-block' }}>
+          ❤️
+        </text>
+        <text x={40} y={52} fill="#f87171" fontSize={11} fontWeight="bold"
+              textAnchor="middle" fontFamily="monospace">{bpm} BPM</text>
+        <text x={40} y={63} fill="#60a5fa" fontSize={8}
+              textAnchor="middle" fontFamily="monospace">SpO₂ {spo2}%</text>
+        <text x={40} y={72} fill="#334155" fontSize={6}
+              textAnchor="middle" fontFamily="monospace">MAX30102</text>
+        {['VCC','GND','SCL','SDA'].map((l, i) => (
+          <Pin key={l} x={10 + i*18} y={82} label={l}
+            color={i===0?'#facc15':i===1?'#94a3b8':'#22d3ee'} />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="♥" value={bpm}  min={40} max={200} step={1} unit=" BPM" color="#f87171" onChange={setBpm} />
+        <SliderRow label="O₂" value={spo2} min={70} max={100} step={1} unit="%"    color="#60a5fa" onChange={setSpo2} />
+      </div>
+    </div>
+  );
+};
+
+// ── TCS34725 Color Sensor ──────────────────────────────────────────────────
+export const Tcs34725Color = ({ id: _id }) => {
+  const [r, setR] = useState(128);
+  const [g, setG] = useState(128);
+  const [b, setB] = useState(128);
+  const color = `rgb(${r},${g},${b})`;
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={80} height={88} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={4} y={4} width={72} height={72} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+        {/* Color swatch */}
+        <rect x={14} y={12} width={52} height={36} rx={3} fill={color} />
+        <rect x={14} y={12} width={52} height={36} rx={3} fill="none" stroke="#334155" strokeWidth={1} />
+        <text x={40} y={60} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="monospace">
+          rgb({r},{g},{b})
+        </text>
+        <text x={40} y={70} fill="#334155" fontSize={6} textAnchor="middle" fontFamily="monospace">TCS34725</text>
+        {['VCC','GND','SCL','SDA'].map((l, i) => (
+          <Pin key={l} x={10 + i*18} y={82} label={l}
+            color={i===0?'#facc15':i===1?'#94a3b8':'#22d3ee'} />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="R" value={r} min={0} max={255} step={1} color="#f87171" onChange={setR} />
+        <SliderRow label="G" value={g} min={0} max={255} step={1} color="#4ade80" onChange={setG} />
+        <SliderRow label="B" value={b} min={0} max={255} step={1} color="#60a5fa" onChange={setB} />
+      </div>
+    </div>
+  );
+};
+
+// ── HC-05 Bluetooth ────────────────────────────────────────────────────────
+export const Hc05Bluetooth = () => (
+  <svg width={100} height={84} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={4} y={4} width={92} height={68} rx={4} fill="#172554" stroke="#1d4ed8" strokeWidth={1.5} />
+    {/* Bluetooth symbol */}
+    <text x={50} y={34} fontSize={20} textAnchor="middle">🔵</text>
+    <text x={50} y={50} fill="#93c5fd" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">HC-05</text>
+    <text x={50} y={60} fill="#1d4ed8" fontSize={6} textAnchor="middle" fontFamily="monospace">BLUETOOTH</text>
+    {['VCC','GND','TXD','RXD','ST','EN'].map((l, i) => (
+      <Pin key={l} x={10 + i*16} y={78} label={l}
+        color={i===0?'#facc15':i===1?'#94a3b8':'#22d3ee'} />
+    ))}
+  </svg>
+);
+
+// ── RC522 RFID ─────────────────────────────────────────────────────────────
+export const Rc522Rfid = () => (
+  <svg width={114} height={74} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={4} y={4} width={106} height={58} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    {/* Antenna coil */}
+    {[0,1,2].map(i => (
+      <rect key={i} x={8+i*4} y={8+i*4} width={50-i*8} height={42-i*8}
+        rx={3} fill="none" stroke={i===0?'#f59e0b':'#475569'} strokeWidth={1} />
+    ))}
+    <text x={80} y={28} fill="#94a3b8" fontSize={7} fontWeight="bold" textAnchor="middle" fontFamily="monospace">RC522</text>
+    <text x={80} y={40} fill="#475569" fontSize={6} textAnchor="middle" fontFamily="monospace">RFID</text>
+    {['SDA','SCK','MOSI','MISO','IRQ','GND','RST','3V3'].map((l, i) => (
+      <Pin key={l} x={8 + i*13} y={68} label={l}
+        color={i===5?'#94a3b8':i===7?'#facc15':'#22d3ee'} />
+    ))}
   </svg>
 );
