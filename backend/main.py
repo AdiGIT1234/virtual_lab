@@ -194,7 +194,7 @@ def run_experiment(payload: CodeInput, request:Request):
     code_lower = payload.code.lower()
     is_led_experiment = (
         ("pb5" in code_lower or "pin 13" in code_lower or "pinmode(13" in code_lower)
-        and "ddrb" in code_lower or "pinmode" in code_lower
+        and ("ddrb" in code_lower or "pinmode" in code_lower)
     )
 
     if is_led_experiment:
