@@ -50,12 +50,18 @@ function resolveEndpoint(str, posMap) {
   }
 }
 
+const PERP_EXIT = 0.07; // how far the wire rises perpendicular from the pin before routing
+
 function buildWirePoints(p1, p2) {
   if (!p1 || !p2) return null;
-  const midX = (p1[0] + p2[0]) / 2;
-  const midZ = (p1[2] + p2[2]) / 2;
-  const midY = Math.max(p1[1], p2[1]) + 0.14;
-  return [p1, [midX, midY, midZ], p2];
+  // Rise perpendicular from p1, travel straight to above p2, drop to p2
+  const exitY = Math.max(p1[1], p2[1]) + PERP_EXIT;
+  return [
+    p1,
+    [p1[0], exitY, p1[2]],   // straight up from pin (perpendicular to chip surface)
+    [p2[0], exitY, p2[2]],   // horizontal travel at fixed height
+    p2,                        // drop straight down to destination
+  ];
 }
 
 export default function CircuitScene({
