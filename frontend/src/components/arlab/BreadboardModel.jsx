@@ -12,11 +12,12 @@ const ROW_LABELS_BOT = ["f", "g", "h", "i", "j"];
 const COLOR_DEFAULT  = new THREE.Color("#0f0f0f");
 const COLOR_HOVER    = new THREE.Color("#ff6200");
 const COLOR_OCCUPIED = new THREE.Color("#00cc55");
+const COLOR_WIRING   = new THREE.Color("#00e5ff");
 
 const holeGeo = new THREE.CylinderGeometry(HOLE_RADIUS, HOLE_RADIUS * 0.8, 0.015, 8);
 const holeMat = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: false });
 
-export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick, onHoleHover: externalHover }) {
+export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick, onHoleHover: externalHover, wiringFromHole }) {
   const instancedRef = useRef();
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
@@ -61,7 +62,8 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
       mesh.setMatrixAt(i, dummy.matrix);
 
       let col;
-      if (occupiedHoles.has(hole.id)) col = COLOR_OCCUPIED;
+      if (hole.id === wiringFromHole) col = COLOR_WIRING;
+      else if (occupiedHoles.has(hole.id)) col = COLOR_OCCUPIED;
       else if (i === hoveredIdx) col = COLOR_HOVER;
       else col = COLOR_DEFAULT;
       mesh.setColorAt(i, col);
@@ -69,7 +71,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
 
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [holes, occupiedHoles, hoveredIdx]);
+  }, [holes, occupiedHoles, hoveredIdx, wiringFromHole]);
 
   const handlePointerMove = useCallback((e) => {
     e.stopPropagation();

@@ -236,25 +236,37 @@ export function useAVR(activeMcuId = "atmega328p") {
           if (port) port.setPin(bit, isHigh);
        };
     }
+    let currentTWIAddr = 0;
     twi.eventHandler = {
       start: () => { twi.completeStart(); },
       stop: () => { twi.completeStop(); },
-      connectToSlave: (addr, write) => { 
+      connectToSlave: (addr, write) => {
+        currentTWIAddr = addr;
         if (typeof window !== 'undefined' && window.onTWIConnect) window.onTWIConnect(addr, write, cpu.cycles);
-        twi.completeConnect(true); 
+        twi.completeConnect(true);
       },
-      writeByte: (value) => { 
-        if (typeof window !== 'undefined' && window.onTWIByte) window.onTWIByte(value, cpu.cycles);
-        twi.completeWrite(true); 
+      writeByte: (value) => {
+        if (typeof window !== 'undefined' && window.onTWIByte) window.onTWIByte(value, cpu.cycles, currentTWIAddr);
+        twi.completeWrite(true);
       },
-      readByte: () => { twi.completeRead(0x00); }
+      readByte: () => {
+        const byte = (typeof window !== 'undefined' && window.getTWIReadByte)
+          ? (window.getTWIReadByte(currentTWIAddr) ?? 0x00)
+          : 0x00;
+        twi.completeRead(byte);
+      }
     };
 
-    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi };
+    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi, usart };
     
     usart.onByteTransmit = (data) => {
       cpuRef.current.serialBuffer += String.fromCharCode(data);
+      if (typeof window !== 'undefined') window.onSerialTX?.(data);
     };
+
+    if (typeof window !== 'undefined') {
+      window.injectSerialByte = (byte) => { cpuRef.current?.usart?.writeByte(byte); };
+    }
 
     // 4. Apply initial register states (if provided)
     // Map register names to I/O addresses for ATmega328P

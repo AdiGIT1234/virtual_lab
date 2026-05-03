@@ -1374,8 +1374,9 @@ export const LogicGateIC = ({ id: _id, type, pinStates = {} }) => {
 
   let outQ, outQN;
   if (isDFF) {
-    outQ = inA;       // simplified: Q = D (edge not tracked)
-    outQN = !inA;
+    // Use the resolved Q pinState (from edge-triggered resolveConnection) when available
+    outQ = pinStates['q'] !== undefined ? !!pinStates['q'] : inA;
+    outQN = !outQ;
   } else if (isNOT) {
     outQ = GATE_FN[type](inA);
   } else {
@@ -1710,21 +1711,79 @@ export const RainSensorComp = ({ id, wiredPins = {} }) => {
 };
 
 // ── MAX30102 Pulse Oximeter ────────────────────────────────────────────────
+const MAX30102_ADDR = 0x57;
+// Static register defaults (non-FIFO)
+const MAX30102_REG_MAP = { 0x00: 0x40, 0x01: 0x00, 0x04: 0x01, 0x05: 0x00, 0x06: 0x00, 0xFE: 0x03, 0xFF: 0x15 };
+
 export const Max30102 = ({ id: _id }) => {
   const [bpm, setBpm] = useState(72);
   const [spo2, setSpo2] = useState(98);
   const [beat, setBeat] = useState(false);
+  const bpmRef = useRef(72);
+  const spo2Ref = useRef(98);
+  const regPtrRef = useRef(0x07);  // current register pointer
+  const fifoByteRef = useRef(0);   // byte index within FIFO sample
+
+  useEffect(() => { bpmRef.current = bpm; }, [bpm]);
+  useEffect(() => { spo2Ref.current = spo2; }, [spo2]);
 
   useEffect(() => {
     const iv = setInterval(() => setBeat(b => !b), (60000 / bpm) / 2);
     return () => clearInterval(iv);
   }, [bpm]);
 
+  useEffect(() => {
+    // Track which register the master is pointing to
+    const prevOnTWIByte = window.onTWIByte;
+    window.onTWIByte = (value, cycles, addr) => {
+      if (addr === MAX30102_ADDR) {
+        regPtrRef.current = value;
+        fifoByteRef.current = 0;
+      }
+      prevOnTWIByte?.(value, cycles, addr);
+    };
+
+    // Register read-byte handler
+    const prevGetTWIReadByte = window.getTWIReadByte;
+    window.getTWIReadByte = (addr) => {
+      if (addr !== MAX30102_ADDR) return prevGetTWIReadByte?.(addr) ?? 0x00;
+
+      if (regPtrRef.current === 0x07) {
+        // FIFO_DATA: return oscillating IR + RED values
+        const t = Date.now() / 1000;
+        const phase = (t * bpmRef.current / 60) * 2 * Math.PI;
+        const pulse = Math.max(0, Math.sin(phase));
+        const IR_DC = 80000, IR_AC = 3000;
+        const ir = Math.round(IR_DC + IR_AC * pulse);
+        // RED amplitude ratio from SpO2: R = (110 - spo2) / 25
+        const R = (110 - spo2Ref.current) / 25;
+        const RED_DC = 50000;
+        const RED_AC = Math.round(R * (RED_DC / IR_DC) * IR_AC * 8);
+        const red = Math.round(RED_DC + RED_AC * pulse);
+        // 6 bytes per sample: RED[2:0] then IR[2:0] (24-bit, upper 6 bits unused)
+        const idx = fifoByteRef.current % 6;
+        fifoByteRef.current++;
+        if (idx === 0) return (red >> 16) & 0x03;
+        if (idx === 1) return (red >> 8) & 0xFF;
+        if (idx === 2) return red & 0xFF;
+        if (idx === 3) return (ir >> 16) & 0x03;
+        if (idx === 4) return (ir >> 8) & 0xFF;
+        if (idx === 5) return ir & 0xFF;
+      }
+      return MAX30102_REG_MAP[regPtrRef.current] ?? 0x00;
+    };
+
+    return () => {
+      window.onTWIByte = prevOnTWIByte;
+      window.getTWIReadByte = prevGetTWIReadByte;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{ display: 'inline-block' }}>
       <svg width={80} height={88} style={{ display: 'block', overflow: 'visible' }}>
         <rect x={4} y={4} width={72} height={72} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
-        {/* Heart */}
         <text x={40} y={35} fontSize={22} textAnchor="middle"
               style={{ transition: 'transform 0.15s', transform: beat ? 'scale(1.15)' : 'scale(1)', transformOrigin: '40px 30px', display: 'inline-block' }}>
           ❤️
@@ -1749,17 +1808,60 @@ export const Max30102 = ({ id: _id }) => {
 };
 
 // ── TCS34725 Color Sensor ──────────────────────────────────────────────────
+const TCS34725_ADDR = 0x29;
+
 export const Tcs34725Color = ({ id: _id }) => {
   const [r, setR] = useState(128);
   const [g, setG] = useState(128);
   const [b, setB] = useState(128);
   const color = `rgb(${r},${g},${b})`;
+  const rRef = useRef(128), gRef = useRef(128), bRef = useRef(128);
+  const regPtrRef = useRef(0x12);
+
+  useEffect(() => { rRef.current = r; }, [r]);
+  useEffect(() => { gRef.current = g; }, [g]);
+  useEffect(() => { bRef.current = b; }, [b]);
+
+  useEffect(() => {
+    // TCS34725 uses command byte: writes are 0x80|reg_addr
+    const prevOnTWIByte = window.onTWIByte;
+    window.onTWIByte = (value, cycles, addr) => {
+      if (addr === TCS34725_ADDR) regPtrRef.current = value & 0x7F; // strip command bit
+      prevOnTWIByte?.(value, cycles, addr);
+    };
+
+    const prevGetTWIReadByte = window.getTWIReadByte;
+    window.getTWIReadByte = (addr) => {
+      if (addr !== TCS34725_ADDR) return prevGetTWIReadByte?.(addr) ?? 0x00;
+      const reg = regPtrRef.current;
+      // Scale 0-255 slider values to 16-bit counts (× 256)
+      const R16 = rRef.current * 256, G16 = gRef.current * 256, B16 = bRef.current * 256;
+      const C16 = Math.min(65535, R16 + G16 + B16);
+      const regMap = {
+        0x00: 0x03,   // ENABLE: PON|AEN
+        0x12: 0x44,   // ID: TCS34725
+        0x13: 0x01,   // STATUS: AVALID
+        0x14: C16 & 0xFF, 0x15: (C16 >> 8) & 0xFF,   // CDATAL/H
+        0x16: R16 & 0xFF, 0x17: (R16 >> 8) & 0xFF,   // RDATAL/H
+        0x18: G16 & 0xFF, 0x19: (G16 >> 8) & 0xFF,   // GDATAL/H
+        0x1A: B16 & 0xFF, 0x1B: (B16 >> 8) & 0xFF,   // BDATAL/H
+      };
+      const val = regMap[reg] ?? 0x00;
+      regPtrRef.current = (reg + 1) & 0x7F; // auto-increment
+      return val;
+    };
+
+    return () => {
+      window.onTWIByte = prevOnTWIByte;
+      window.getTWIReadByte = prevGetTWIReadByte;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ display: 'inline-block' }}>
       <svg width={80} height={88} style={{ display: 'block', overflow: 'visible' }}>
         <rect x={4} y={4} width={72} height={72} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
-        {/* Color swatch */}
         <rect x={14} y={12} width={52} height={36} rx={3} fill={color} />
         <rect x={14} y={12} width={52} height={36} rx={3} fill="none" stroke="#334155" strokeWidth={1} />
         <text x={40} y={60} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="monospace">
@@ -1781,19 +1883,66 @@ export const Tcs34725Color = ({ id: _id }) => {
 };
 
 // ── HC-05 Bluetooth ────────────────────────────────────────────────────────
-export const Hc05Bluetooth = () => (
-  <svg width={100} height={84} style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={4} y={4} width={92} height={68} rx={4} fill="#172554" stroke="#1d4ed8" strokeWidth={1.5} />
-    {/* Bluetooth symbol */}
-    <text x={50} y={34} fontSize={20} textAnchor="middle">🔵</text>
-    <text x={50} y={50} fill="#93c5fd" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">HC-05</text>
-    <text x={50} y={60} fill="#1d4ed8" fontSize={6} textAnchor="middle" fontFamily="monospace">BLUETOOTH</text>
-    {['VCC','GND','TXD','RXD','ST','EN'].map((l, i) => (
-      <Pin key={l} x={10 + i*16} y={78} label={l}
-        color={i===0?'#facc15':i===1?'#94a3b8':'#22d3ee'} />
-    ))}
-  </svg>
-);
+const BT_PANEL = { background: '#0f172a', border: '1px solid #1d4ed8', borderRadius: 4, padding: '4px 6px', marginTop: 2, width: 160, fontFamily: 'monospace', fontSize: 10 };
+
+export const Hc05Bluetooth = () => {
+  const [rxLog, setRxLog] = useState(''); // data received from MCU (MCU TX → BT)
+  const [sendVal, setSendVal] = useState('');
+
+  useEffect(() => {
+    // Subscribe to MCU serial TX bytes (what the MCU sends to HC-05's RXD)
+    const prev = window.onSerialTX;
+    window.onSerialTX = (byte) => {
+      prev?.(byte);
+      setRxLog(log => (log + String.fromCharCode(byte)).slice(-200));
+    };
+    return () => { window.onSerialTX = prev; };
+  }, []);
+
+  const handleSend = useCallback(() => {
+    if (!sendVal) return;
+    for (const ch of sendVal + '\n') {
+      window.injectSerialByte?.(ch.charCodeAt(0));
+    }
+    setSendVal('');
+  }, [sendVal]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={100} height={84} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={4} y={4} width={92} height={68} rx={4} fill="#172554" stroke="#1d4ed8" strokeWidth={1.5} />
+        <text x={50} y={34} fontSize={20} textAnchor="middle">🔵</text>
+        <text x={50} y={50} fill="#93c5fd" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">HC-05</text>
+        <text x={50} y={60} fill="#1d4ed8" fontSize={6} textAnchor="middle" fontFamily="monospace">BLUETOOTH</text>
+        {['VCC','GND','TXD','RXD','ST','EN'].map((l, i) => (
+          <Pin key={l} x={10 + i*16} y={78} label={l}
+            color={i===0?'#facc15':i===1?'#94a3b8':'#22d3ee'} />
+        ))}
+      </svg>
+      <div style={BT_PANEL}>
+        <div style={{ color: '#93c5fd', marginBottom: 3, fontSize: 9 }}>MCU → BT:</div>
+        <div style={{ color: '#4ade80', minHeight: 28, maxHeight: 40, overflowY: 'auto', wordBreak: 'break-all', whiteSpace: 'pre-wrap', fontSize: 9 }}>
+          {rxLog || <span style={{ color: '#334155' }}>waiting…</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+          <input
+            value={sendVal}
+            onChange={e => setSendVal(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="send to MCU…"
+            style={{ flex: 1, background: '#1e3a5f', border: '1px solid #1d4ed8', borderRadius: 3, color: '#e2e8f0', fontSize: 9, padding: '2px 4px', outline: 'none' }}
+          />
+          <button
+            onClick={handleSend}
+            style={{ background: '#1d4ed8', border: 'none', borderRadius: 3, color: '#fff', fontSize: 9, padding: '2px 6px', cursor: 'pointer' }}
+          >
+            ↑
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── RC522 RFID ─────────────────────────────────────────────────────────────
 export const Rc522Rfid = () => (

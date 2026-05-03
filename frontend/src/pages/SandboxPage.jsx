@@ -250,6 +250,8 @@ void loop() {
     WDTCSR_WDE: 0,
   });
   const manualMemoryRef = useRef(new Array(256).fill(0));
+  // Persistent state for edge-triggered D flip-flops: { [compId]: { prevClk: bool, q: bool } }
+  const dffStateRef = useRef({});
 
   const [breakpoints, setBreakpoints] = useState([]);
   const [breakpointHit, setBreakpointHit] = useState(null);
@@ -278,6 +280,10 @@ void loop() {
     if (!registersSource) return;
     setOutputsFromRegisters(registersSource);
   }, [currentRegisters, manualRegisters, setOutputsFromRegisters]);
+
+  useEffect(() => {
+    if (!isRunning) dffStateRef.current = {};
+  }, [isRunning]);
 
   useEffect(() => {
     syncBreakpoints(breakpoints);
@@ -710,9 +716,14 @@ void loop() {
       return { pin: null, resistance: currentResistance, logicValue: GATE_FN_MAP[item.type](!!a, !!b) };
     }
     if (item.type === "LOGIC_DFLIPFLOP" && (termId === "q" || termId === "qn")) {
-      const rd = resolveConnection(compId, "d", visited);
+      const rd = resolveConnection(compId, "d", new Set(visited));
       const d = rd.pin != null ? getPinLogic(rd.pin) : (rd.logicValue ?? false);
-      return { pin: null, resistance: currentResistance, logicValue: termId === "q" ? !!d : !d };
+      const rc = resolveConnection(compId, "clk", new Set(visited));
+      const clk = rc.pin != null ? !!getPinLogic(rc.pin) : (rc.logicValue ?? false);
+      const prev = dffStateRef.current[compId] ?? { prevClk: false, q: false };
+      const q = (!prev.prevClk && clk) ? !!d : prev.q;
+      dffStateRef.current[compId] = { prevClk: clk, q };
+      return { pin: null, resistance: currentResistance, logicValue: termId === "q" ? q : !q };
     }
 
     // 4. MOSFET switching: D-S conducts when gate threshold met

@@ -75,6 +75,10 @@ export default function CircuitScene({
   occupiedHoles,
   onPinClick,
   wiringFrom,
+  wiringFromHole,
+  drawnWires = [],
+  selectedWireIdx = null,
+  onWireSelect,
 }) {
   const components  = useCircuitStore((s) => s.components);
   const outputs     = useCircuitStore((s) => s.outputs);
@@ -165,7 +169,7 @@ export default function CircuitScene({
 
       {/* Breadboard */}
       <group position={[1.2, 0.01, 0]}>
-        <BreadboardModel occupiedHoles={occupiedHoles || new Set()} onHoleClick={onHoleClick} />
+        <BreadboardModel occupiedHoles={occupiedHoles || new Set()} onHoleClick={onHoleClick} wiringFromHole={wiringFromHole} />
       </group>
 
       {/* Components */}
@@ -342,6 +346,17 @@ export default function CircuitScene({
       {/* Preset wires — resolved from wire definitions */}
       {resolvedWires.map((wire, i) => (
         <Wire3D key={`preset-wire-${i}`} points={wire.points} color={wire.color || "#888"} />
+      ))}
+
+      {/* User-drawn wires — rendered here so they share scene-group coordinate space */}
+      {drawnWires.map((wire, i) => (
+        <Wire3D
+          key={`drawn-${i}`}
+          points={wire.points}
+          color={wire.color || "#00e5ff"}
+          glow={i === selectedWireIdx}
+          onClick={(e) => { e.stopPropagation(); onWireSelect?.(i === selectedWireIdx ? null : i); }}
+        />
       ))}
     </group>
   );

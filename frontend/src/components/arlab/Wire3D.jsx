@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
-export default function Wire3D({ points = [], color = "#cc2200", glow = false }) {
+export default function Wire3D({ points = [], color = "#cc2200", glow = false, onClick }) {
   const geometry = useMemo(() => {
     if (points.length < 2) return null;
 
@@ -38,13 +38,13 @@ export default function Wire3D({ points = [], color = "#cc2200", glow = false })
   if (!geometry) return null;
 
   return (
-    <mesh geometry={geometry} castShadow>
+    <mesh geometry={geometry} castShadow onClick={onClick}>
       <meshStandardMaterial
         color={color}
         roughness={0.55}
         metalness={0.05}
         emissive={glow ? color : "#000000"}
-        emissiveIntensity={glow ? 0.4 : 0}
+        emissiveIntensity={glow ? 0.8 : 0}
       />
     </mesh>
   );

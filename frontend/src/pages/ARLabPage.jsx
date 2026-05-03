@@ -1,14 +1,52 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 import { UNO_PIN_COORDS } from "../constants/unoPinCoords";
+import { useAVR } from "../engine/useAVR";
+import { useESP32 } from "../engine/useESP32";
+import { API_BASE_URL } from "../lib/api";
 
 // Inline replica of CircuitScene's pinToSceneCoords helper (cannot be imported from a Three component).
 const pinToSceneCoords = (pinNum) => {
   const local = UNO_PIN_COORDS[pinNum] || [0, 0.05, 0];
   return [-0.6 + local[0], 0.01 + local[1] + 0.04, local[2]];
+};
+
+// Converts a breadboard hole ID ("a5", "f30", "+T10", "-B5") to scene-group coords.
+// Breadboard group: [1.2, 0.01, 0]; instancedMesh group inside it: [0, 0.025, 0].
+const HOLE_COLS = 63;
+const HOLE_STEP = 0.05;
+const HOLE_GAP_Z = 0.04;
+const HOLE_NROWS = 5;
+const TOP_ROWS = { a: 0, b: 1, c: 2, d: 3, e: 4 };
+const BOT_ROWS = { f: 0, g: 1, h: 2, i: 3, j: 4 };
+
+const holeToSceneCoords = (holeId) => {
+  const startX = -(HOLE_COLS * HOLE_STEP) / 2;
+  const mainZ = HOLE_NROWS * HOLE_STEP;
+  let col, z_bm;
+  if (holeId[0] === '+' || holeId[0] === '-') {
+    const sign = holeId[0], side = holeId[1];
+    col = parseInt(holeId.slice(2), 10);
+    const base = (HOLE_GAP_Z + mainZ + 0.06) * (side === 'T' ? -1 : 1);
+    z_bm = sign === '+' ? base : base + (side === 'T' ? -HOLE_STEP : HOLE_STEP);
+  } else {
+    const r = holeId[0];
+    col = parseInt(holeId.slice(1), 10);
+    if (r in TOP_ROWS) {
+      z_bm = -(HOLE_GAP_Z + mainZ) + TOP_ROWS[r] * HOLE_STEP + HOLE_STEP / 2;
+    } else {
+      z_bm = HOLE_GAP_Z + (BOT_ROWS[r] ?? 0) * HOLE_STEP + HOLE_STEP / 2;
+    }
+  }
+  return [1.2 + startX + (col - 1) * HOLE_STEP, 0.035, z_bm];
+};
+
+const buildWirePoints = (p1, p2) => {
+  const exitY = Math.max(p1[1], p2[1]) + 0.10;
+  return [p1, [p1[0], exitY, p1[2]], [p2[0], exitY, p2[2]], p2];
 };
 
 const presetOptions = Object.values(CIRCUIT_PRESETS);
@@ -128,64 +166,142 @@ export default function ARLabPage() {
   const loadPreset = useCircuitStore((state) => state.loadPreset);
   const presetMeta = useCircuitStore((state) => state.presetMeta);
   const addComponent = useCircuitStore((state) => state.addComponent);
+  const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
+
+  const preset = CIRCUIT_PRESETS[presetParam];
+  const isESP32 = preset?.mcu === "esp32";
+
+  // Both hooks called unconditionally (React rules); active one selected by MCU
+  const avr = useAVR(preset?.mcu || "atmega328p");
+  const esp32 = useESP32(preset?.mcu || "esp32");
+  const { startSimulation, stopSimulation, isRunning, cpuState } = isESP32 ? esp32 : avr;
+
+  // Stop both engines when preset changes
+  useEffect(() => {
+    avr.stopSimulation();
+    esp32.stopSimulation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetParam]);
+
+  // Wire live CPU registers into the circuit store so components react
+  useEffect(() => {
+    if (cpuState?.registers) setOutputsFromRegisters(cpuState.registers);
+  }, [cpuState, setOutputsFromRegisters]);
+
+  const [simError, setSimError] = useState("");
+
+  const handleSimulate = useCallback(async () => {
+    if (isRunning) { stopSimulation(); return; }
+    const code = preset?.starterCode || "";
+    setSimError("");
+    try {
+      if (isESP32) {
+        await startSimulation(code, {}, {}, code);
+      } else {
+        const res = await fetch(`${API_BASE_URL}/run-experiment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, inputs: {} }),
+        });
+        const data = await res.json();
+        if (data.hex) startSimulation(data.hex, {});
+        else if (data.hex_error) setSimError(data.hex_error);
+      }
+    } catch (e) {
+      console.error("ARLab simulation failed:", e);
+      setSimError("Simulation failed — check backend.");
+    }
+  }, [isRunning, isESP32, preset, startSimulation, stopSimulation]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [occupiedHoles, setOccupiedHoles] = useState(new Set());
   const [hoveredPart, setHoveredPart] = useState(null);
-  const [simRunning, setSimRunning] = useState(false);
   const [wiringMode, setWiringMode] = useState(false);
-  const [wiringFrom, setWiringFrom] = useState(null);
+  const [wireAnchor, setWireAnchor] = useState(null); // { kind: 'pin'|'hole', id }
   const [drawnWires, setDrawnWires] = useState([]);
+  const [selectedWireIdx, setSelectedWireIdx] = useState(null);
 
+  const wiringFrom = wireAnchor?.kind === 'pin' ? wireAnchor.id : null;
+  const wiringFromHole = wireAnchor?.kind === 'hole' ? wireAnchor.id : null;
+
+  // Tracks next available breadboard column for sidebar-inserted parts (resets on preset change)
+  const nextBbColRef = useRef(10);
   useEffect(() => {
     loadPreset(presetParam);
+    nextBbColRef.current = 10;
   }, [presetParam, loadPreset]);
 
+  // Keyboard shortcuts: Ctrl+Z = undo last wire, Delete/Backspace = delete selected wire
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+      if (e.ctrlKey && e.key === "z") {
+        e.preventDefault();
+        setDrawnWires(prev => prev.slice(0, -1));
+        setSelectedWireIdx(null);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedWireIdx !== null) {
+        e.preventDefault();
+        setDrawnWires(prev => prev.filter((_, i) => i !== selectedWireIdx));
+        setSelectedWireIdx(null);
+      } else if (e.key === "Escape") {
+        setSelectedWireIdx(null);
+        setWireAnchor(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedWireIdx]);
+
   const handleHoleClick = useCallback((holeId) => {
-    setOccupiedHoles(prev => {
-      const next = new Set(prev);
-      if (next.has(holeId)) next.delete(holeId);
-      else next.add(holeId);
-      return next;
-    });
-  }, []);
+    if (!wiringMode) {
+      setOccupiedHoles(prev => {
+        const next = new Set(prev);
+        if (next.has(holeId)) next.delete(holeId);
+        else next.add(holeId);
+        return next;
+      });
+      return;
+    }
+    if (wireAnchor === null) { setWireAnchor({ kind: 'hole', id: holeId }); return; }
+    if (wireAnchor.kind === 'hole' && wireAnchor.id === holeId) { setWireAnchor(null); return; }
+    const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
+    const p2 = holeToSceneCoords(holeId);
+    const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
+    setDrawnWires(prev => [...prev, { points: buildWirePoints(p1, p2), color: nextColor }]);
+    setWireAnchor(null);
+  }, [wiringMode, wireAnchor, drawnWires.length]);
 
   const handlePinClick = useCallback((pinNum) => {
     if (!wiringMode) return;
-    if (wiringFrom === null) {
-      setWiringFrom(pinNum);
-      return;
-    }
-    if (wiringFrom === pinNum) {
-      // Click same pin to cancel
-      setWiringFrom(null);
-      return;
-    }
-    const p1 = pinToSceneCoords(wiringFrom);
+    if (wireAnchor === null) { setWireAnchor({ kind: 'pin', id: pinNum }); return; }
+    if (wireAnchor.kind === 'pin' && wireAnchor.id === pinNum) { setWireAnchor(null); return; }
+    const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
     const p2 = pinToSceneCoords(pinNum);
-    const exitY = Math.max(p1[1], p2[1]) + 0.10;
-    const wirePoints = [
-      p1,
-      [p1[0], exitY, p1[2]],
-      [p2[0], exitY, p2[2]],
-      p2,
-    ];
     const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
-    setDrawnWires((prev) => [...prev, { points: wirePoints, color: nextColor }]);
-    setWiringFrom(null);
-  }, [wiringMode, wiringFrom]);
+    setDrawnWires(prev => [...prev, { points: buildWirePoints(p1, p2), color: nextColor }]);
+    setWireAnchor(null);
+  }, [wiringMode, wireAnchor, drawnWires.length]);
 
   const handleInsertPart = useCallback((part) => {
-    if (addComponent && part.type !== "BOARD" && part.type !== "WIRE") {
-      addComponent({
-        id: `${part.type.toLowerCase()}-${Date.now()}`,
-        type: part.type,
-        pin: null,
-        pins: { main: null },
-        x: 400 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
-      });
-    }
+    if (!addComponent || part.type === "BOARD" || part.type === "WIRE") return;
+
+    // Place at next available breadboard column, row 'f' (first bottom row).
+    // Inverse of posMap formula: scene_x = (c.x - 450)*0.005, scene_z = (c.y - 300)*0.005
+    // Breadboard col (1-indexed): scene_x = 1.2 - 1.575 + (col-1)*0.05
+    // Row 'f' (index 0):          scene_z = 0.04 + 0*0.05 + 0.025 = 0.065
+    const col = nextBbColRef.current;
+    nextBbColRef.current = col >= 55 ? 10 : col + 5;
+    const scene_x = 1.2 - 1.575 + (col - 1) * 0.05;
+    const scene_z = 0.065;
+
+    addComponent({
+      id: `${part.type.toLowerCase()}-${Date.now()}`,
+      type: part.type,
+      pin: null,
+      pins: { main: null },
+      x: scene_x / 0.005 + 450,
+      y: scene_z / 0.005 + 300,
+    });
   }, [addComponent]);
 
   return (
@@ -250,7 +366,7 @@ export default function ARLabPage() {
               color: wiringMode ? "#00e5ff" : "#c9d1d9",
               border: wiringMode ? "1px solid rgba(0,229,255,0.5)" : "1px solid #30363d",
             }}
-            onClick={() => { setWiringMode(m => !m); setWiringFrom(null); }}
+            onClick={() => { setWiringMode(m => !m); setWireAnchor(null); }}
             aria-label="Toggle wire drawing mode"
             aria-pressed={wiringMode}
           >
@@ -258,14 +374,24 @@ export default function ARLabPage() {
           </button>
           <button
             style={{ ...styles.headerBtn, opacity: drawnWires.length === 0 ? 0.4 : 1 }}
-            onClick={() => setDrawnWires(prev => prev.slice(0, -1))}
+            onClick={() => { setDrawnWires(prev => prev.slice(0, -1)); setSelectedWireIdx(null); }}
             disabled={drawnWires.length === 0}
             aria-label="Undo last wire"
-            title="Undo last wire"
+            title="Undo last wire (Ctrl+Z)"
           >
             Undo Wire
           </button>
-          {drawnWires.length > 0 && (
+          {selectedWireIdx !== null && (
+            <button
+              style={{ ...styles.headerBtn, color: "#f87171", border: "1px solid rgba(248,113,113,0.5)" }}
+              onClick={() => { setDrawnWires(prev => prev.filter((_, i) => i !== selectedWireIdx)); setSelectedWireIdx(null); }}
+              aria-label="Delete selected wire"
+              title="Delete selected wire (Delete)"
+            >
+              Delete Wire
+            </button>
+          )}
+          {drawnWires.length > 0 && selectedWireIdx === null && (
             <button
               style={{ ...styles.headerBtn, color: "#f87171" }}
               onClick={() => setDrawnWires([])}
@@ -275,13 +401,18 @@ export default function ARLabPage() {
               Clear
             </button>
           )}
+          {simError && (
+            <span style={{ color: "#f87171", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={simError}>
+              {simError}
+            </span>
+          )}
           <button
-            style={{ ...styles.simulateBtn, background: simRunning ? "#b91c1c" : "#1a7f37" }}
-            onClick={() => setSimRunning((r) => !r)}
+            style={{ ...styles.simulateBtn, background: isRunning ? "#b91c1c" : "#1a7f37" }}
+            onClick={handleSimulate}
             aria-label="Toggle simulation"
           >
             <span style={styles.simDot} aria-hidden="true"/>
-            {simRunning ? "Stop" : "Simulate"}
+            {isRunning ? "Stop" : "Simulate"}
           </button>
         </div>
       </header>
@@ -367,15 +498,17 @@ export default function ARLabPage() {
             <div style={{
               position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
               zIndex: 30, background: "rgba(0,10,20,0.85)", backdropFilter: "blur(10px)",
-              border: `1px solid ${wiringFrom !== null ? "#00e5ff" : "rgba(0,229,255,0.3)"}`,
+              border: `1px solid ${wireAnchor !== null ? "#00e5ff" : "rgba(0,229,255,0.3)"}`,
               borderRadius: 8, padding: "6px 16px", color: "#00e5ff",
               fontSize: 12, fontFamily: "monospace", fontWeight: 700,
-              boxShadow: wiringFrom !== null ? "0 0 16px rgba(0,229,255,0.35)" : "none",
+              boxShadow: wireAnchor !== null ? "0 0 16px rgba(0,229,255,0.35)" : "none",
               pointerEvents: "none",
             }}>
-              {wiringFrom !== null
-                ? `FROM pin D${wiringFrom} — click destination pin`
-                : "Click a pin to start a wire"}
+              {wireAnchor !== null
+                ? wireAnchor.kind === 'pin'
+                  ? `FROM pin D${wireAnchor.id} — click destination`
+                  : `FROM hole ${wireAnchor.id} — click destination`
+                : "Click a pin or hole to start a wire"}
             </div>
           )}
           <ARLabCanvas
@@ -385,7 +518,10 @@ export default function ARLabPage() {
             onHoleClick={handleHoleClick}
             onPinClick={wiringMode ? handlePinClick : undefined}
             wiringFrom={wiringFrom}
+            wiringFromHole={wiringFromHole}
             drawnWires={drawnWires}
+            selectedWireIdx={selectedWireIdx}
+            onWireSelect={setSelectedWireIdx}
           />
         </div>
       </div>

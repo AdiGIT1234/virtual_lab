@@ -4,7 +4,6 @@ import { OrbitControls, Stats } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import CircuitScene from "./CircuitScene";
-import Wire3D from "./Wire3D";
 import { useCircuitStore } from "../../state/useCircuitStore";
 
 class CanvasErrorBoundary extends Component {
@@ -36,7 +35,7 @@ const CAMERA_PRESETS = {
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
-export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, drawnWires = [] }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect }) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
@@ -82,10 +81,11 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
             occupiedHoles={occupiedHoles}
             onPinClick={onPinClick}
             wiringFrom={wiringFrom}
+            wiringFromHole={wiringFromHole}
+            drawnWires={drawnWires}
+            selectedWireIdx={selectedWireIdx}
+            onWireSelect={onWireSelect}
           />
-          {drawnWires.map((wire, i) => (
-            <Wire3D key={`drawn-${i}`} points={wire.points} color={wire.color || "#00e5ff"} />
-          ))}
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
               luminanceThreshold={0.45}
