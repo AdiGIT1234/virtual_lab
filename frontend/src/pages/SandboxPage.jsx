@@ -50,6 +50,22 @@ import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
+const POWER_HIGH_TERMINALS = {
+  AA_BATTERY:     ["pos"],
+  BENCH_PSU:      ["v+"],
+  BUCK_CONVERTER: ["vout+"],
+  LM7805_REG:     ["out"],
+  USB_CONNECTOR:  ["vbus"],
+  BARREL_JACK:    ["pos"],
+};
+const POWER_LOW_TERMINALS = {
+  AA_BATTERY:     ["neg"],
+  BENCH_PSU:      ["v-", "gnd"],
+  BUCK_CONVERTER: ["vout-"],
+  USB_CONNECTOR:  ["gnd"],
+  BARREL_JACK:    ["gnd"],
+};
+
 const normalizeTerminals = (terminals = []) => {
   if (!terminals || terminals.length === 0) {
     return [{ id: "main", label: "PIN" }];
@@ -721,6 +737,42 @@ void loop() {
         const result = resolveConnection(compId, otherTerm, visited, currentResistance);
         if (result.pin != null || result.logicValue !== undefined) return result;
       }
+    }
+
+    // 6. Fixed power sources
+    if (POWER_HIGH_TERMINALS[item.type]?.includes(termId))
+      return { pin: null, resistance: currentResistance, logicValue: true };
+    if (POWER_LOW_TERMINALS[item.type]?.includes(termId))
+      return { pin: null, resistance: currentResistance, logicValue: false };
+
+    // 7. Screw terminals: all positions shorted together
+    if (item.type === "SCREW_TERMINAL_2" || item.type === "SCREW_TERMINAL_3") {
+      const allTerms = item.type === "SCREW_TERMINAL_2" ? ["t1","t2"] : ["t1","t2","t3"];
+      for (const other of allTerms) {
+        if (other === termId) continue;
+        const result = resolveConnection(compId, other, visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+    }
+
+    // 8. LM7805: OUT follows IN power
+    if (item.type === "LM7805_REG" && termId === "out") {
+      const inConn = resolveConnection(compId, "in", visited);
+      if (inConn.pin != null || inConn.logicValue !== undefined) {
+        const val = inConn.pin != null ? !!getPinLogic(inConn.pin) : inConn.logicValue;
+        return { pin: null, resistance: currentResistance, logicValue: !!val };
+      }
+      return { pin: null, resistance: currentResistance, logicValue: true };
+    }
+
+    // 9. Buck converter: vout+ follows vin+
+    if (item.type === "BUCK_CONVERTER" && termId === "vout+") {
+      const inConn = resolveConnection(compId, "vin+", visited);
+      if (inConn.pin != null || inConn.logicValue !== undefined) {
+        const val = inConn.pin != null ? !!getPinLogic(inConn.pin) : inConn.logicValue;
+        return { pin: null, resistance: currentResistance, logicValue: !!val };
+      }
+      return { pin: null, resistance: currentResistance, logicValue: true };
     }
 
     return { pin: null, resistance: currentResistance };

@@ -1460,8 +1460,8 @@ export const DcMotor = ({ type: _t, pinStates = {} }) => {
       {/* Terminal leads */}
       <line x1={22} y1={76} x2={22} y2={86} stroke="#64748b" strokeWidth={2} />
       <line x1={58} y1={76} x2={58} y2={86} stroke="#64748b" strokeWidth={2} />
-      <text x={22} y={93} fill="#f97316" fontSize={6} textAnchor="middle" fontFamily="monospace">M+</text>
-      <text x={58} y={93} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">M−</text>
+      <Pin x={22} y={86} label="M+" color="#f97316" />
+      <Pin x={58} y={86} label="M−" color="#94a3b8" />
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </svg>
   );
@@ -1810,5 +1810,163 @@ export const Rc522Rfid = () => (
       <Pin key={l} x={8 + i*13} y={68} label={l}
         color={i===5?'#94a3b8':i===7?'#facc15':'#22d3ee'} />
     ))}
+  </svg>
+);
+
+// ══════════════════════════════════════════════════════════════════════════
+// Power components & connectors
+// ══════════════════════════════════════════════════════════════════════════
+
+export const AaBattery = () => (
+  <svg width={30} height={96} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={9} y={0} width={12} height={6} rx={2} fill="#facc15" />
+    <rect x={3} y={6} width={24} height={72} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    <rect x={3} y={22} width={24} height={30} rx={0} fill="#172554" />
+    <text x={15} y={42} fill="#93c5fd" fontSize={5.5} fontWeight="bold" textAnchor="middle" fontFamily="monospace">1.5V</text>
+    <rect x={3} y={78} width={24} height={4} rx={1} fill="#94a3b8" />
+    <line x1={14} y1={0}  x2={14} y2={-4} stroke="#facc15" strokeWidth={2} />
+    <line x1={14} y1={82} x2={14} y2={88} stroke="#94a3b8" strokeWidth={2} />
+    <Pin x={14} y={5}  label="+" color="#facc15" />
+    <Pin x={14} y={88} label="−" color="#94a3b8" />
+  </svg>
+);
+
+export const BenchPsu = () => (
+  <svg width={100} height={84} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={3} y={3} width={94} height={70} rx={5} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    <text x={50} y={18} fill="#94a3b8" fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily="monospace">BENCH PSU</text>
+    <rect x={10} y={22} width={50} height={22} rx={2} fill="#0f172a" stroke="#22d3ee" strokeWidth={1} />
+    <text x={35} y={37} fill="#22d3ee" fontSize={11} fontWeight="bold" textAnchor="middle" fontFamily="monospace">5.00V</text>
+    <circle cx={80} cy={32} r={5} fill="#22c55e" style={{filter:'drop-shadow(0 0 3px #22c55e)'}} />
+    <circle cx={20} cy={58} r={5} fill="#ef4444" stroke="#7f1d1d" strokeWidth={1} />
+    <circle cx={50} cy={58} r={5} fill="#1e293b" stroke="#334155" strokeWidth={1} />
+    <circle cx={80} cy={58} r={5} fill="#1e293b" stroke="#334155" strokeWidth={1} />
+    {[['V+',20,'#ef4444'],['V−',50,'#94a3b8'],['GND',80,'#94a3b8']].map(([l,x,c]) => (
+      <Pin key={l} x={x} y={78} label={l} color={c} />
+    ))}
+  </svg>
+);
+
+export const BuckConverter = () => (
+  <svg width={90} height={62} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={6} y={4} width={78} height={54} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    {[0,1,2,3,4].map(i => (
+      <ellipse key={i} cx={22+i*7} cy={26} rx={4} ry={10} fill="none" stroke="#475569" strokeWidth={2} />
+    ))}
+    <rect x={52} y={14} width={24} height={22} rx={2} fill="#0f172a" stroke="#64748b" strokeWidth={1} />
+    <text x={64} y={28} fill="#64748b" fontSize={5.5} fontWeight="bold" textAnchor="middle" fontFamily="monospace">LM2596</text>
+    <text x={45} y={48} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">DC-DC BUCK</text>
+    <line x1={0} y1={26} x2={6} y2={26} stroke="#475569" strokeWidth={1.5} />
+    <line x1={0} y1={52} x2={6} y2={52} stroke="#475569" strokeWidth={1.5} />
+    <line x1={84} y1={26} x2={90} y2={26} stroke="#475569" strokeWidth={1.5} />
+    <line x1={84} y1={52} x2={90} y2={52} stroke="#475569" strokeWidth={1.5} />
+    <Pin x={0}  y={26} label="IN+"  color="#facc15" />
+    <Pin x={0}  y={52} label="IN−"  color="#94a3b8" />
+    <Pin x={90} y={26} label="OUT+" color="#22c55e" />
+    <Pin x={90} y={52} label="OUT−" color="#94a3b8" />
+  </svg>
+);
+
+export const Lm7805Reg = () => (
+  <svg width={60} height={82} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={8} y={4} width={44} height={8} rx={1} fill="#64748b" />
+    <rect x={14} y={8} width={6} height={4} rx={0} fill="#334155" />
+    <rect x={8} y={12} width={44} height={50} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    <text x={30} y={30} fill="#94a3b8" fontSize={7} fontWeight="bold" textAnchor="middle" fontFamily="monospace">LM7805</text>
+    <text x={30} y={42} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">+5V REG</text>
+    <line x1={15} y1={62} x2={15} y2={75} stroke="#64748b" strokeWidth={2} />
+    <line x1={30} y1={62} x2={30} y2={75} stroke="#64748b" strokeWidth={2} />
+    <line x1={45} y1={62} x2={45} y2={75} stroke="#64748b" strokeWidth={2} />
+    <Pin x={15} y={75} label="IN"  color="#facc15" />
+    <Pin x={30} y={75} label="GND" color="#94a3b8" />
+    <Pin x={45} y={75} label="OUT" color="#22c55e" />
+  </svg>
+);
+
+export const FunctionGenerator = () => {
+  const [freq, setFreq] = useState(1000);
+  const [wave, setWave] = useState('SQR');
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={100} height={84} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={3} y={3} width={94} height={70} rx={5} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+        <text x={50} y={16} fill="#94a3b8" fontSize={7} fontWeight="bold" textAnchor="middle" fontFamily="monospace">FUNC GEN</text>
+        <rect x={8} y={20} width={84} height={22} rx={2} fill="#0f172a" stroke="#22d3ee" strokeWidth={1} />
+        <text x={50} y={35} fill="#22d3ee" fontSize={11} fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+          {freq >= 1000 ? `${(freq/1000).toFixed(1)}kHz` : `${freq}Hz`} {wave}
+        </text>
+        {['SQR','SIN','TRI'].map((w, i) => (
+          <g key={w} style={{ cursor: 'pointer' }} onClick={() => setWave(w)}>
+            <rect x={10+i*28} y={46} width={24} height={14} rx={2}
+              fill={wave===w ? '#164e63' : '#0f172a'} stroke={wave===w ? '#22d3ee' : '#334155'} strokeWidth={1} />
+            <text x={22+i*28} y={57} fill={wave===w ? '#22d3ee' : '#64748b'} fontSize={6}
+              textAnchor="middle" fontFamily="monospace">{w}</text>
+          </g>
+        ))}
+        <Pin x={20} y={78} label="SIG" color="#22d3ee" />
+        <Pin x={70} y={78} label="GND" color="#94a3b8" />
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="f" value={freq} min={1} max={100000} step={1} unit="Hz" color="#22d3ee" onChange={setFreq} />
+      </div>
+    </div>
+  );
+};
+
+export const UsbConnector = () => (
+  <svg width={68} height={66} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={4} y={8} width={60} height={36} rx={3} fill="#64748b" stroke="#475569" strokeWidth={1.5} />
+    <rect x={10} y={14} width={48} height={24} rx={2} fill="#0f172a" stroke="#334155" strokeWidth={1} />
+    {[0,1,2,3].map(i => (
+      <rect key={i} x={16+i*10} y={22} width={6} height={8} rx={1} fill="#d4a017" />
+    ))}
+    <text x={34} y={55} fill="#64748b" fontSize={6.5} textAnchor="middle" fontFamily="monospace">USB-A</text>
+    {[['VBUS',10,'#facc15'],['D−',25,'#22d3ee'],['D+',40,'#22d3ee'],['GND',55,'#94a3b8']].map(([l,x,c]) => (
+      <Pin key={l} x={x} y={60} label={l} color={c} />
+    ))}
+  </svg>
+);
+
+export const BarrelJack = () => (
+  <svg width={48} height={64} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={4} y={12} width={40} height={32} rx={16} fill="#334155" stroke="#475569" strokeWidth={1.5} />
+    <circle cx={24} cy={28} r={10} fill="#1e293b" stroke="#64748b" strokeWidth={1} />
+    <circle cx={24} cy={28} r={4}  fill="#d4a017" />
+    <text x={24} y={52} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">DC JACK</text>
+    <Pin x={14} y={58} label="+"   color="#facc15" />
+    <Pin x={34} y={58} label="GND" color="#94a3b8" />
+  </svg>
+);
+
+export const ScrewTerminal2 = () => (
+  <svg width={40} height={54} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={2} y={4} width={36} height={36} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    {[0,1].map(i => (
+      <g key={i}>
+        <rect x={6+i*16} y={8}  width={14} height={14} rx={2} fill="#0f172a" stroke="#475569" strokeWidth={1} />
+        <circle cx={13+i*16} cy={15} r={3} fill="#64748b" />
+        <line x1={11+i*16} y1={13} x2={15+i*16} y2={17} stroke="#334155" strokeWidth={1} />
+        <rect x={8+i*16} y={22} width={10} height={10} rx={1} fill="#0f172a" stroke="#334155" strokeWidth={1} />
+      </g>
+    ))}
+    <Pin x={12} y={48} label="T1" color="#22d3ee" />
+    <Pin x={28} y={48} label="T2" color="#22d3ee" />
+  </svg>
+);
+
+export const ScrewTerminal3 = () => (
+  <svg width={56} height={54} style={{ display: 'block', overflow: 'visible' }}>
+    <rect x={2} y={4} width={52} height={36} rx={3} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
+    {[0,1,2].map(i => (
+      <g key={i}>
+        <rect x={5+i*16} y={8}  width={14} height={14} rx={2} fill="#0f172a" stroke="#475569" strokeWidth={1} />
+        <circle cx={12+i*16} cy={15} r={3} fill="#64748b" />
+        <line x1={10+i*16} y1={13} x2={14+i*16} y2={17} stroke="#334155" strokeWidth={1} />
+        <rect x={7+i*16} y={22} width={10} height={10} rx={1} fill="#0f172a" stroke="#334155" strokeWidth={1} />
+      </g>
+    ))}
+    <Pin x={10} y={48} label="T1" color="#22d3ee" />
+    <Pin x={27} y={48} label="T2" color="#22d3ee" />
+    <Pin x={44} y={48} label="T3" color="#22d3ee" />
   </svg>
 );

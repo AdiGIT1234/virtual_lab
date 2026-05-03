@@ -180,7 +180,7 @@ export default function ArduinoUnoBoard({ registers, toggleInput }) {
   const isPowered = !!(registers?.PORTB || registers?.PORTC || registers?.PORTD);
 
   return (
-    <div style={{ position: "relative", width: BW, height: BH, userSelect: "none" }}>
+    <div id="arduino-uno-board" style={{ position: "relative", width: BW, height: BH, userSelect: "none" }}>
       <svg
         viewBox={`0 0 ${BW} ${BH}`}
         width={BW} height={BH}

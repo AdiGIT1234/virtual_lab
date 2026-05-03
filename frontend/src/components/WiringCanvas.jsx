@@ -12,7 +12,9 @@ const WIRE_COLORS = [
 ];
 
 function getChipRect(workspaceRect, viewScale, viewOffset) {
-  const chipNode = document.getElementById('atmega-chip');
+  const chipNode = document.getElementById('atmega-chip')
+                || document.getElementById('esp32-chip')
+                || document.getElementById('arduino-uno-board');
   if (!chipNode || !workspaceRect) return null;
   const r = chipNode.getBoundingClientRect();
   return {

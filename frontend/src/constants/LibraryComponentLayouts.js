@@ -58,6 +58,15 @@ export const LIBRARY_COMPONENTS_MAP = {
   TCS34725_COLOR:  Lib.Tcs34725Color,
   HC05_BLUETOOTH:  Lib.Hc05Bluetooth,
   RC522_RFID:      Lib.Rc522Rfid,
+  AA_BATTERY:       Lib.AaBattery,
+  BENCH_PSU:        Lib.BenchPsu,
+  BUCK_CONVERTER:   Lib.BuckConverter,
+  LM7805_REG:       Lib.Lm7805Reg,
+  FUNCTION_GENERATOR: Lib.FunctionGenerator,
+  USB_CONNECTOR:    Lib.UsbConnector,
+  BARREL_JACK:      Lib.BarrelJack,
+  SCREW_TERMINAL_2: Lib.ScrewTerminal2,
+  SCREW_TERMINAL_3: Lib.ScrewTerminal3,
 };
 
 export const LIBRARY_TERMINAL_LAYOUTS = {
@@ -99,10 +108,10 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
     { id: "2", x: 27, y: 50 },
     { id: "3", x: 43, y: 50 }
   ],
-  NEOPIXEL_RING:    ["5v","din","gnd"].map((id, i) => ({ id, x: 25 + i*20, y: 84 })),
-  NEOPIXEL_RING_12: ["5v","din","gnd"].map((id, i) => ({ id, x: 25 + i*20, y: 84 })),
-  NEOPIXEL_RING_16: ["5v","din","gnd"].map((id, i) => ({ id, x: 25 + i*20, y: 84 })),
-  NEOPIXEL_RING_24: ["5v","din","gnd"].map((id, i) => ({ id, x: 25 + i*20, y: 84 })),
+  NEOPIXEL_RING:    ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
+  NEOPIXEL_RING_12: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
+  NEOPIXEL_RING_16: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
+  NEOPIXEL_RING_24: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
   STEPPER_MOTOR: ["a+","a-","b+","b-"].map((id, i) => ({ id, x: 20 + i*16, y: 84 })),
   NEOPIXEL_PIXEL: ["5v","din","gnd"].map((id, i) => ({ id, x: 10 + i*15, y: 50 })),
   IR_RECEIVER: ["out","vcc","gnd"].map((id, i) => ({ id, x: 12 + i*13, y: 64 })),
@@ -135,8 +144,8 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
   // D Flip-Flop: d + clk on left, q + qn on right
   LOGIC_DFLIPFLOP: [{ id: "d", x: 0, y: 22 }, { id: "clk", x: 0, y: 48 }, { id: "q", x: 90, y: 22 }, { id: "qn", x: 90, y: 48 }],
   DC_MOTOR: [
-    { id: "m+", x: 22, y: 84 },
-    { id: "m-", x: 58, y: 84 },
+    { id: "m+", x: 22, y: 86 },
+    { id: "m-", x: 58, y: 86 },
   ],
   L298N_DRIVER: [
     { id: "ena", x: 0,   y: 20 },
@@ -167,4 +176,16 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
   TCS34725_COLOR: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 10 + i*18, y: 82 })),
   HC05_BLUETOOTH: ["vcc","gnd","txd","rxd","state","en"].map((id, i) => ({ id, x: 10 + i*16, y: 78 })),
   RC522_RFID: ["sda","sck","mosi","miso","irq","gnd","rst","3v3"].map((id, i) => ({ id, x: 8 + i*13, y: 68 })),
+  AA_BATTERY: [{ id: "pos", x: 14, y: 5 }, { id: "neg", x: 14, y: 88 }],
+  BENCH_PSU: [{ id: "v+", x: 20, y: 78 }, { id: "v-", x: 50, y: 78 }, { id: "gnd", x: 80, y: 78 }],
+  BUCK_CONVERTER: [
+    { id: "vin+", x: 0, y: 26 }, { id: "vin-", x: 0, y: 52 },
+    { id: "vout+", x: 90, y: 26 }, { id: "vout-", x: 90, y: 52 },
+  ],
+  LM7805_REG: [{ id: "in", x: 15, y: 75 }, { id: "gnd", x: 30, y: 75 }, { id: "out", x: 45, y: 75 }],
+  FUNCTION_GENERATOR: [{ id: "sig", x: 20, y: 78 }, { id: "gnd", x: 70, y: 78 }],
+  USB_CONNECTOR: ["vbus","dm","dp","gnd"].map((id, i) => ({ id, x: 10 + i*15, y: 60 })),
+  BARREL_JACK: [{ id: "pos", x: 14, y: 58 }, { id: "gnd", x: 34, y: 58 }],
+  SCREW_TERMINAL_2: [{ id: "t1", x: 12, y: 48 }, { id: "t2", x: 28, y: 48 }],
+  SCREW_TERMINAL_3: [{ id: "t1", x: 10, y: 48 }, { id: "t2", x: 27, y: 48 }, { id: "t3", x: 44, y: 48 }],
 };
