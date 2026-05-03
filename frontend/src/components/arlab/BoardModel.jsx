@@ -93,6 +93,14 @@ export default function BoardModel(props) {
           </mesh>
         ))}
       </group>
+
+      {/* Rubber feet — bridge board to workbench surface */}
+      {[[-0.78, -0.03, -0.48], [0.78, -0.03, -0.48], [-0.78, -0.03, 0.48], [0.78, -0.03, 0.48]].map(([fx, fy, fz], i) => (
+        <mesh key={`foot-${i}`} position={[fx, fy, fz]} castShadow>
+          <cylinderGeometry args={[0.028, 0.032, 0.0445, 10]} />
+          <meshStandardMaterial color="#111111" roughness={0.95} metalness={0.0} />
+        </mesh>
+      ))}
     </group>
   );
 }

@@ -13,6 +13,17 @@ const pinToSceneCoords = (pinNum) => {
 
 const presetOptions = Object.values(CIRCUIT_PRESETS);
 
+const WIRE_PALETTE = [
+  "#00e5ff", // cyan
+  "#fbbf24", // yellow
+  "#f97316", // orange
+  "#22c55e", // green
+  "#f87171", // red
+  "#a78bfa", // violet
+  "#38bdf8", // sky blue
+  "#fb7185", // rose
+];
+
 // SVG icons for each part — cleaner than emoji/unicode
 const PartIcon = ({ type }) => {
   const s = { width: 16, height: 16, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" };
@@ -152,12 +163,15 @@ export default function ARLabPage() {
     }
     const p1 = pinToSceneCoords(wiringFrom);
     const p2 = pinToSceneCoords(pinNum);
-    const mid = [
-      (p1[0] + p2[0]) / 2,
-      Math.max(p1[1], p2[1]) + 0.14,
-      (p1[2] + p2[2]) / 2,
+    const exitY = Math.max(p1[1], p2[1]) + 0.10;
+    const wirePoints = [
+      p1,
+      [p1[0], exitY, p1[2]],
+      [p2[0], exitY, p2[2]],
+      p2,
     ];
-    setDrawnWires((prev) => [...prev, { points: [p1, mid, p2], color: "#00e5ff" }]);
+    const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
+    setDrawnWires((prev) => [...prev, { points: wirePoints, color: nextColor }]);
     setWiringFrom(null);
   }, [wiringMode, wiringFrom]);
 
@@ -242,6 +256,25 @@ export default function ARLabPage() {
           >
             {wiringMode ? "Exit Wire Mode" : "Add Wire"}
           </button>
+          <button
+            style={{ ...styles.headerBtn, opacity: drawnWires.length === 0 ? 0.4 : 1 }}
+            onClick={() => setDrawnWires(prev => prev.slice(0, -1))}
+            disabled={drawnWires.length === 0}
+            aria-label="Undo last wire"
+            title="Undo last wire"
+          >
+            Undo Wire
+          </button>
+          {drawnWires.length > 0 && (
+            <button
+              style={{ ...styles.headerBtn, color: "#f87171" }}
+              onClick={() => setDrawnWires([])}
+              aria-label="Clear all drawn wires"
+              title="Clear all wires"
+            >
+              Clear
+            </button>
+          )}
           <button
             style={{ ...styles.simulateBtn, background: simRunning ? "#b91c1c" : "#1a7f37" }}
             onClick={() => setSimRunning((r) => !r)}
@@ -330,6 +363,21 @@ export default function ARLabPage() {
 
         {/* 3D Canvas */}
         <div style={styles.canvasContainer} aria-label="3D circuit view">
+          {wiringMode && (
+            <div style={{
+              position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+              zIndex: 30, background: "rgba(0,10,20,0.85)", backdropFilter: "blur(10px)",
+              border: `1px solid ${wiringFrom !== null ? "#00e5ff" : "rgba(0,229,255,0.3)"}`,
+              borderRadius: 8, padding: "6px 16px", color: "#00e5ff",
+              fontSize: 12, fontFamily: "monospace", fontWeight: 700,
+              boxShadow: wiringFrom !== null ? "0 0 16px rgba(0,229,255,0.35)" : "none",
+              pointerEvents: "none",
+            }}>
+              {wiringFrom !== null
+                ? `FROM pin D${wiringFrom} — click destination pin`
+                : "Click a pin to start a wire"}
+            </div>
+          )}
           <ARLabCanvas
             highlightedId={null}
             componentStyles={{}}

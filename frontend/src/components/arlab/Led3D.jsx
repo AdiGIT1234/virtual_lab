@@ -59,15 +59,15 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
         <meshStandardMaterial color="#dfe7ef" metalness={0.9} roughness={0.1} />
       </mesh>
 
-      {/* Long Lead (Anode) */}
-      <mesh position={[0.012, -0.2, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.4, 8]} />
+      {/* Long Lead (Anode) — trimmed to realistic breadboard insertion depth */}
+      <mesh position={[0.012, -0.115, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 0.19, 8]} />
         <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.9} />
       </mesh>
 
       {/* Short Lead (Cathode) */}
-      <mesh position={[-0.012, -0.16, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.32, 8]} />
+      <mesh position={[-0.012, -0.1, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 0.16, 8]} />
         <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
       </mesh>
 

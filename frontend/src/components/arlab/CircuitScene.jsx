@@ -50,7 +50,7 @@ function resolveEndpoint(str, posMap) {
   }
 }
 
-const PERP_EXIT = 0.07; // how far the wire rises perpendicular from the pin before routing
+const PERP_EXIT = 0.10; // how far the wire rises perpendicular from the pin before routing
 
 function buildWirePoints(p1, p2) {
   if (!p1 || !p2) return null;
@@ -131,11 +131,29 @@ export default function CircuitScene({
       <SceneLighting />
       <Environment preset="warehouse" intensity={0.22} />
 
-      {/* Workbench surface */}
+      {/* ── Workbench ──────────────────────────────────────────────────────── */}
+      {/* Top surface — receives shadows, provides the lit deck appearance */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.2, -0.042, 0]} receiveShadow>
-        <planeGeometry args={[100, 100]} />
+        <planeGeometry args={[24, 24]} />
         <meshStandardMaterial color="#181f28" roughness={0.92} metalness={0.04} />
       </mesh>
+
+      {/* Solid body — hides all component leads that extend below the surface.
+          Box top face sits flush with the surface plane at y = -0.042.
+          Extends 2 m downward so no lead geometry is ever visible from any
+          allowed camera angle (maxPolarAngle = π/2.05 ≈ 87.8°). */}
+      <mesh position={[0.2, -1.042, 0]} receiveShadow castShadow>
+        <boxGeometry args={[24, 2.0, 24]} />
+        <meshStandardMaterial color="#111720" roughness={0.96} metalness={0.02} />
+      </mesh>
+
+      {/* Front edge highlight strip — gives the bench a visible, chamfered edge */}
+      <mesh position={[0.2, -0.052, 6.0]}>
+        <boxGeometry args={[24, 0.02, 0.012]} />
+        <meshStandardMaterial color="#22304a" roughness={0.7} metalness={0.1} />
+      </mesh>
+
+      {/* Grid overlay */}
       <gridHelper args={[20, 40, "#1e2d3d", "#151e28"]} position={[0.2, -0.039, 0]} />
       <ContactShadows opacity={0.7} blur={3} far={5} resolution={1024} color="#000820" position={[0.2, -0.04, 0]} />
 
@@ -266,6 +284,46 @@ export default function CircuitScene({
               g={outputs[component.pins?.g] === 1}
               dp={outputs[component.pins?.dp] === 1}
             />
+          );
+        } else if (component.type === "GROUND_NODE") {
+          element = (
+            <group position={component.position} rotation={component.rotation}>
+              {/* Stake body */}
+              <mesh castShadow>
+                <cylinderGeometry args={[0.018, 0.012, 0.06, 8]} />
+                <meshStandardMaterial color="#1a2a1a" roughness={0.8} metalness={0.1} />
+              </mesh>
+              {/* GND symbol — 3 horizontal bars */}
+              {[0, 0.018, 0.034].map((offset, i) => (
+                <mesh key={i} position={[0, 0.045 - offset, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[0.04 - i * 0.01, 0.004]} />
+                  <meshStandardMaterial color="#00cc44" emissive="#00cc44" emissiveIntensity={0.4} />
+                </mesh>
+              ))}
+              {/* Glow point */}
+              <pointLight color="#00cc44" intensity={0.3} distance={0.4} decay={2} />
+            </group>
+          );
+        } else if (component.type === "VCC_NODE") {
+          element = (
+            <group position={component.position} rotation={component.rotation}>
+              {/* Stake body */}
+              <mesh castShadow>
+                <cylinderGeometry args={[0.018, 0.012, 0.06, 8]} />
+                <meshStandardMaterial color="#2a1a0a" roughness={0.8} metalness={0.1} />
+              </mesh>
+              {/* VCC symbol — upward arrow bar */}
+              <mesh position={[0, 0.055, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.036, 0.004]} />
+                <meshStandardMaterial color="#facc15" emissive="#facc15" emissiveIntensity={0.5} />
+              </mesh>
+              <mesh position={[0, 0.065, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.024, 0.004]} />
+                <meshStandardMaterial color="#facc15" emissive="#facc15" emissiveIntensity={0.5} />
+              </mesh>
+              {/* Glow point */}
+              <pointLight color="#facc15" intensity={0.3} distance={0.4} decay={2} />
+            </group>
           );
         }
 

@@ -171,6 +171,14 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
           </div>
         </Html>
       )}
+
+      {/* Rubber pads — seat breadboard flush on workbench */}
+      {[[-1.505, -0.045, -0.32], [1.505, -0.045, -0.32], [-1.505, -0.045, 0.32], [1.505, -0.045, 0.32]].map(([fx, fy, fz], i) => (
+        <mesh key={`pad-${i}`} position={[fx, fy, fz]}>
+          <boxGeometry args={[0.06, 0.014, 0.06]} />
+          <meshStandardMaterial color="#0a0a0a" roughness={0.98} metalness={0.0} />
+        </mesh>
+      ))}
     </group>
   );
 }

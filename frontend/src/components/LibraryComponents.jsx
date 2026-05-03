@@ -602,7 +602,7 @@ export const LedBarGraph = ({ pinStates = {} }) => {
     <svg width={155} height={55} viewBox="0 0 155 55" style={{ display: 'block', overflow: 'visible' }}>
       <rect x={0} y={0} width={155} height={55} rx={4} fill="#0f172a" stroke="#1e293b" strokeWidth={1} />
       {Array.from({ length: 10 }).map((_, i) => {
-        const isOn = Object.keys(pinStates).length === 0 ? i < 7 : pinStates[(i + 1).toString()] === 1;
+        const isOn = Object.keys(pinStates).length === 0 ? i < 7 : !!pinStates[(i + 1).toString()];
         const c = segColors[i];
         return (
           <g key={i}>
@@ -820,7 +820,7 @@ export const NeopixelPixel = ({ id, wiredPins }) => {
 // Passive & misc components (kept concise, visually improved)
 // ══════════════════════════════════════════════════════════════════════════
 export const Buzzer = ({ pinStates = {} }) => {
-  const active = pinStates?.main === 1 || pinStates?.SIG === 1;
+  const active = !!pinStates?.sig;
   return (
     <svg width={80} height={95} viewBox="0 0 80 95" style={{ display: 'block', overflow: 'visible' }}>
       <defs>
@@ -1331,7 +1331,7 @@ export const LedMatrix8x8 = ({ pinStates = {} }) => (
   <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>
     <rect x={0} y={15} width={95} height={65} rx={4} fill="#111827" stroke="#1e293b" strokeWidth={1} />
     {[0,1,2,3,4,5,6,7].map(r => [0,1,2,3,4,5,6,7].map(c => {
-      const on = Object.keys(pinStates).length === 0 ? (r + c) % 2 === 0 : (pinStates[`r${r}`] === 1 && (pinStates[`c${c}`] === 0 || pinStates[`c${c}`] === undefined));
+      const on = Object.keys(pinStates).length === 0 ? (r + c) % 2 === 0 : (pinStates[`r${r}`] === true && pinStates[`c${c}`] === false);
       return (
         <g key={`${r}${c}`}>
           {on && <circle cx={13 + c * 10} cy={23 + r * 8} r={5} fill="#ef4444" opacity={0.2} />}
