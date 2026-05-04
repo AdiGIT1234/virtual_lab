@@ -229,21 +229,20 @@ public:
     Servo() : _pin(-1) {}
     void attach(int pin) {
         _pin = (int8_t)pin;
-        DDRB |= (1 << (pin - 8));          // OC1A (pin9) or OC1B (pin10) as output
-        // Fast PWM, ICR1 top, prescaler 8 → period = 8*(ICR1+1)/16MHz ≈ 20ms (50Hz)
-        ICR1  = 39999;
-        TCCR1A = (1<<COM1A1)|(1<<WGM11);  // Non-inverting, fast PWM mode 14
-        TCCR1B = (1<<WGM13)|(1<<WGM12)|(1<<CS11); // prescaler 8
-        OCR1A  = 2999;                     // 90° center
+        // Use analogWrite-compatible 8-bit PWM so avr8js OCR low-byte map works.
+        // angle 0-180 → duty 0-255 via write(), outputs[pin] = duty/255 → Servo3D
+        pinMode(pin, OUTPUT);
     }
     void write(int angle) {
         if (_pin < 0) return;
         angle = constrain(angle, 0, 180);
-        // 50Hz: 1ms=2000 counts, 2ms=4000 counts, center=3000 counts
-        OCR1A = (uint16_t)(2000 + (angle * 2000UL) / 180);
+        analogWrite(_pin, (int)((angle * 255L) / 180));
     }
     void detach() { _pin = -1; }
-    int read() { return (int)((((long)OCR1A - 2000) * 180L) / 2000); }
+    int read() {
+        if (_pin >= 8 && _pin <= 13) return (int)((OCR1A * 180L) / 255);
+        return 90;
+    }
 };
 
 // ── Serial (USART0) ───────────────────────────────────────────────────────────
