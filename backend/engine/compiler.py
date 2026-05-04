@@ -220,6 +220,32 @@ void tone(int pin, unsigned int freq, unsigned long duration) {
 
 void tone(int pin, unsigned int freq) { tone(pin, freq, 0); }
 
+// ── Servo ─────────────────────────────────────────────────────────────────────
+// Maps servo angle (0-180) to Timer1 PWM: 1ms (0°) to 2ms (180°) at 50Hz.
+// With prescaler 8 and ICR1=39999: OCR1A = 1999 + angle*11 gives ~1-2ms pulse.
+class Servo {
+    int8_t _pin;
+public:
+    Servo() : _pin(-1) {}
+    void attach(int pin) {
+        _pin = (int8_t)pin;
+        DDRB |= (1 << (pin - 8));          // OC1A (pin9) or OC1B (pin10) as output
+        // Fast PWM, ICR1 top, prescaler 8 → period = 8*(ICR1+1)/16MHz ≈ 20ms (50Hz)
+        ICR1  = 39999;
+        TCCR1A = (1<<COM1A1)|(1<<WGM11);  // Non-inverting, fast PWM mode 14
+        TCCR1B = (1<<WGM13)|(1<<WGM12)|(1<<CS11); // prescaler 8
+        OCR1A  = 2999;                     // 90° center
+    }
+    void write(int angle) {
+        if (_pin < 0) return;
+        angle = constrain(angle, 0, 180);
+        // 50Hz: 1ms=2000 counts, 2ms=4000 counts, center=3000 counts
+        OCR1A = (uint16_t)(2000 + (angle * 2000UL) / 180);
+    }
+    void detach() { _pin = -1; }
+    int read() { return (int)((((long)OCR1A - 2000) * 180L) / 2000); }
+};
+
 // ── Serial (USART0) ───────────────────────────────────────────────────────────
 static void _usart_tx(uint8_t b) {
     while (!(UCSR0A & (1<<UDRE0))) {}
@@ -487,7 +513,7 @@ int main(void) {
     # This avoids "file not found" errors for Wire.h, Arduino.h, SPI.h, etc.
     import re
     stripped = re.sub(
-        r'^\s*#include\s*[<"][^>"]*(?:Wire|Arduino|SPI|Serial|avr/io|avr/interrupt|util/delay)[^>"]*[>"]\s*$',
+        r'^\s*#include\s*[<"][^>"]*(?:Wire|Arduino|SPI|Serial|Servo|avr/io|avr/interrupt|util/delay)[^>"]*[>"]\s*$',
         '',
         source_code,
         flags=re.MULTILINE | re.IGNORECASE,

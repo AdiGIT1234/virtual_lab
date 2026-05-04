@@ -172,7 +172,7 @@ void loop() {
 }`,
     workspace: [
       { id: "q1",            type: "NPN_TRANSISTOR", pin: 9,   pins: { main: 9   }, x: 260, y: 220 },
-      { id: "led-q",         type: "LED_GREEN",       pin: null, pins: { main: null }, x: 380, y: 150 },
+      { id: "led-q",         type: "LED_GREEN",       pin: 9,    pins: { main: 9    }, x: 380, y: 150 },
       { id: "res-base",      type: "RESISTOR",        pin: 9,   pins: { main: 9   }, resistance: 1000, x: 150, y: 220 },
       { id: "res-collector", type: "RESISTOR",        pin: null, pins: { main: null }, resistance: 330, x: 380, y: 220 },
       { id: "vcc-q",         type: "VCC_NODE",        pin: null, pins: { main: null }, x: 80, y: 100 },

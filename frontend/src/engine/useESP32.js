@@ -73,8 +73,9 @@ function applyApiSubs(code) {
   js = js.replace(/^\s*#include\s*[<"][^>"]*[>"]\s*$/gm, '');
 
   // Strip class instantiations for known display libraries, replaced by shim factories
-  js = js.replace(/Adafruit_SSD1306\s+(\w+)\s*\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();');
-  js = js.replace(/Adafruit_ILI9341\s+(\w+)\s*\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
+  // Handles both: `Adafruit_SSD1306 d(args)` and `Adafruit_SSD1306 d = Adafruit_SSD1306(args)`
+  js = js.replace(/Adafruit_SSD1306\s+(\w+)\s*(?:=\s*Adafruit_SSD1306\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();');
+  js = js.replace(/Adafruit_ILI9341\s+(\w+)\s*(?:=\s*Adafruit_ILI9341\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
   // Strip #define constants for display libs
   js = js.replace(/#define\s+\w+\s+[^\n]+/g, '');
 
@@ -146,7 +147,29 @@ function transpileArduinoToJs(code) {
     .replace(/void\s+setup\s*\(\s*\)[\s\S]*/, '')
     .trim();
 
-  // Convert C++ global variable declarations to JS let/const
+  // ── Strip C++ directives that can't be JS ──────────────────────────────────
+  globals = globals
+    .replace(/^\s*#include\s*[<"][^>"]*[>"]\s*$/gm, '')   // strip all #includes
+    .replace(/#define\s+\w+\s+[^\n]+/g, '');              // strip #defines
+
+  // ── Replace Adafruit class instantiations with shim factories ─────────────
+  globals = globals
+    .replace(/Adafruit_SSD1306\s+(\w+)\s*(?:=\s*Adafruit_SSD1306\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();')
+    .replace(/Adafruit_ILI9341\s+(\w+)\s*(?:=\s*Adafruit_ILI9341\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
+
+  // ── Transpile C++ helper function definitions → JS functions ──────────────
+  // Handles: void|int|float|... funcName(type arg, ...) { body }
+  const CPP_ARG_TYPES = /\b(?:const\s+)?(?:unsigned\s+)?(?:int|long|float|double|bool|boolean|void|char|byte|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t|String)\s*\*?\s*/g;
+  globals = globals.replace(
+    /\b(?:void|int|long|float|double|bool|uint\w*|int\w*|byte|char)\s+(\w+)\s*\(([^)]*)\)\s*\{/g,
+    (_, name, args) => `function ${name}(${args.replace(CPP_ARG_TYPES, '').replace(/,\s*,/g, ',').trim()}) {`
+  );
+
+  // ── Apply remaining api substitutions to helper function bodies ───────────
+  // (Wire.*, Serial.*, delays inside helper functions in globals)
+  globals = applyApiSubs(globals);
+
+  // ── Convert C++ global variable declarations to JS let/const ──────────────
   globals = globals
     .replace(/\b(?:const\s+)?(?:unsigned\s+(?:int|long)|int|long|float|double|byte|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t)\s+(\w+)\s*=\s*([^;]+);/g, 'let $1 = $2;')
     .replace(/\b(?:unsigned\s+(?:int|long)|int|long|float|double|byte|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t)\s+(\w+)\s*;/g, 'let $1 = 0;')
@@ -155,9 +178,7 @@ function transpileArduinoToJs(code) {
     .replace(/\bchar\s+(\w+)\s*=\s*([^;]+);/g, 'let $1 = $2;')
     .replace(/\bString\s+(\w+)\s*=\s*([^;]+);/g, 'let $1 = $2;')
     .replace(/\bString\s+(\w+)\s*;/g, 'let $1 = "";')
-    .replace(/\bconst\s+let\b/g, 'const')
-    // Remove any leftover C++ function-like definitions (e.g. void helper() { ... })
-    .replace(/void\s+\w+\s*\([^)]*\)\s*\{[\s\S]*?\}/g, '');
+    .replace(/\bconst\s+let\b/g, 'const');
 
   return {
     globals,
@@ -363,8 +384,8 @@ export function useESP32(_activeMcuId = "esp32") {
           setTextSize(s) { textSz = Math.max(1, parseInt(s)||1); },
           setTextColor(c) { color = c ? 1 : 0; },
           setCursor(x, y) { cx = parseInt(x)||0; cy = parseInt(y)||0; },
-          print(v) { drawStr(typeof v==='number'&&!Number.isInteger(v) ? v.toFixed(1) : v); },
-          println(v='') { drawStr(v); cx=0; cy += CHAR_H*textSz; },
+          print(v, digits=2) { drawStr(typeof v==='number'&&!Number.isInteger(v) ? v.toFixed(digits) : String(v??'')); },
+          println(v='', digits=2) { drawStr(typeof v==='number'&&!Number.isInteger(v) ? v.toFixed(digits) : String(v??'')); cx=0; cy += CHAR_H*textSz; },
           drawRect(x,y,w,h,c) {
             for(let i=x;i<x+w;i++){setPixel(i,y,c);setPixel(i,y+h-1,c);}
             for(let i=y;i<y+h;i++){setPixel(x,i,c);setPixel(x+w-1,i,c);}
@@ -429,8 +450,8 @@ export function useESP32(_activeMcuId = "esp32") {
           setCursor(x,y){cx=parseInt(x)||0;cy=parseInt(y)||0;},
           setTextColor(c,bg){textColor=parseInt(c)||0xFFFF;bgColor=bg!==undefined?parseInt(bg)||0:0;},
           setTextSize(s){textSz=Math.max(1,parseInt(s)||1);},
-          print(v){drawStr(typeof v==='number'&&!Number.isInteger(v)?v.toFixed(1):v,textColor);PeripheralSimulator._tftPush(BUF);},
-          println(v=''){drawStr(v,textColor);cx=0;cy+=CHAR_H*textSz;PeripheralSimulator._tftPush(BUF);},
+          print(v,digits=2){drawStr(typeof v==='number'&&!Number.isInteger(v)?v.toFixed(digits):String(v??''),textColor);PeripheralSimulator._tftPush(BUF);},
+          println(v='',digits=2){drawStr(typeof v==='number'&&!Number.isInteger(v)?v.toFixed(digits):String(v??''),textColor);cx=0;cy+=CHAR_H*textSz;PeripheralSimulator._tftPush(BUF);},
           // expose ILI9341 color constants as shim properties
           ILI9341_BLACK,ILI9341_WHITE,ILI9341_RED,ILI9341_GREEN,ILI9341_BLUE,
           ILI9341_CYAN,ILI9341_YELLOW,
