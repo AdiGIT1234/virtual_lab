@@ -106,6 +106,16 @@ class ChatInput(BaseModel):
 def root():
     return {"status": "Backend running"}
 
+@app.get("/health")
+def health():
+    import shutil
+    avr_ok = shutil.which("avr-gcc") is not None
+    return {
+        "status": "ok",
+        "avr_gcc": avr_ok,
+        "avr_gcc_path": shutil.which("avr-gcc") or "not found",
+    }
+
 @app.get("/api/experiments")
 def get_experiments():
     """Returns a summarized list of all available experiments."""
