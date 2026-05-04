@@ -139,18 +139,27 @@ async def fetch_all_experiments() -> List[Dict[str, Any]]:
 
 
 async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Update a master experiment definition. Filter by id (PK of experiments table)."""
+    """
+    Update a master experiment definition in Supabase AND the local JSON file.
+    Filter on id (PK). Never mutates id or unknown columns.
+    """
+    import glob as _glob
+    import json as _json
+
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
     service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+
+    allowed = {"title", "difficulty", "aim", "objective", "theory",
+               "procedure", "pretest", "posttest", "feedback"}
+    payload = {k: v for k, v in data.items() if k in allowed}
+
     headers = {
         "Authorization": f"Bearer {service_key}",
         "apikey": service_key,
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
-    # Only allow updating known editable fields — never mutate the id
-    allowed = {"title", "difficulty", "aim", "objective", "theory", "procedure", "pretest", "posttest"}
-    payload = {k: v for k, v in data.items() if k in allowed}
+
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.patch(
             f"{supabase_url}/rest/v1/experiments",
@@ -158,11 +167,30 @@ async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str
             params={"id": f"eq.{exp_id}"},
             json=payload,
         )
+
     if resp.status_code not in (200, 204):
-        detail = resp.text or "Update failed"
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
-    results = resp.json() if resp.text else []
-    return results[0] if results else payload
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=resp.text or "Supabase update failed",
+        )
+
+    result = (resp.json()[0] if resp.text and resp.json() else payload)
+
+    # Keep local JSON files in sync so the filesystem fallback stays current
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "experiments")
+    for path in _glob.glob(os.path.join(data_dir, "*.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                existing = _json.load(f)
+            if existing.get("id") == exp_id:
+                existing.update(payload)
+                with open(path, "w", encoding="utf-8") as f:
+                    _json.dump(existing, f, ensure_ascii=False, indent=2)
+                break
+        except Exception:
+            pass  # non-fatal — Supabase is the source of truth
+
+    return result
 
 
 async def fetch_quiz_analytics() -> List[Dict[str, Any]]:

@@ -118,42 +118,74 @@ def health():
         "avr_gcc_path": shutil.which("avr-gcc") or "not found",
     }
 
-@app.get("/api/experiments")
-def get_experiments():
-    """Returns a summarized list of all available experiments."""
+def _experiments_from_json() -> list:
+    """Fallback: load experiments from local JSON files."""
     data_dir = os.path.join(os.path.dirname(__file__), "data", "experiments")
     if not os.path.exists(data_dir):
-        return {"experiments": []}
-    
-    experiments = []
-    for file_path in sorted(glob.glob(os.path.join(data_dir, "*.json"))):
-        with open(file_path, "r", encoding="utf-8") as f:
-            try:
-                exp_data = json.load(f)
-                experiments.append({
-                    "id": exp_data.get("id"),
-                    "title": exp_data.get("title"),
-                    "difficulty": exp_data.get("difficulty"),
-                    "aim": exp_data.get("aim")
-                })
-            except Exception as e:
-                pass
-    return {"experiments": experiments}
+        return []
+    results = []
+    for path in sorted(glob.glob(os.path.join(data_dir, "*.json"))):
+        try:
+            with open(path, encoding="utf-8") as f:
+                results.append(json.load(f))
+        except Exception:
+            pass
+    return results
+
+
+async def _experiments_from_supabase(fields: str = "*") -> list | None:
+    """Try to fetch experiments from Supabase. Returns None if table missing."""
+    sb_url = os.getenv("SUPABASE_URL")
+    sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not sb_url or not sb_key:
+        return None
+    headers = {"Authorization": f"Bearer {sb_key}", "apikey": sb_key}
+    import httpx as _httpx
+    try:
+        async with _httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{sb_url}/rest/v1/experiments",
+                headers=headers,
+                params={"select": fields, "order": "id.asc"},
+            )
+        if resp.status_code == 200:
+            return resp.json()
+        # 404 / PGRST relation not found → table doesn't exist yet
+    except Exception:
+        pass
+    return None
+
+
+@app.get("/api/experiments")
+async def get_experiments():
+    """Summarised list of all experiments. Reads Supabase; falls back to JSON files."""
+    rows = await _experiments_from_supabase("id,title,difficulty,aim")
+    if rows is not None:
+        return {"experiments": rows, "source": "supabase"}
+
+    # Fallback to local JSON
+    rows = [
+        {"id": e.get("id"), "title": e.get("title"),
+         "difficulty": e.get("difficulty"), "aim": e.get("aim")}
+        for e in _experiments_from_json()
+    ]
+    return {"experiments": rows, "source": "local"}
+
 
 @app.get("/api/experiments/{experiment_id}")
-def get_experiment_details(experiment_id: str):
-    """Returns the full JSON data (theory, quizzes, procedure) for a given experiment ID."""
-    data_dir = os.path.join(os.path.dirname(__file__), "data", "experiments")
-    
-    for path in glob.glob(os.path.join(data_dir, "*.json")):
-        with open(path, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-                if data.get("id") == experiment_id:
-                    return data
-            except:
-                pass
-                
+async def get_experiment_details(experiment_id: str):
+    """Full experiment data. Reads Supabase; falls back to JSON files."""
+    rows = await _experiments_from_supabase("*")
+    if rows is not None:
+        match = next((r for r in rows if r.get("id") == experiment_id), None)
+        if match:
+            return match
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    # Fallback
+    for exp in _experiments_from_json():
+        if exp.get("id") == experiment_id:
+            return exp
     raise HTTPException(status_code=404, detail="Experiment not found")
 
 
