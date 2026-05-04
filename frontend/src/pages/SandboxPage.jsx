@@ -37,6 +37,7 @@ import SandboxErrorBoundary from "../components/SandboxErrorBoundary";
 import HardwarePreview from "../components/HardwarePreview";
 import { useAVR } from "../engine/useAVR";
 import { useESP32 } from "../engine/useESP32";
+import { useToneAudio } from "../engine/useToneAudio";
 import { MCUS, MCU_MAP, DEFAULT_MCU_ID } from "../constants/mcus";
 import { COMPONENT_CATEGORIES, COMPONENT_TYPE_MAP, SUPPORTED_COMPONENTS } from "../constants/componentCatalog";
 import { useTheme } from "../context/useTheme";
@@ -99,6 +100,7 @@ void loop() {
   const avr = useAVR(selectedMcuId);
   const esp32 = useESP32(selectedMcuId);
   const activeEngine = isESP32 ? esp32 : avr;
+  useToneAudio();
 
   const {
     startSimulation,

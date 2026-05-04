@@ -179,13 +179,42 @@ void analogWrite(int pin, int val) {
     }
 }
 
-// ── Tone (buzzer) ─────────────────────────────────────────────────────────────
+// ── Tone (buzzer) — uses Timer2 CTC so avr8js can detect the real frequency ──
+// Pin 11 = OC2A (PB3), pin 3 = OC2B (PD3).
+// freq = F_CPU / (2 * prescaler * (OCR2A + 1))
+void noTone(int pin) {
+    if (pin == 11 || pin == 3) {
+        TCCR2A &= ~((1<<COM2A0)|(1<<COM2A1)|(1<<COM2B0)|(1<<COM2B1));
+        TCCR2B  = 0;
+        digitalWrite(pin, LOW);
+    } else {
+        analogWrite(pin, 0);
+    }
+}
+
 void tone(int pin, unsigned int freq, unsigned long duration) {
     (void)duration;
-    if (freq == 0) { analogWrite(pin, 0); return; }
-    analogWrite(pin, 128);  // 50% duty cycle approximation
+    if (freq == 0) { noTone(pin); return; }
+
+    static const uint32_t PRESC[7] = {1, 8, 32, 64, 128, 256, 1024};
+    static const uint8_t  CS[7]    = {1, 2,  3,  4,   5,   6,    7};
+    uint8_t ocr = 0, cs = 7;
+    for (uint8_t i = 0; i < 7; i++) {
+        uint32_t val = (uint32_t)(F_CPU) / (2UL * PRESC[i] * (uint32_t)freq);
+        if (val >= 1 && val <= 256) { ocr = (uint8_t)(val - 1); cs = CS[i]; break; }
+    }
+
+    if (pin == 11 || pin == 3) {
+        DDRB  |=  (1<<3);                         // PB3 = OC2A as output
+        OCR2A  =  ocr;
+        TCCR2A = (1<<COM2A0) | (1<<WGM21);        // toggle OC2A, CTC mode
+        TCCR2B = cs;
+    } else {
+        analogWrite(pin, 128);                     // fallback for non-Timer2 pins
+    }
 }
-void noTone(int pin) { analogWrite(pin, 0); }
+
+void tone(int pin, unsigned int freq) { tone(pin, freq, 0); }
 
 // ── Serial (USART0) ───────────────────────────────────────────────────────────
 static void _usart_tx(uint8_t b) {

@@ -6,6 +6,7 @@ import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 import { UNO_PIN_COORDS } from "../constants/unoPinCoords";
 import { useAVR } from "../engine/useAVR";
 import { useESP32 } from "../engine/useESP32";
+import { useToneAudio } from "../engine/useToneAudio";
 import { API_BASE_URL } from "../lib/api";
 
 // Inline replica of CircuitScene's pinToSceneCoords helper (cannot be imported from a Three component).
@@ -175,6 +176,7 @@ export default function ARLabPage() {
   const avr = useAVR(preset?.mcu || "atmega328p");
   const esp32 = useESP32(preset?.mcu || "esp32");
   const { startSimulation, stopSimulation, isRunning, cpuState } = isESP32 ? esp32 : avr;
+  useToneAudio();
 
   // Stop both engines when preset changes
   useEffect(() => {

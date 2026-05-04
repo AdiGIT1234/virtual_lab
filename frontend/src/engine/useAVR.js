@@ -51,6 +51,7 @@ export function useAVR(activeMcuId = "atmega328p") {
   const cpuRef = useRef(null);
   const requestRef = useRef(null);
   const lastTimeRef = useRef(0);
+  const toneFreqRef = useRef(-1);
   const timelineBufferRef = useRef([]);
   const snapshotTimerRef = useRef(0);
   const speedRef = useRef(1);
@@ -114,6 +115,25 @@ export function useAVR(activeMcuId = "atmega328p") {
         memory: memorySnapshot,
         sp: cpu.data[0x5d] || 0,
       });
+
+      // Detect Timer2 CTC tone on pin 11 (OC2A = PB3)
+      // tone() sets: WGM21 (bit3 of TCCR2A) + COM2A0 (bit6 of TCCR2A) + CS2 bits in TCCR2B
+      const tccr2a = data[0xB0], tccr2b = data[0xB1], ocr2a = data[0xB3];
+      const isCTC2 = !!(tccr2a & (1 << 3));
+      const isToggle2 = !!(tccr2a & (1 << 6));
+      const cs2 = tccr2b & 0x07;
+      const PRESC2 = [0, 1, 8, 32, 64, 128, 256, 1024];
+      const toneFreq = (isCTC2 && isToggle2 && cs2 > 0)
+        ? Math.round(16000000 / (2 * PRESC2[cs2] * (ocr2a + 1)))
+        : 0;
+      if (toneFreq !== toneFreqRef.current) {
+        toneFreqRef.current = toneFreq;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('avr-tone-change', {
+            detail: { pin: 11, freq: toneFreq, active: toneFreq > 0 }
+          }));
+        }
+      }
 
       // Save to logic analyzer timeline roughly every 16ms (60 FPS) for smooth UI. Buffer handles SVG limit.
       snapshotTimerRef.current += delta;
@@ -327,6 +347,12 @@ export function useAVR(activeMcuId = "atmega328p") {
       cancelAnimationFrame(requestRef.current);
     }
     cpuRef.current = null;
+    if (toneFreqRef.current !== 0) {
+      toneFreqRef.current = 0;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('avr-tone-change', { detail: { pin: 11, freq: 0, active: false } }));
+      }
+    }
   }, []);
 
   const updateSpeedMultiplier = useCallback((value) => {
