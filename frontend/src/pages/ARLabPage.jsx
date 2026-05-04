@@ -7,6 +7,8 @@ import { UNO_PIN_COORDS } from "../constants/unoPinCoords";
 import { useAVR } from "../engine/useAVR";
 import { useESP32 } from "../engine/useESP32";
 import { useToneAudio } from "../engine/useToneAudio";
+import { useTimer555 } from "../engine/useTimer555";
+import { buildHolePinMap, posToNodeKey, holeNodeKey } from "../engine/useBreadboardNets";
 import { API_BASE_URL } from "../lib/api";
 
 // Inline replica of CircuitScene's pinToSceneCoords helper (cannot be imported from a Three component).
@@ -177,6 +179,7 @@ export default function ARLabPage() {
   const esp32 = useESP32(preset?.mcu || "esp32");
   const { startSimulation, stopSimulation, isRunning, cpuState } = isESP32 ? esp32 : avr;
   useToneAudio();
+  useTimer555();
 
   // Stop both engines when preset changes
   useEffect(() => {
@@ -190,11 +193,43 @@ export default function ARLabPage() {
     if (cpuState?.registers) setOutputsFromRegisters(cpuState.registers);
   }, [cpuState, setOutputsFromRegisters]);
 
+  // Breadboard net propagation: when drawn wires change, build a pin→hole map
+  // and assign output levels to sidebar-inserted components sitting on those holes.
+  const setOutputLevel = useCircuitStore(s => s.setOutputLevel);
+  const components     = useCircuitStore(s => s.components);
+  const outputs        = useCircuitStore(s => s.outputs);
+  useEffect(() => {
+    if (drawnWires.length === 0) return;
+    const holePinMap = buildHolePinMap(drawnWires);
+    if (holePinMap.size === 0) return;
+    // For each component placed in the scene, check if its position aligns
+    // with a breadboard column that has a connected Arduino pin.
+    components.forEach(comp => {
+      if (comp.pin !== null || !comp.x || !comp.y) return; // already wired, skip
+      const sx = (comp.x - 450) * 0.005;
+      const sz = (comp.y - 300) * 0.005;
+      const nodeKey = posToNodeKey(sx, sz);
+      if (!nodeKey) return;
+      const pin = holePinMap.get(nodeKey);
+      if (pin === undefined) return;
+      const level = outputs[pin] ?? 0;
+      setOutputLevel(`bb_${comp.id}`, level);
+    });
+  }, [drawnWires, components, outputs, setOutputLevel]);
+
   const [simError, setSimError] = useState("");
+  const [editorCode, setEditorCode] = useState(preset?.starterCode || "");
+  const [codeOpen, setCodeOpen] = useState(false);
+
+  // Sync editor when preset changes (warn user if they've made edits)
+  useEffect(() => {
+    setEditorCode(preset?.starterCode || "");
+    setCodeOpen(false);
+  }, [presetParam, preset]);
 
   const handleSimulate = useCallback(async () => {
     if (isRunning) { stopSimulation(); return; }
-    const code = preset?.starterCode || "";
+    const code = editorCode || preset?.starterCode || "";
     setSimError("");
     try {
       if (isESP32) {
@@ -213,7 +248,7 @@ export default function ARLabPage() {
       console.error("ARLab simulation failed:", e);
       setSimError("Simulation failed — check backend.");
     }
-  }, [isRunning, isESP32, preset, startSimulation, stopSimulation]);
+  }, [isRunning, isESP32, editorCode, preset, startSimulation, stopSimulation]);
 
   // Live analog inputs (pin → 0.0–1.0) — lets users move sliders while simulating
   const [liveInputs, setLiveInputs] = useState(() => ({ ...(preset?.inputs || {}) }));
@@ -292,7 +327,10 @@ export default function ARLabPage() {
     const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
     const p2 = holeToSceneCoords(holeId);
     const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
-    setDrawnWires(prev => [...prev, { points: buildWirePoints(p1, p2), color: nextColor }]);
+    setDrawnWires(prev => [...prev, {
+      points: buildWirePoints(p1, p2), color: nextColor,
+      from: { ...wireAnchor }, to: { kind: 'hole', id: holeId },
+    }]);
     setWireAnchor(null);
   }, [wiringMode, wireAnchor, drawnWires.length]);
 
@@ -303,7 +341,10 @@ export default function ARLabPage() {
     const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
     const p2 = pinToSceneCoords(pinNum);
     const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
-    setDrawnWires(prev => [...prev, { points: buildWirePoints(p1, p2), color: nextColor }]);
+    setDrawnWires(prev => [...prev, {
+      points: buildWirePoints(p1, p2), color: nextColor,
+      from: { ...wireAnchor }, to: { kind: 'pin', id: pinNum },
+    }]);
     setWireAnchor(null);
   }, [wiringMode, wireAnchor, drawnWires.length]);
 
@@ -383,6 +424,19 @@ export default function ARLabPage() {
             aria-label="Switch to 2D workbench"
           >
             2D Workbench
+          </button>
+          <button
+            style={{
+              ...styles.headerBtn,
+              background: codeOpen ? "rgba(0,229,255,0.15)" : "#21262d",
+              color: codeOpen ? "#00e5ff" : "#c9d1d9",
+              border: codeOpen ? "1px solid rgba(0,229,255,0.5)" : "1px solid #30363d",
+            }}
+            onClick={() => setCodeOpen(o => !o)}
+            aria-label="Toggle code editor"
+            title="Edit sketch (Tab)"
+          >
+            {codeOpen ? "Hide Code" : "Edit Code"}
           </button>
           <button
             style={{
@@ -585,6 +639,44 @@ export default function ARLabPage() {
           />
         </div>
       </div>
+
+      {/* Code Editor Panel — slides up from bottom */}
+      {codeOpen && (
+        <div style={styles.codePanel} role="region" aria-label="Code editor">
+          <div style={styles.codePanelHeader}>
+            <span style={styles.codePanelTitle}>
+              {preset?.mcu === "esp32" ? "ESP32" : "ATmega328P"} Sketch
+              {editorCode !== preset?.starterCode && (
+                <span style={{ color: "#fbbf24", marginLeft: 8, fontSize: 10 }}>● modified</span>
+              )}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={styles.codePanelBtn}
+                onClick={() => setEditorCode(preset?.starterCode || "")}
+                title="Reset to default"
+              >
+                Reset
+              </button>
+              <button
+                style={{ ...styles.codePanelBtn, background: "#1a7f37", color: "#fff" }}
+                onClick={handleSimulate}
+              >
+                {isRunning ? "⏹ Stop" : "▶ Run"}
+              </button>
+            </div>
+          </div>
+          <textarea
+            style={styles.codeTextarea}
+            value={editorCode}
+            onChange={e => setEditorCode(e.target.value)}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            aria-label="Sketch code editor"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -864,5 +956,55 @@ const styles = {
     position: "relative",
     minHeight: 0,
     minWidth: 0,
+  },
+
+  // Code editor panel
+  codePanel: {
+    height: 240,
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    borderTop: "1px solid #21262d",
+    background: "#0d1117",
+  },
+  codePanelHeader: {
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 14px",
+    background: "#161b22",
+    borderBottom: "1px solid #21262d",
+    flexShrink: 0,
+  },
+  codePanelTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#8b949e",
+    fontFamily: "monospace",
+  },
+  codePanelBtn: {
+    padding: "3px 10px",
+    fontSize: 11,
+    fontWeight: 600,
+    border: "1px solid #30363d",
+    borderRadius: 5,
+    background: "#21262d",
+    color: "#c9d1d9",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  codeTextarea: {
+    flex: 1,
+    background: "#0d1117",
+    color: "#e6edf3",
+    border: "none",
+    outline: "none",
+    fontFamily: "'Inconsolata', 'Fira Code', 'Courier New', monospace",
+    fontSize: 12,
+    lineHeight: 1.6,
+    padding: "10px 16px",
+    resize: "none",
+    tabSize: 2,
   },
 };
