@@ -233,6 +233,40 @@ async def fetch_quiz_analytics() -> List[Dict[str, Any]]:
     return result
 
 
+async def fetch_user_detail(user_id: str) -> List[Dict[str, Any]]:
+    """Return saved_experiments rows for a single user, ordered by recency.
+
+    Returns an empty list silently if the table or columns don't exist
+    (e.g. before a migration has been applied).
+    """
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{supabase_url}/rest/v1/saved_experiments",
+                headers=headers,
+                params={
+                    "select": "experiment_id,title,completed,pretest_score,posttest_score,time_spent_ms,updated_at",
+                    "user_id": f"eq.{user_id}",
+                    "order": "updated_at.desc",
+                },
+            )
+    except Exception:
+        return []
+    if resp.status_code != status.HTTP_200_OK:
+        return []
+    try:
+        data = resp.json()
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
 async def fetch_user_activity() -> List[Dict[str, Any]]:
     """Return all rows from saved_experiments with user email from profiles join."""
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)

@@ -22,6 +22,7 @@ from services.admin_portal import (  # type: ignore
     fetch_all_experiments,
     update_experiment_in_db,
     fetch_user_activity,
+    fetch_user_detail,
     fetch_quiz_analytics,
 )
 
@@ -431,6 +432,18 @@ async def admin_user_activity(authorization: Optional[str] = Header(default=None
     ensure_admin_email(supabase_user.get("email"))
     rows = await fetch_user_activity()
     return {"activity": rows}
+
+
+@app.get("/api/admin/users/{user_id}/activity")
+async def admin_user_detail(user_id: str, authorization: Optional[str] = Header(default=None)):
+    """Return all saved_experiments rows for a single user."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    rows = await fetch_user_detail(user_id)
+    return {"experiments": rows}
 
 
 @app.patch("/api/admin/experiments/{exp_id}")
