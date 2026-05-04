@@ -46,19 +46,44 @@ async function apiFetch(path) {
   return resp.json();
 }
 
+function SkeletonRows({ cols = 5, rows = 6 }) {
+  return (
+    <div className="border border-white/8 bg-[#05050b]/80 overflow-hidden">
+      {/* fake header */}
+      <div className="bg-[#090915] px-5 py-4 flex gap-6">
+        {Array.from({ length: cols }).map((_, i) => (
+          <div key={i} className="h-3 rounded bg-white/8 animate-pulse flex-1" style={{ opacity: 0.6 - i * 0.05 }} />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="border-t border-white/5 px-5 py-4 flex gap-6">
+          {Array.from({ length: cols }).map((_, i) => (
+            <div key={i} className="h-3 rounded bg-white/5 animate-pulse flex-1" style={{ animationDelay: `${(r * cols + i) * 40}ms` }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminControls() {
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading } = useAuth();
 
-  const [users,       setUsers]       = useState([]);
+  const [users,         setUsers]         = useState([]);
   const [experiments,   setExperiments]   = useState([]);
   const [activity,      setActivity]      = useState([]);
   const [quizAnalytics, setQuizAnalytics] = useState([]);
-  const [backendStats,setBackendStats]= useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
-  const [search,      setSearch]      = useState("");
-  const [activeTab,   setActiveTab]   = useState("users");
+  const [backendStats,  setBackendStats]  = useState(null);
+
+  // Per-section loading — page renders immediately, each section fills in independently
+  const [usersLoading, setUsersLoading]   = useState(true);
+  const [expsLoading,  setExpsLoading]    = useState(true);
+  const [actLoading,   setActLoading]     = useState(true);
+
+  const [error,   setError]   = useState(null);
+  const [search,  setSearch]  = useState("");
+  const [activeTab, setActiveTab] = useState("users");
 
   const [editingExp,  setEditingExp]  = useState(null);
   const [savingExp,   setSavingExp]   = useState(false);
@@ -74,52 +99,61 @@ export default function AdminControls() {
   }, [authLoading, isAdmin, navigate]);
 
   // ── Data loaders ───────────────────────────────────────────────────────────
+  // Each section loads independently — page is visible immediately
   const loadUsers = useCallback(async () => {
-    const [payload, stats] = await Promise.all([
-      apiFetch("/api/admin/users"),
-      apiFetch("/api/admin/stats"),
-    ]);
-    setUsers((payload.users || []).map(row => ({
-      id:        row.id,
-      name:      row.name || row.user?.email?.split("@")[0] || "—",
-      email:     row.user?.email || row.email || "—",
-      institute: row.institute || "—",
-      createdAt: row.user?.created_at || row.created_at,
-      lastSeen:  row.user?.last_sign_in_at || row.updated_at,
-    })));
-    setBackendStats(stats);
+    setUsersLoading(true);
+    try {
+      const [payload, stats] = await Promise.all([
+        apiFetch("/api/admin/users"),
+        apiFetch("/api/admin/stats"),
+      ]);
+      setUsers((payload.users || []).map(row => ({
+        id:        row.id,
+        name:      row.name || row.user?.email?.split("@")[0] || "—",
+        email:     row.user?.email || row.email || "—",
+        institute: row.institute || "—",
+        createdAt: row.user?.created_at || row.created_at,
+        lastSeen:  row.user?.last_sign_in_at || row.updated_at,
+      })));
+      setBackendStats(stats);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUsersLoading(false);
+    }
   }, []);
 
   const loadExperiments = useCallback(async () => {
-    const data = await apiFetch("/api/admin/experiments");
-    setExperiments(data.experiments || []);
+    setExpsLoading(true);
+    try {
+      const data = await apiFetch("/api/admin/experiments");
+      setExperiments(data.experiments || []);
+    } catch { /* silent — backend may be cold */ }
+    finally { setExpsLoading(false); }
   }, []);
 
   const loadActivity = useCallback(async () => {
-    const data = await apiFetch("/api/admin/activity");
-    setActivity(data.activity || []);
-  }, []);
-
-  const loadQuizAnalytics = useCallback(async () => {
+    setActLoading(true);
     try {
-      const data = await apiFetch("/api/admin/quiz-analytics");
-      setQuizAnalytics(data.analytics || []);
-    } catch { /* table may not exist yet — silent */ }
-  }, []);
-
-  const loadAll = useCallback(async () => {
-    if (!isAdmin) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await Promise.all([loadUsers(), loadExperiments(), loadActivity(), loadQuizAnalytics()]);
-    } catch (err) {
-      console.error("Admin fetch failed:", err);
-      setError(err.message || "Unable to load data");
+      const [actData, quizData] = await Promise.allSettled([
+        apiFetch("/api/admin/activity"),
+        apiFetch("/api/admin/quiz-analytics"),
+      ]);
+      if (actData.status  === "fulfilled") setActivity(actData.value.activity    || []);
+      if (quizData.status === "fulfilled") setQuizAnalytics(quizData.value.analytics || []);
     } finally {
-      setLoading(false);
+      setActLoading(false);
     }
-  }, [isAdmin, loadUsers, loadExperiments, loadActivity, loadQuizAnalytics]);
+  }, []);
+
+  // Fire all three in parallel but don't block on each other
+  const loadAll = useCallback(() => {
+    if (!isAdmin) return;
+    setError(null);
+    loadUsers();
+    loadExperiments();
+    loadActivity();
+  }, [isAdmin, loadUsers, loadExperiments, loadActivity]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -194,12 +228,13 @@ export default function AdminControls() {
     ) : activity;
   }, [activity, search]);
 
-  if (authLoading || loading) {
+  // Only block on auth check — data loads progressively behind the page
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center text-[#00F2FF] font-mono tracking-[0.3em] text-xs">
         {fontLinks}
         <div className="w-12 h-12 border-2 border-[#00F2FF] border-t-transparent rounded-full animate-spin mb-6" />
-        SYNCING ADMIN CONTROLS...
+        CHECKING ACCESS...
       </div>
     );
   }
@@ -455,7 +490,8 @@ export default function AdminControls() {
         </div>
 
         {/* ── Users tab ─────────────────────────────────────────────────── */}
-        {activeTab === "users" && (
+        {activeTab === "users" && usersLoading && <SkeletonRows cols={7} />}
+        {activeTab === "users" && !usersLoading && (
           <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
             <table className="min-w-full text-left text-sm">
               <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
@@ -513,7 +549,8 @@ export default function AdminControls() {
         )}
 
         {/* ── Experiments tab ────────────────────────────────────────────── */}
-        {activeTab === "experiments" && (
+        {activeTab === "experiments" && expsLoading && <SkeletonRows cols={3} />}
+        {activeTab === "experiments" && !expsLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredExps.map(exp => (
               <div key={exp.id} className="bg-[#050510] border border-white/10 p-6 flex flex-col gap-4 relative"
@@ -597,7 +634,8 @@ export default function AdminControls() {
         )}
 
         {/* ── Activity tab ───────────────────────────────────────────────── */}
-        {activeTab === "activity" && (
+        {activeTab === "activity" && actLoading && <SkeletonRows cols={4} />}
+        {activeTab === "activity" && !actLoading && (
           <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
             <table className="min-w-full text-left text-sm">
               <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
