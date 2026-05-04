@@ -632,6 +632,11 @@ return { __setup, __loop };
 
   const setBreakpointHandler = useCallback((_handler) => {}, []);
 
+  const setLiveInput = useCallback((pin, normalizedValue) => {
+    inputsRef.current[pin] = normalizedValue;
+    inputsRef.current[String(pin)] = normalizedValue;
+  }, []);
+
   return {
     startSimulation,
     stopSimulation,
@@ -643,5 +648,6 @@ return { __setup, __loop };
     activeBreakpoints,
     setBreakpoints: updateBreakpoints,
     setBreakpointHandler,
+    setLiveInput,
   };
 }

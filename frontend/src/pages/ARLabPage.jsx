@@ -223,15 +223,19 @@ export default function ARLabPage() {
   // Push input changes into the active simulation engine
   useEffect(() => {
     Object.entries(liveInputs).forEach(([pin, val]) => {
-      const p = parseInt(pin);
-      if (!isNaN(p)) {
-        if (isESP32 && typeof window !== 'undefined' && window.__esp32AnalogInputs) {
-          window.__esp32AnalogInputs[pin] = val;
-        } else if (typeof window !== 'undefined' && window.setExternalPin) {
-          window.setExternalPin(String(p), val > 0.5);
+      if (isESP32) {
+        esp32.setLiveInput(pin, val);
+      } else {
+        // AVR: digital pins via setExternalPin; analog pins set ADC result register
+        const p = parseInt(pin);
+        if (!isNaN(p)) {
+          if (typeof window !== 'undefined' && window.setExternalPin) {
+            window.setExternalPin(String(p), val > 0.5);
+          }
         }
       }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveInputs, isESP32]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
