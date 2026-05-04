@@ -2119,3 +2119,64 @@ export const ScrewTerminal3 = () => (
     <Pin x={44} y={48} label="T3" color="#22d3ee" />
   </svg>
 );
+
+// ── Seven-Segment Display ──────────────────────────────────────────────────
+// Segment layout (standard):
+//   a=top, b=top-right, c=bot-right, d=bottom, e=bot-left, f=top-left, g=middle
+const SEG_W = 22, SEG_H = 5; // segment bar dims
+const SEG_DEFS = {
+  a:  { x: 24,  y: 8,   r: 0 },
+  b:  { x: 49,  y: 24,  r: 90 },
+  c:  { x: 49,  y: 52,  r: 90 },
+  d:  { x: 24,  y: 74,  r: 0 },
+  e:  { x: 0,   y: 52,  r: 90 },
+  f:  { x: 0,   y: 24,  r: 90 },
+  g:  { x: 24,  y: 41,  r: 0 },
+};
+
+export const SevenSegDisplay = ({ pinStates = {} }) => {
+  const active = (id) => !!pinStates[id];
+  const color = '#ff3333';
+  const dim   = '#1a0000';
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={90} height={130} style={{ display: 'block', overflow: 'visible' }}>
+        {/* Housing */}
+        <rect x={2} y={2} width={86} height={96} rx={4} fill="#111" stroke="#334155" strokeWidth={1.5} />
+
+        {/* Segments */}
+        {Object.entries(SEG_DEFS).map(([id, { x, y, r }]) => {
+          const on = active(id);
+          const cx = x + (r === 90 ? SEG_H / 2 : SEG_W / 2);
+          const cy = y + (r === 90 ? SEG_W / 2 : SEG_H / 2);
+          return (
+            <rect
+              key={id}
+              x={x} y={y}
+              width={r === 90 ? SEG_H : SEG_W}
+              height={r === 90 ? SEG_W : SEG_H}
+              rx={2}
+              fill={on ? color : dim}
+              style={{ filter: on ? `drop-shadow(0 0 4px ${color})` : 'none' }}
+            />
+          );
+        })}
+
+        {/* Decimal point */}
+        <circle cx={74} cy={77} r={3}
+          fill={active('dp') ? color : dim}
+          style={{ filter: active('dp') ? `drop-shadow(0 0 4px ${color})` : 'none' }}
+        />
+
+        {/* Pin labels along bottom */}
+        {['a','b','c','d','e','f','g','dp'].map((id, i) => (
+          <g key={id}>
+            <line x1={9 + i * 10} y1={98} x2={9 + i * 10} y2={108} stroke="#94a3b8" strokeWidth={1.5} />
+            <text x={9 + i * 10} y={120} fontSize={6} fill="#64748b" textAnchor="middle" fontFamily="monospace">{id}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+};

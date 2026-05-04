@@ -67,6 +67,7 @@ export const LIBRARY_COMPONENTS_MAP = {
   BARREL_JACK:      Lib.BarrelJack,
   SCREW_TERMINAL_2: Lib.ScrewTerminal2,
   SCREW_TERMINAL_3: Lib.ScrewTerminal3,
+  SEVEN_SEG:        Lib.SevenSegDisplay,
 };
 
 export const LIBRARY_TERMINAL_LAYOUTS = {
@@ -188,4 +189,6 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
   BARREL_JACK: [{ id: "pos", x: 14, y: 58 }, { id: "gnd", x: 34, y: 58 }],
   SCREW_TERMINAL_2: [{ id: "t1", x: 12, y: 48 }, { id: "t2", x: 28, y: 48 }],
   SCREW_TERMINAL_3: [{ id: "t1", x: 10, y: 48 }, { id: "t2", x: 27, y: 48 }, { id: "t3", x: 44, y: 48 }],
+  // 7-segment: 8 pin stubs at y=108 matching the SevenSegDisplay SVG
+  SEVEN_SEG: ['a','b','c','d','e','f','g','dp'].map((id, i) => ({ id, x: 9 + i * 10, y: 108 })),
 };

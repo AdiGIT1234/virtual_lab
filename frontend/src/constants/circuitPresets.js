@@ -678,4 +678,132 @@ void loop() {
       "gnd-1": { pos: [0.55, 0.01,  0.16], rot: [0, 0, 0] },
     },
   },
+
+  seven_seg_counter: {
+    id: "seven_seg_counter",
+    name: "7-Segment Counter",
+    description: "ATmega328P counts 0–9 on a common-cathode 7-segment display, cycling every 800 ms.",
+    mcu: "atmega328p",
+    starterCode: `// Common-cathode 7-segment: HIGH = segment ON
+// Pins: a=2 b=3 c=4 d=5 e=6 f=7 g=8
+const byte SEGS[10][7] = {
+  {1,1,1,1,1,1,0}, // 0
+  {0,1,1,0,0,0,0}, // 1
+  {1,1,0,1,1,0,1}, // 2
+  {1,1,1,1,0,0,1}, // 3
+  {0,1,1,0,0,1,1}, // 4
+  {1,0,1,1,0,1,1}, // 5
+  {1,0,1,1,1,1,1}, // 6
+  {1,1,1,0,0,0,0}, // 7
+  {1,1,1,1,1,1,1}, // 8
+  {1,1,1,1,0,1,1}, // 9
+};
+const int PINS[7] = {2, 3, 4, 5, 6, 7, 8};
+int digit = 0;
+
+void setup() {
+  for (int i = 0; i < 7; i++) pinMode(PINS[i], OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  for (int s = 0; s < 7; s++) digitalWrite(PINS[s], SEGS[digit][s]);
+  Serial.print("Digit: "); Serial.println(digit);
+  digit = (digit + 1) % 10;
+  delay(800);
+}`,
+    workspace: [
+      { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 300, y: 200 },
+      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null }, x: 480, y: 360 },
+    ],
+    wires: [
+      { id: "seg-wa", source: "mcu::2", target: "seg-1::a", bends: [], color: "#ff4444" },
+      { id: "seg-wb", source: "mcu::3", target: "seg-1::b", bends: [], color: "#fbbf24" },
+      { id: "seg-wc", source: "mcu::4", target: "seg-1::c", bends: [], color: "#22c55e" },
+      { id: "seg-wd", source: "mcu::5", target: "seg-1::d", bends: [], color: "#4dabf7" },
+      { id: "seg-we", source: "mcu::6", target: "seg-1::e", bends: [], color: "#a78bfa" },
+      { id: "seg-wf", source: "mcu::7", target: "seg-1::f", bends: [], color: "#f97316" },
+      { id: "seg-wg", source: "mcu::8", target: "seg-1::g", bends: [], color: "#fb7185" },
+    ],
+    outputs: { 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0 },
+    inputs: {},
+    arlabPositions: {
+      "seg-1": { pos: [0.35, 0.085, 0],   rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.60, 0.01, 0.20], rot: [0, 0, 0] },
+    },
+  },
+
+  dc_motor_control: {
+    id: "dc_motor_control",
+    name: "DC Motor + L298N",
+    description: "ATmega328P drives a DC motor via an L298N H-bridge — alternates forward/reverse at varying speeds.",
+    mcu: "atmega328p",
+    starterCode: `#define ENA 3   // PWM speed (pin 3 = OC2B)
+#define IN1 4   // direction bit 1
+#define IN2 5   // direction bit 2
+
+void setup() {
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  Serial.begin(9600);
+  Serial.println("DC Motor Control Ready");
+}
+
+void setMotor(int dir, int speed) {
+  analogWrite(ENA, speed);
+  if (dir > 0)      { digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);  }
+  else if (dir < 0) { digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH); }
+  else              { digitalWrite(IN1, LOW);   digitalWrite(IN2, LOW);  }
+}
+
+void loop() {
+  Serial.println("Forward 75%");
+  setMotor(1, 192);
+  delay(2000);
+
+  Serial.println("Stop");
+  setMotor(0, 0);
+  delay(500);
+
+  Serial.println("Reverse 50%");
+  setMotor(-1, 128);
+  delay(2000);
+
+  Serial.println("Stop");
+  setMotor(0, 0);
+  delay(500);
+
+  Serial.println("Forward 100%");
+  setMotor(1, 255);
+  delay(1000);
+
+  Serial.println("Brake");
+  setMotor(0, 0);
+  delay(1000);
+}`,
+    workspace: [
+      { id: "l298-1", type: "L298N_DRIVER", pin: 3,  pins: { ena: 3, in1: 4, in2: 5, enb: null, in3: null, in4: null, vcc: null, gnd: null }, x: 280, y: 180 },
+      { id: "mot-1",  type: "DC_MOTOR",     pin: null, pins: { "m+": null, "m-": null, ena: 3 }, x: 440, y: 200 },
+      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null }, x: 80, y: 80  },
+      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 80, y: 360 },
+    ],
+    wires: [
+      { id: "mot-w1", source: "mcu::3",      target: "l298-1::ena",  bends: [], color: "#fbbf24" },
+      { id: "mot-w2", source: "mcu::4",      target: "l298-1::in1",  bends: [], color: "#4dabf7" },
+      { id: "mot-w3", source: "mcu::5",      target: "l298-1::in2",  bends: [], color: "#22d3ee" },
+      { id: "mot-w4", source: "vcc-1::main", target: "l298-1::vcc",  bends: [], color: "#dc2626" },
+      { id: "mot-w5", source: "gnd-1::main", target: "l298-1::gnd",  bends: [], color: "#333"    },
+      { id: "mot-w6", source: "l298-1::out1", target: "mot-1::m+",   bends: [], color: "#ff4444" },
+      { id: "mot-w7", source: "l298-1::out2", target: "mot-1::m-",   bends: [], color: "#111"    },
+    ],
+    outputs: { 3: 0, 4: 0, 5: 0 },
+    inputs: {},
+    arlabPositions: {
+      "l298-1": { pos: [0.20, 0.085, 0],    rot: [0, 0, 0] },
+      "mot-1":  { pos: [0.55, 0.085, 0],    rot: [0, 0, 0] },
+      "vcc-1":  { pos: [0.0,  0.01, -0.20], rot: [0, 0, 0] },
+      "gnd-1":  { pos: [0.0,  0.01,  0.20], rot: [0, 0, 0] },
+    },
+  },
 };

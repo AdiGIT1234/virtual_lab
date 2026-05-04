@@ -18,7 +18,7 @@ import Timer555_3D from "./Timer555_3D";
 import DipIC3D from "./DipIC3D";
 import Buzzer3D from "./Buzzer3D";
 import SevenSegment3D from "./SevenSegment3D";
-import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D } from "./SensorModule3D";
+import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D, DcMotor3D, L298nDriver3D } from "./SensorModule3D";
 
 // Convert Arduino pin number to scene-group coordinates
 function pinToSceneCoords(pinNum) {
@@ -343,6 +343,11 @@ export default function CircuitScene({
           element = <Max30102_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "TCS34725" || component.type === "TCS34725_COLOR" || component.type === "COLOR_SENSOR") {
           element = <Tcs34725_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "DC_MOTOR") {
+          const speed = outputs[component.pins?.ena ?? component.pin] ?? 0;
+          element = <DcMotor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} speed={speed} />;
+        } else if (component.type === "L298N_DRIVER") {
+          element = <L298nDriver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "HC05_BLUETOOTH" || component.type === "BLUETOOTH_MODULE") {
           element = <SensorModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} label="HC-05" color="#07193a" borderColor="#1d4ed8" />;
         } else if (component.type === "RC522_RFID" || component.type === "RFID_MODULE") {

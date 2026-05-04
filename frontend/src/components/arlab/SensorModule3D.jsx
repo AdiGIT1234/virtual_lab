@@ -259,3 +259,86 @@ export function Hc05_3D({ position, rotation, highlighted }) {
     />
   );
 }
+
+// DC Motor — cylinder body with shaft, spins when active
+export function DcMotor3D({ position, rotation, highlighted, speed = 0 }) {
+  const shaftRef = useRef(0);
+  useFrame((_, delta) => {
+    if (speed > 0.05) shaftRef.current += delta * speed * 20;
+  });
+
+  const bodyColor = highlighted ? "#374151" : "#1f2937";
+  return (
+    <group position={position} rotation={rotation}>
+      {/* Motor body — horizontal cylinder */}
+      <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.035, 0.035, 0.10, 16]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.4} />
+      </mesh>
+      {/* End caps */}
+      {[-0.051, 0.051].map((xOff, i) => (
+        <mesh key={i} position={[xOff, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.035, 0.035, 0.003, 16]} />
+          <meshStandardMaterial color="#374151" roughness={0.3} metalness={0.6} />
+        </mesh>
+      ))}
+      {/* Shaft */}
+      <mesh position={[0.065, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.008, 0.008, 0.03, 8]} />
+        <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.2} />
+      </mesh>
+      {/* Rotation indicator line on shaft end */}
+      <mesh
+        position={[0.082, 0.01 * Math.sin(shaftRef.current), 0.01 * Math.cos(shaftRef.current)]}
+        rotation={[shaftRef.current, 0, Math.PI / 2]}
+      >
+        <boxGeometry args={[0.004, 0.001, 0.018]} />
+        <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.5} />
+      </mesh>
+      {/* Wire leads */}
+      {[0.015, -0.015].map((zOff, i) => (
+        <mesh key={i} position={[-0.065, -0.025, zOff]}>
+          <cylinderGeometry args={[0.003, 0.003, 0.022, 6]} />
+          <meshStandardMaterial color={i === 0 ? "#ef4444" : "#1f2937"} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// L298N H-bridge driver module (red PCB with heatsink)
+export function L298nDriver3D({ position, rotation, highlighted }) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* PCB base */}
+      <mesh castShadow position={[0, 0.005, 0]}>
+        <boxGeometry args={[0.13, 0.01, 0.10]} />
+        <meshStandardMaterial color={highlighted ? "#7f1d1d" : "#450a0a"} roughness={0.6} metalness={0.1} />
+      </mesh>
+      {/* L298N IC chip */}
+      <mesh position={[0, 0.018, 0]}>
+        <boxGeometry args={[0.04, 0.016, 0.05]} />
+        <meshStandardMaterial color="#111" roughness={0.9} metalness={0.05} />
+      </mesh>
+      {/* Heatsink fins */}
+      {[-0.012, -0.006, 0, 0.006, 0.012].map((zOff, i) => (
+        <mesh key={i} position={[0, 0.032, zOff]}>
+          <boxGeometry args={[0.042, 0.02, 0.003]} />
+          <meshStandardMaterial color="#6b7280" roughness={0.4} metalness={0.7} />
+        </mesh>
+      ))}
+      {/* Terminal block — motor outputs */}
+      <mesh position={[0.055, 0.012, 0]}>
+        <boxGeometry args={[0.016, 0.012, 0.07]} />
+        <meshStandardMaterial color="#374151" roughness={0.7} metalness={0.1} />
+      </mesh>
+      {/* Control pin headers */}
+      {[-0.025, -0.015, -0.005, 0.005, 0.015, 0.025].map((zOff, i) => (
+        <mesh key={i} position={[-0.060, 0.015, zOff]}>
+          <cylinderGeometry args={[0.003, 0.003, 0.022, 6]} />
+          <meshStandardMaterial color="#c0a830" metalness={0.8} roughness={0.3} />
+        </mesh>
+      ))}
+    </group>
+  );
+}

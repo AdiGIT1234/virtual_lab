@@ -52,6 +52,10 @@ def compile_code(source_code: str) -> str:
 #define A4 18
 #define A5 19
 
+typedef uint8_t  byte;
+typedef uint16_t word;
+typedef bool     boolean;
+
 // ── Math helpers ─────────────────────────────────────────────────────────────
 static inline long _map(long x, long in_min, long in_max, long out_min, long out_max) {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
