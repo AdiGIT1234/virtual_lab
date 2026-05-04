@@ -32,6 +32,26 @@ function getStatus(lastSeen) {
   return "dormant";
 }
 
+function formatTimeSpent(ms) {
+  if (ms == null || isNaN(ms)) return "—";
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (m === 0 && s === 0) return "0s";
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function StarRating({ rating = 0 }) {
+  const r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  return (
+    <span className="inline-flex items-center gap-0.5 text-base" style={{ color: "#f5c518" }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} style={{ opacity: i <= r ? 1 : 0.25 }}>★</span>
+      ))}
+    </span>
+  );
+}
+
 async function getAuthHeaders() {
   const { data } = await supabase.auth.getSession();
   const session = data?.session;
@@ -93,6 +113,13 @@ export default function AdminControls() {
 
   const [actionMsg, setActionMsg] = useState(null);
 
+  // ── New state: feedback, progress drill-down ───────────────────────────────
+  const [feedbackList,   setFeedbackList]   = useState([]);
+  const [fbLoading,      setFbLoading]      = useState(true);
+  const [progressView,   setProgressView]   = useState([]); // same data as activity, reused
+  const [userDetail,     setUserDetail]     = useState(null); // { user, experiments: [] }
+  const [userDetailLoading, setUserDetailLoading] = useState(false);
+
   // ── Redirect non-admins ────────────────────────────────────────────────────
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/dashboard", { replace: true });
@@ -139,21 +166,48 @@ export default function AdminControls() {
         apiFetch("/api/admin/activity"),
         apiFetch("/api/admin/quiz-analytics"),
       ]);
-      if (actData.status  === "fulfilled") setActivity(actData.value.activity    || []);
+      if (actData.status  === "fulfilled") {
+        const rows = actData.value.activity || [];
+        setActivity(rows);
+        setProgressView(rows); // reuse the same data for the progress tab
+      }
       if (quizData.status === "fulfilled") setQuizAnalytics(quizData.value.analytics || []);
     } finally {
       setActLoading(false);
     }
   }, []);
 
-  // Fire all three in parallel but don't block on each other
+  const loadFeedback = useCallback(async () => {
+    setFbLoading(true);
+    try {
+      const data = await apiFetch("/api/admin/feedback");
+      setFeedbackList(data.feedback || []);
+    } catch { /* silent */ }
+    finally { setFbLoading(false); }
+  }, []);
+
+  const loadUserDetail = useCallback(async (user) => {
+    setUserDetail({ user, experiments: [] });
+    setUserDetailLoading(true);
+    try {
+      const data = await apiFetch(`/api/admin/users/${user.id}/activity`);
+      setUserDetail({ user, experiments: data.experiments || [] });
+    } catch {
+      setUserDetail({ user, experiments: [] });
+    } finally {
+      setUserDetailLoading(false);
+    }
+  }, []);
+
+  // Fire all loaders in parallel but don't block on each other
   const loadAll = useCallback(() => {
     if (!isAdmin) return;
     setError(null);
     loadUsers();
     loadExperiments();
     loadActivity();
-  }, [isAdmin, loadUsers, loadExperiments, loadActivity]);
+    loadFeedback();
+  }, [isAdmin, loadUsers, loadExperiments, loadActivity, loadFeedback]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -227,6 +281,68 @@ export default function AdminControls() {
       [a.experiment_id, a.title, a.profile?.name, a.profile?.institute].some(f => f?.toLowerCase().includes(q))
     ) : activity;
   }, [activity, search]);
+
+  // ── Aggregated user progress (for the Progress tab leaderboard) ────────────
+  const userProgress = useMemo(() => {
+    const map = {};
+    progressView.forEach(row => {
+      const key = row.user_id;
+      if (!key) return;
+      if (!map[key]) {
+        map[key] = {
+          user_id: key,
+          name: row.profile?.name || "—",
+          institute: row.profile?.institute || "—",
+          total: 0,
+          completed: 0,
+          preSum: 0,
+          postSum: 0,
+          preCount: 0,
+          postCount: 0,
+        };
+      }
+      map[key].total++;
+      if (row.completed) map[key].completed++;
+      if (row.pretest_score != null)  { map[key].preSum  += row.pretest_score;  map[key].preCount++; }
+      if (row.posttest_score != null) { map[key].postSum += row.posttest_score; map[key].postCount++; }
+    });
+    return Object.values(map).sort((a, b) => b.completed - a.completed || b.total - a.total);
+  }, [progressView]);
+
+  const filteredUserProgress = useMemo(() => {
+    const q = search.toLowerCase();
+    return search ? userProgress.filter(u =>
+      [u.name, u.institute, u.user_id].some(f => f?.toLowerCase().includes(q))
+    ) : userProgress;
+  }, [userProgress, search]);
+
+  const progressTotals = useMemo(() => {
+    const completed = userProgress.reduce((s, u) => s + u.completed, 0);
+    const totalStarted = userProgress.reduce((s, u) => s + u.total, 0);
+    const postSum = userProgress.reduce((s, u) => s + u.postSum, 0);
+    const postCount = userProgress.reduce((s, u) => s + u.postCount, 0);
+    return {
+      completed,
+      totalStarted,
+      avgPost: postCount > 0 ? (postSum / postCount).toFixed(1) : "—",
+    };
+  }, [userProgress]);
+
+  // ── Filtered feedback ──────────────────────────────────────────────────────
+  const filteredFeedback = useMemo(() => {
+    const q = search.toLowerCase();
+    return search ? feedbackList.filter(f =>
+      [f.message, f.profile?.name, f.experiment_id, f.profile?.institute]
+        .some(v => v?.toLowerCase?.().includes(q))
+    ) : feedbackList;
+  }, [feedbackList, search]);
+
+  // Find a corresponding user record (for the Progress tab "Detail" button)
+  const userById = useMemo(() => {
+    const m = {};
+    users.forEach(u => { m[u.id] = u; });
+    return m;
+  }, [users]);
 
   // Only block on auth check — data loads progressively behind the page
   if (authLoading) {
@@ -392,6 +508,109 @@ export default function AdminControls() {
         )}
       </AnimatePresence>
 
+      {/* ── User progress drill-down modal ──────────────────────────────── */}
+      <AnimatePresence>
+        {userDetail && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
+            onClick={() => setUserDetail(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 30 }}
+              className="bg-[#0a0a1a] border border-[#00F2FF]/20 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden"
+              style={{ clipPath: "polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px))" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-white/10 flex justify-between items-start bg-[#0d0d1f] gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-mono tracking-[0.3em] uppercase text-[#00F2FF] mb-1">User Progress</p>
+                  <h3 className="text-xl font-bold truncate">{userDetail.user?.name || "—"}</h3>
+                  <p className="text-xs text-[#94a3b8] mt-1 truncate">
+                    {userDetail.user?.email || "—"}
+                    <span className="mx-2 text-[#475569]">·</span>
+                    <span className="text-[#cbd5f5]">{userDetail.user?.institute || "—"}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setUserDetail(null)}
+                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 shrink-0"
+                >✕</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {userDetailLoading ? (
+                  <SkeletonRows cols={5} rows={5} />
+                ) : userDetail.experiments.length === 0 ? (
+                  <p className="text-center text-[#94a3b8] font-mono text-sm py-12">No experiments recorded yet.</p>
+                ) : (
+                  <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
+                        <tr>
+                          {["Experiment", "Status", "Pre-test", "Post-test", "Time Spent", "Last Active"].map(h => (
+                            <th key={h} className="px-4 py-4">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userDetail.experiments.map((row, i) => {
+                          const isComplete = !!row.completed;
+                          const preTotal  = row.pretest_total  ?? row.pretest?.length;
+                          const postTotal = row.posttest_total ?? row.posttest?.length;
+                          return (
+                            <tr key={i} className="border-t border-white/5 hover:bg-white/2">
+                              <td className="px-4 py-3">
+                                <span className="text-[#00F2FF] font-mono text-xs mr-2">{row.experiment_id}</span>
+                                <span className="text-[#cbd5f5]">{row.title || "—"}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[10px] uppercase tracking-[0.2em] font-mono px-2 py-1 inline-flex items-center gap-1 ${
+                                  isComplete
+                                    ? "text-[#22d3ee] bg-[#22d3ee]/10 border border-[#22d3ee]/40"
+                                    : "text-[#f5c518] bg-[#f5c518]/10 border border-[#f5c518]/40"
+                                }`}>
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isComplete ? "#22d3ee" : "#f5c518" }} />
+                                  {isComplete ? "Completed" : "In Progress"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs">
+                                {row.pretest_score != null ? `${row.pretest_score}${preTotal != null ? ` / ${preTotal}` : ""}` : "—"}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs">
+                                {row.posttest_score != null ? `${row.posttest_score}${postTotal != null ? ` / ${postTotal}` : ""}` : "—"}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs text-[#cbd5f5]">
+                                {formatTimeSpent(row.time_spent_ms)}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs text-[#94a3b8]">
+                                {row.updated_at ? new Date(row.updated_at).toLocaleDateString() : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-white/10 bg-[#0d0d1f] flex justify-between items-center text-xs font-mono">
+                <span className="text-[#94a3b8]">
+                  {userDetailLoading
+                    ? "Loading…"
+                    : `${userDetail.experiments.filter(e => e.completed).length} completed out of ${userDetail.experiments.length} started`}
+                </span>
+                <button
+                  onClick={() => setUserDetail(null)}
+                  className="px-6 py-2 text-xs font-bold uppercase tracking-widest border border-white/10 hover:bg-white/5"
+                >Close</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Hero header ─────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden border-b border-white/5" style={{ background: "radial-gradient(circle at top, rgba(0,242,255,0.18), transparent 55%)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-12 py-10 lg:py-14 flex flex-col gap-6">
@@ -471,6 +690,8 @@ export default function AdminControls() {
               { id: "users",       label: "User Roster" },
               { id: "experiments", label: "Lab Experiments" },
               { id: "activity",    label: "User Activity" },
+              { id: "progress",    label: "Progress" },
+              { id: "feedback",    label: "Feedback" },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-6 py-2 text-[10px] uppercase font-bold tracking-widest whitespace-nowrap transition ${
@@ -529,13 +750,21 @@ export default function AdminControls() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <button
-                          disabled={deletingId === user.id}
-                          onClick={() => setConfirmDelete(user)}
-                          className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] font-mono border border-[#e11d48]/40 text-[#e11d48] hover:bg-[#e11d48]/10 transition disabled:opacity-40"
-                        >
-                          {deletingId === user.id ? "Deleting…" : "Delete"}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => loadUserDetail(user)}
+                            className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] font-mono border border-[#00F2FF]/40 text-[#00F2FF] hover:bg-[#00F2FF]/10 transition"
+                          >
+                            Progress
+                          </button>
+                          <button
+                            disabled={deletingId === user.id}
+                            onClick={() => setConfirmDelete(user)}
+                            className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] font-mono border border-[#e11d48]/40 text-[#e11d48] hover:bg-[#e11d48]/10 transition disabled:opacity-40"
+                          >
+                            {deletingId === user.id ? "Deleting…" : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                   );
@@ -634,36 +863,191 @@ export default function AdminControls() {
         )}
 
         {/* ── Activity tab ───────────────────────────────────────────────── */}
-        {activeTab === "activity" && actLoading && <SkeletonRows cols={4} />}
+        {activeTab === "activity" && actLoading && <SkeletonRows cols={6} />}
         {activeTab === "activity" && !actLoading && (
           <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
             <table className="min-w-full text-left text-sm">
               <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
                 <tr>
-                  {["User", "Institute", "Experiment", "Last Run"].map(label => (
+                  {["User", "Institute", "Experiment", "Status", "Post-score", "Last Run"].map(label => (
                     <th key={label} className="px-5 py-4">{label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredActivity.map((row, i) => (
-                  <tr key={i} className="border-t border-white/5 hover:bg-white/2 transition">
-                    <td className="px-5 py-3 font-semibold">{row.profile?.name || row.user_id?.slice(0, 8) + "···"}</td>
-                    <td className="px-5 py-3 text-[#cbd5f5]">{row.profile?.institute || "—"}</td>
-                    <td className="px-5 py-3">
-                      <span className="text-[#00F2FF] font-mono text-xs mr-2">{row.experiment_id}</span>
-                      <span className="text-[#94a3b8]">{row.title}</span>
-                    </td>
-                    <td className="px-5 py-3 text-[#94a3b8] font-mono text-xs">
-                      {row.updated_at ? new Date(row.updated_at).toLocaleString() : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {filteredActivity.map((row, i) => {
+                  const isComplete = !!row.completed;
+                  const postTotal  = row.posttest_total ?? row.posttest?.length;
+                  return (
+                    <tr key={i} className="border-t border-white/5 hover:bg-white/2 transition">
+                      <td className="px-5 py-3 font-semibold">{row.profile?.name || row.user_id?.slice(0, 8) + "···"}</td>
+                      <td className="px-5 py-3 text-[#cbd5f5]">{row.profile?.institute || "—"}</td>
+                      <td className="px-5 py-3">
+                        <span className="text-[#00F2FF] font-mono text-xs mr-2">{row.experiment_id}</span>
+                        <span className="text-[#94a3b8]">{row.title}</span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`text-[10px] uppercase tracking-[0.2em] font-mono px-2 py-1 inline-flex items-center gap-1 ${
+                          isComplete
+                            ? "text-[#22d3ee] bg-[#22d3ee]/10 border border-[#22d3ee]/40"
+                            : "text-[#f5c518] bg-[#f5c518]/10 border border-[#f5c518]/40"
+                        }`}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isComplete ? "#22d3ee" : "#f5c518" }} />
+                          {isComplete ? "completed" : "in-progress"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 font-mono text-xs">
+                        {row.posttest_score != null ? `${row.posttest_score}${postTotal != null ? ` / ${postTotal}` : ""}` : "—"}
+                      </td>
+                      <td className="px-5 py-3 text-[#94a3b8] font-mono text-xs">
+                        {row.updated_at ? new Date(row.updated_at).toLocaleString() : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredActivity.length === 0 && (
-                  <tr><td colSpan={4} className="px-5 py-10 text-center text-[#94a3b8] font-mono text-sm">No activity recorded yet</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-10 text-center text-[#94a3b8] font-mono text-sm">No activity recorded yet</td></tr>
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ── Progress tab ──────────────────────────────────────────────── */}
+        {activeTab === "progress" && actLoading && <SkeletonRows cols={6} />}
+        {activeTab === "progress" && !actLoading && (
+          <div className="space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="border border-white/8 bg-[#05050b]/80 px-5 py-4">
+                <p className="text-[10px] font-mono tracking-[0.2em] text-[#64748B] uppercase mb-2">Learners Tracked</p>
+                <div className="text-2xl font-black tracking-tight">{userProgress.length}</div>
+              </div>
+              <div className="border border-white/8 bg-[#05050b]/80 px-5 py-4">
+                <p className="text-[10px] font-mono tracking-[0.2em] text-[#64748B] uppercase mb-2">Experiments Completed</p>
+                <div className="text-2xl font-black tracking-tight text-[#00F2FF]">
+                  {progressTotals.completed}
+                  <span className="text-sm text-[#64748B] font-mono ml-2">/ {progressTotals.totalStarted} started</span>
+                </div>
+              </div>
+              <div className="border border-white/8 bg-[#05050b]/80 px-5 py-4">
+                <p className="text-[10px] font-mono tracking-[0.2em] text-[#64748B] uppercase mb-2">Avg Post-test Score</p>
+                <div className="text-2xl font-black tracking-tight">{progressTotals.avgPost}</div>
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
+              <table className="min-w-full text-left text-sm">
+                <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
+                  <tr>
+                    {["Rank", "User", "Institute", "Completed / Started", "Avg Pre", "Avg Post", "Action"].map(h => (
+                      <th key={h} className="px-5 py-4">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUserProgress.map((u, idx) => {
+                    const rank = idx + 1;
+                    const pct = u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0;
+                    const avgPre  = u.preCount  > 0 ? (u.preSum  / u.preCount).toFixed(1)  : "—";
+                    const avgPost = u.postCount > 0 ? (u.postSum / u.postCount).toFixed(1) : "—";
+                    const userRecord = userById[u.user_id] || {
+                      id: u.user_id,
+                      name: u.name,
+                      email: "—",
+                      institute: u.institute,
+                    };
+                    return (
+                      <tr key={u.user_id} className="border-t border-white/5 hover:bg-white/2 transition">
+                        <td className="px-5 py-3 font-mono text-xs text-[#00F2FF]">#{rank}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{u.name}</span>
+                            <span className="text-xs text-[#94a3b8] font-mono">{u.user_id?.slice(0, 8)}···</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-[#cbd5f5]">{u.institute}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-32 h-2 bg-white/10 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#00F2FF" }} />
+                            </div>
+                            <span className="font-mono text-xs whitespace-nowrap">
+                              <span className="text-[#00F2FF]">{u.completed}</span>
+                              <span className="text-[#64748B]"> / {u.total}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 font-mono text-xs">{avgPre}</td>
+                        <td className="px-5 py-3 font-mono text-xs">{avgPost}</td>
+                        <td className="px-5 py-3">
+                          <button
+                            onClick={() => loadUserDetail(userRecord)}
+                            className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] font-mono border border-[#00F2FF]/40 text-[#00F2FF] hover:bg-[#00F2FF]/10 transition"
+                          >
+                            Detail
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredUserProgress.length === 0 && (
+                    <tr><td colSpan={7} className="px-5 py-10 text-center text-[#94a3b8] font-mono text-sm">No progress data yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Feedback tab ──────────────────────────────────────────────── */}
+        {activeTab === "feedback" && fbLoading && <SkeletonRows cols={3} rows={4} />}
+        {activeTab === "feedback" && !fbLoading && filteredFeedback.length === 0 && (
+          <p className="text-center text-[#94a3b8] font-mono text-sm py-10">No feedback submitted yet.</p>
+        )}
+        {activeTab === "feedback" && !fbLoading && filteredFeedback.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredFeedback.map((fb, i) => (
+              <motion.div
+                key={fb.id || i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
+                className="bg-[#050510] border border-white/10 p-5 flex flex-col gap-3"
+              >
+                <div className="flex justify-between items-start gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <StarRating rating={fb.rating} />
+                    {fb.experiment_id && (
+                      <span className="text-[10px] font-mono uppercase px-2 py-1 text-[#00F2FF] border border-[#00F2FF]/30 bg-[#00F2FF]/5">
+                        {fb.experiment_id}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono text-[#64748B]">
+                    {fb.created_at ? new Date(fb.created_at).toLocaleDateString() : "—"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-[#94a3b8] font-mono">
+                  <span className="text-[#cbd5f5]">{fb.profile?.name || "—"}</span>
+                  <span className="mx-2 text-[#475569]">·</span>
+                  <span>{fb.profile?.institute || "—"}</span>
+                </p>
+
+                <p
+                  className="text-sm italic text-[#e2e8f0] leading-relaxed overflow-hidden"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: "vertical",
+                  }}
+                >
+                  “{fb.message || "—"}”
+                </p>
+              </motion.div>
+            ))}
           </div>
         )}
 

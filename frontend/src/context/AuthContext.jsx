@@ -280,6 +280,19 @@ export function AuthProvider({ children }) {
     [user]
   );
 
+  /* ── Get quiz attempt history for the current user ── */
+  const getQuizHistory = useCallback(async () => {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .select("id,experiment_id,quiz_type,score,total,passed,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) return [];
+    return data || [];
+  }, [user]);
+
   /* ── Context value ── */
   const value = useMemo(
     () => ({
@@ -306,6 +319,7 @@ export function AuthProvider({ children }) {
       deleteSavedExperiment,
       saveQuizAttempt,
       markExperimentComplete,
+      getQuizHistory,
     }),
     [
       user,
@@ -326,6 +340,7 @@ export function AuthProvider({ children }) {
       deleteSavedExperiment,
       saveQuizAttempt,
       markExperimentComplete,
+      getQuizHistory,
     ]
   );
 

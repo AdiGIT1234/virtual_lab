@@ -24,6 +24,8 @@ from services.admin_portal import (  # type: ignore
     fetch_user_activity,
     fetch_user_detail,
     fetch_quiz_analytics,
+    fetch_feedback,
+    submit_feedback_entry,
 )
 
 from engine.gpio import GPIO  # type: ignore
@@ -455,3 +457,38 @@ async def admin_update_experiment(exp_id: str, payload: Dict[str, Any], authoriz
     ensure_admin_email(supabase_user.get("email"))
     updated = await update_experiment_in_db(exp_id, payload)
     return {"updated": updated}
+
+
+@app.get("/api/admin/feedback")
+async def admin_get_feedback(authorization: Optional[str] = Header(default=None)):
+    """Return all user-submitted feedback entries."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    rows = await fetch_feedback()
+    return {"feedback": rows}
+
+
+@app.post("/api/feedback")
+async def post_feedback(payload: Dict[str, Any], authorization: Optional[str] = Header(default=None)):
+    """Submit feedback from an authenticated user."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    user_id = supabase_user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not identify user")
+    message = (payload.get("message") or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="message is required")
+    rating = payload.get("rating")
+    if rating is not None:
+        rating = int(rating)
+        if not (1 <= rating <= 5):
+            raise HTTPException(status_code=400, detail="rating must be 1–5")
+    experiment_id = payload.get("experiment_id") or None
+    await submit_feedback_entry(user_id, experiment_id, rating, message)
+    return {"ok": True}

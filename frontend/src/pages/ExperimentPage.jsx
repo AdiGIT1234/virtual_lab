@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget";
 import allExperiments from "../data/all_experiments.json";
 import { API_BASE_URL } from "../lib/api";
 import { useAuth } from "../context/useAuth";
+import { supabase } from "../lib/supabase";
 
 export default function ExperimentPage() {
   const { experimentId } = useParams();
@@ -18,7 +19,35 @@ export default function ExperimentPage() {
   const [preTestScore, setPreTestScore] = useState(null);
   const [postTestScore, setPostTestScore] = useState(null);
 
+  const [fbRating,    setFbRating]    = useState(0);
+  const [fbMessage,   setFbMessage]   = useState("");
+  const [fbSubmitting, setFbSubmitting] = useState(false);
+  const [fbSubmitted,  setFbSubmitted]  = useState(false);
+  const [fbError,     setFbError]     = useState("");
+
   const startTimeRef = useRef(Date.now());
+
+  const handleFeedbackSubmit = useCallback(async () => {
+    if (!fbMessage.trim()) { setFbError("Please write a message before submitting."); return; }
+    setFbSubmitting(true);
+    setFbError("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("Not signed in");
+      const resp = await fetch(`${API_BASE_URL}/api/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ experiment_id: experimentId, rating: fbRating || null, message: fbMessage.trim() }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      setFbSubmitted(true);
+    } catch (e) {
+      setFbError(e.message || "Failed to submit feedback.");
+    } finally {
+      setFbSubmitting(false);
+    }
+  }, [fbMessage, fbRating, experimentId]);
 
   useEffect(() => {
     if (!experimentId) return;
@@ -306,10 +335,69 @@ export default function ExperimentPage() {
             <div style={styles.feedbackBox}>
               <p style={{ fontSize: "48px", margin: "0 0 16px 0" }}>🎉</p>
               <p style={styles.feedbackText}>{experimentFeedback}</p>
-              <button style={styles.heroBtn} onClick={() => navigate("/")}>
-                ← Return to All Experiments
-              </button>
             </div>
+
+            {/* Feedback submission form */}
+            <div style={styles.fbForm}>
+              <p style={styles.fbFormTitle}>Share your thoughts</p>
+              {fbSubmitted ? (
+                <div style={styles.fbSuccess}>
+                  ✓ Thanks for your feedback! It helps us improve the lab.
+                </div>
+              ) : (
+                <>
+                  {/* Star rating */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setFbRating(fbRating === n ? 0 : n)}
+                        style={{
+                          fontSize: 28,
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: n <= fbRating ? "#f5c518" : "#374151",
+                          transition: "color 0.1s",
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                        aria-label={`Rate ${n} star${n > 1 ? "s" : ""}`}
+                      >★</button>
+                    ))}
+                    {fbRating > 0 && (
+                      <span style={{ fontSize: 12, color: "#6b7280", alignSelf: "center", marginLeft: 6 }}>
+                        {["", "Poor", "Fair", "Good", "Great", "Excellent"][fbRating]}
+                      </span>
+                    )}
+                  </div>
+
+                  <textarea
+                    value={fbMessage}
+                    onChange={e => setFbMessage(e.target.value)}
+                    placeholder="What did you find helpful? What could be improved?"
+                    rows={4}
+                    style={styles.fbTextarea}
+                    maxLength={1000}
+                  />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <span style={{ fontSize: 11, color: "#6b7280" }}>{fbMessage.length}/1000</span>
+                    {fbError && <span style={{ fontSize: 12, color: "#ef4444" }}>{fbError}</span>}
+                  </div>
+                  <button
+                    onClick={handleFeedbackSubmit}
+                    disabled={fbSubmitting}
+                    style={{ ...styles.heroBtn, marginTop: 14, opacity: fbSubmitting ? 0.6 : 1 }}
+                  >
+                    {fbSubmitting ? "Submitting…" : "Submit Feedback"}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button style={{ ...styles.heroBtn, background: "#1e293b", marginTop: 16 }} onClick={() => navigate("/")}>
+              ← Return to All Experiments
+            </button>
           </div>
         )}
       </div>
@@ -614,12 +702,49 @@ const styles = {
     borderRadius: "16px",
     padding: "40px",
     textAlign: "center",
+    marginBottom: "28px",
   },
   feedbackText: {
     fontSize: "18px",
     color: "#fff",
     lineHeight: "1.6",
-    margin: "0 0 24px 0",
+    margin: "0 0 8px 0",
+  },
+  fbForm: {
+    background: "#0d1117",
+    border: "1px solid #21262d",
+    borderRadius: "14px",
+    padding: "28px",
+  },
+  fbFormTitle: {
+    fontSize: "14px",
+    fontWeight: 700,
+    color: "#e6edf3",
+    marginBottom: "16px",
+    letterSpacing: "0.02em",
+  },
+  fbTextarea: {
+    width: "100%",
+    background: "#161b22",
+    border: "1px solid #30363d",
+    borderRadius: "8px",
+    color: "#e6edf3",
+    fontSize: "14px",
+    lineHeight: "1.6",
+    padding: "12px 14px",
+    resize: "vertical",
+    outline: "none",
+    fontFamily: "inherit",
+    boxSizing: "border-box",
+  },
+  fbSuccess: {
+    padding: "16px 20px",
+    background: "rgba(0,255,136,0.08)",
+    border: "1px solid rgba(0,255,136,0.3)",
+    borderRadius: "10px",
+    color: "#4ade80",
+    fontSize: "14px",
+    fontWeight: 600,
   },
 
   /* COMMON */

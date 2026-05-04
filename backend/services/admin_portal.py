@@ -268,7 +268,7 @@ async def fetch_user_detail(user_id: str) -> List[Dict[str, Any]]:
 
 
 async def fetch_user_activity() -> List[Dict[str, Any]]:
-    """Return all rows from saved_experiments with user email from profiles join."""
+    """Return all rows from saved_experiments with progress fields and profile info."""
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
     service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
     headers = {
@@ -280,11 +280,62 @@ async def fetch_user_activity() -> List[Dict[str, Any]]:
             f"{supabase_url}/rest/v1/saved_experiments",
             headers=headers,
             params={
-                "select": "user_id,experiment_id,title,updated_at,profile:profiles(name,institute)",
+                "select": "user_id,experiment_id,title,completed,pretest_score,posttest_score,time_spent_ms,updated_at,profile:profiles(name,institute)",
                 "order": "updated_at.desc",
-                "limit": "500",
+                "limit": "1000",
             },
         )
     if resp.status_code != status.HTTP_200_OK:
         return []
     return resp.json()
+
+
+async def fetch_feedback() -> List[Dict[str, Any]]:
+    """Return all user-submitted feedback ordered by newest first."""
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/feedback",
+            headers=headers,
+            params={
+                "select": "id,user_id,experiment_id,rating,message,created_at,profile:profiles(name,institute)",
+                "order": "created_at.desc",
+                "limit": "500",
+            },
+        )
+    if resp.status_code != status.HTTP_200_OK:
+        return []
+    try:
+        return resp.json() if isinstance(resp.json(), list) else []
+    except Exception:
+        return []
+
+
+async def submit_feedback_entry(user_id: str, experiment_id: str | None, rating: int | None, message: str) -> None:
+    """Insert a feedback row on behalf of an authenticated user."""
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+    payload: Dict[str, Any] = {"user_id": user_id, "message": message}
+    if experiment_id:
+        payload["experiment_id"] = experiment_id
+    if rating is not None:
+        payload["rating"] = rating
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"{supabase_url}/rest/v1/feedback",
+            headers=headers,
+            json=payload,
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=resp.text or "Failed to save feedback")
