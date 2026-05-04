@@ -285,7 +285,7 @@ class PeripheralSimulatorEngine {
   checkPinTriggers(pinStr, val, cycles) {
     for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "LCD1602") {
-        if (comp.state.pins.e === pinStr && val === 0) {
+        if (String(comp.state.pins.e) === String(pinStr) && val === 0) {
           // Falling edge of EN - clock in data!
           const rs = this.getPinVal(comp.state.pins.rs);
           
@@ -327,7 +327,7 @@ class PeripheralSimulatorEngine {
           if (comp.config.onRenderTarget) comp.config.onRenderTarget(comp.state.buffer);
         }
       } else if (comp.type === "NEOPIXEL") {
-        if (comp.state.pin === pinStr) {
+        if (String(comp.state.pin) === String(pinStr)) {
           const delta = cycles - this.pinLastToggledAt[parseInt(pinStr, 10)];
           
           if (val === 0) { // Falling edge -> End of High pulse (encodes data)
@@ -369,6 +369,24 @@ class PeripheralSimulatorEngine {
                window.setExternalPin(colPin, val === 1);
            }
         }
+      }
+    }
+  }
+
+  // Called by ESP32 display shims to push rendered framebuffers directly
+  _oledPush(buf) {
+    for (const [, comp] of this.components.entries()) {
+      if (comp.type === "OLED_SSD1306" && comp.config.onRenderTarget) {
+        comp.state.buffer = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+        comp.config.onRenderTarget(comp.state.buffer);
+      }
+    }
+  }
+
+  _tftPush(buf) {
+    for (const [, comp] of this.components.entries()) {
+      if (comp.type === "TFT_ILI9341") {
+        comp.state.buffer = buf instanceof Uint16Array ? buf : new Uint16Array(buf);
       }
     }
   }

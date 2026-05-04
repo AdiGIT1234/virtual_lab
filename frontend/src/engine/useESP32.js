@@ -69,6 +69,25 @@ function injectLoopYields(code) {
 function applyApiSubs(code) {
   let js = code;
 
+  // Strip library includes — handled by shims
+  js = js.replace(/^\s*#include\s*[<"][^>"]*[>"]\s*$/gm, '');
+
+  // Strip class instantiations for known display libraries, replaced by shim factories
+  js = js.replace(/Adafruit_SSD1306\s+(\w+)\s*\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();');
+  js = js.replace(/Adafruit_ILI9341\s+(\w+)\s*\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
+  // Strip #define constants for display libs
+  js = js.replace(/#define\s+\w+\s+[^\n]+/g, '');
+
+  // Wire (I2C) → shim calls
+  js = js.replace(/Wire\.begin\s*\([^)]*\)/g, '__wireBegin()');
+  js = js.replace(/Wire\.beginTransmission\s*\(([^)]+)\)/g, '__wireBeginTransmission($1)');
+  js = js.replace(/Wire\.write\s*\(([^)]+)\)/g, '__wireWrite($1)');
+  js = js.replace(/Wire\.endTransmission\s*\([^)]*\)/g, '__wireEndTransmission()');
+  js = js.replace(/Wire\.requestFrom\s*\(([^,]+),\s*([^)]+)\)/g, '__wireRequestFrom($1, $2)');
+  js = js.replace(/Wire\.read\s*\(\)/g, '__wireRead()');
+  js = js.replace(/Wire\.available\s*\(\)/g, '__wireAvailable()');
+  js = js.replace(/Wire\.setClock\s*\([^)]*\)/g, '0');
+
   // Serial
   js = js.replace(/Serial\.println\s*\(([^;]*?)\)/g, '__serialPrint($1, true)');
   js = js.replace(/Serial\.print\s*\(([^;]*?)\)/g, '__serialPrint($1, false)');
@@ -262,6 +281,171 @@ export function useESP32(_activeMcuId = "esp32") {
           window.onSerialOutput(str);
         }
       },
+      // ── Wire (I2C) shims → PeripheralSimulator ───────────────────────────
+      __wireBegin() {},
+      __wireBeginTransmission(addr) {
+        PeripheralSimulator.onTWIConnect(parseInt(addr), true, simTimeRef.current);
+      },
+      __wireWrite(val) {
+        PeripheralSimulator.onTWIByte(parseInt(val) & 0xFF, simTimeRef.current);
+      },
+      __wireEndTransmission() {},
+      __wireRequestFrom(_addr, _len) { return 0; },
+      __wireRead() { return 0; },
+      __wireAvailable() { return 0; },
+
+      // ── Adafruit_SSD1306 shim (128×64 OLED) ─────────────────────────────
+      __makeAdafruitSSD1306() {
+        const BUF = new Uint8Array(1024); // 128×8-page pixel buffer
+        let cx = 0, cy = 0, textSz = 1, color = 1;
+        const CHAR_W = 6, CHAR_H = 8;
+
+        // Minimal 5×7 ASCII font (printable chars 32–126), stored as 5 column bytes
+        // Each byte = 8 pixels top-to-bottom, LSB at top
+        const FONT5X7 = {
+          32:[0,0,0,0,0],33:[0,0,95,0,0],34:[0,7,0,7,0],35:[20,127,20,127,20],
+          36:[36,42,127,42,18],37:[35,19,8,100,98],38:[54,73,85,34,80],39:[0,5,3,0,0],
+          40:[0,28,34,65,0],41:[0,65,34,28,0],42:[20,8,62,8,20],43:[8,8,62,8,8],
+          44:[0,80,48,0,0],45:[8,8,8,8,8],46:[0,96,96,0,0],47:[32,16,8,4,2],
+          48:[62,81,73,69,62],49:[0,66,127,64,0],50:[66,97,81,73,70],51:[33,65,73,77,51],
+          52:[24,20,18,127,16],53:[39,69,69,69,57],54:[60,74,73,73,48],55:[1,113,9,5,3],
+          56:[54,73,73,73,54],57:[6,73,73,41,30],58:[0,54,54,0,0],59:[0,86,54,0,0],
+          60:[8,20,34,65,0],61:[20,20,20,20,20],62:[0,65,34,20,8],63:[2,1,81,9,6],
+          64:[62,65,93,89,14],65:[126,9,9,9,126],66:[127,73,73,73,54],67:[62,65,65,65,34],
+          68:[127,65,65,34,28],69:[127,73,73,73,65],70:[127,9,9,9,1],71:[62,65,65,73,122],
+          72:[127,8,8,8,127],73:[0,65,127,65,0],74:[32,64,65,63,1],75:[127,8,20,34,65],
+          76:[127,64,64,64,64],77:[127,2,12,2,127],78:[127,4,8,16,127],79:[62,65,65,65,62],
+          80:[127,9,9,9,6],81:[62,65,81,33,94],82:[127,9,25,41,70],83:[38,73,73,73,50],
+          84:[1,1,127,1,1],85:[63,64,64,64,63],86:[31,32,64,32,31],87:[63,64,56,64,63],
+          88:[99,20,8,20,99],89:[7,8,112,8,7],90:[97,81,73,69,67],91:[0,127,65,65,0],
+          92:[2,4,8,16,32],93:[0,65,65,127,0],94:[4,2,1,2,4],95:[64,64,64,64,64],
+          96:[0,1,2,4,0],97:[32,84,84,84,120],98:[127,68,68,68,56],99:[56,68,68,68,32],
+          100:[56,68,68,68,127],101:[56,84,84,84,24],102:[0,8,126,9,2],103:[24,164,164,164,124],
+          104:[127,8,4,4,120],105:[0,68,125,64,0],106:[32,64,68,61,0],107:[127,16,40,68,0],
+          108:[0,65,127,64,0],109:[124,4,24,4,120],110:[124,8,4,4,120],111:[56,68,68,68,56],
+          112:[252,36,36,36,24],113:[24,36,36,36,252],114:[124,8,4,4,8],115:[72,84,84,84,36],
+          116:[4,63,68,64,32],117:[60,64,64,32,124],118:[28,32,64,32,28],119:[60,64,48,64,60],
+          120:[68,40,16,40,68],121:[4,136,144,96,60],122:[68,100,84,76,68],
+          123:[0,8,54,65,0],124:[0,0,127,0,0],125:[0,65,54,8,0],126:[2,1,2,4,2],
+        };
+
+        function drawChar(ch) {
+          const code = ch.charCodeAt(0);
+          const cols = FONT5X7[code] || FONT5X7[63];
+          for (let col = 0; col < 5; col++) {
+            let colData = cols[col];
+            for (let row = 0; row < 8; row++) {
+              const bit = (colData >> row) & 1;
+              if (!bit) continue;
+              for (let sy = 0; sy < textSz; sy++) {
+                for (let sx = 0; sx < textSz; sx++) {
+                  const px = cx + col * textSz + sx;
+                  const py = cy + row * textSz + sy;
+                  if (px >= 128 || py >= 64) continue;
+                  const page = py >> 3, bit2 = py & 7;
+                  const idx = page * 128 + px;
+                  if (color) BUF[idx] |= (1 << bit2);
+                  else BUF[idx] &= ~(1 << bit2);
+                }
+              }
+            }
+          }
+          cx += CHAR_W * textSz;
+          if (cx >= 128) { cx = 0; cy += CHAR_H * textSz; }
+        }
+
+        function drawStr(s) { for (const ch of String(s)) { if (ch === '\n') { cx=0; cy += CHAR_H*textSz; } else drawChar(ch); } }
+
+        return {
+          begin(_sw, _addr) {},
+          clearDisplay() { BUF.fill(0); cx=0; cy=0; },
+          display() { PeripheralSimulator._oledPush(BUF); },
+          setTextSize(s) { textSz = Math.max(1, parseInt(s)||1); },
+          setTextColor(c) { color = c ? 1 : 0; },
+          setCursor(x, y) { cx = parseInt(x)||0; cy = parseInt(y)||0; },
+          print(v) { drawStr(typeof v==='number'&&!Number.isInteger(v) ? v.toFixed(1) : v); },
+          println(v='') { drawStr(v); cx=0; cy += CHAR_H*textSz; },
+          drawRect(x,y,w,h,c) {
+            for(let i=x;i<x+w;i++){setPixel(i,y,c);setPixel(i,y+h-1,c);}
+            for(let i=y;i<y+h;i++){setPixel(x,i,c);setPixel(x+w-1,i,c);}
+          },
+          fillRect(x,y,w,h,c) { for(let px=x;px<x+w;px++)for(let py=y;py<y+h;py++)setPixel(px,py,c); },
+        };
+        function setPixel(px,py,c) {
+          if(px<0||px>=128||py<0||py>=64)return;
+          const page=py>>3, bit=py&7, idx=page*128+px;
+          if(c)BUF[idx]|=(1<<bit); else BUF[idx]&=~(1<<bit);
+        }
+      },
+
+      // ── Adafruit_ILI9341 shim (240×320 TFT) ─────────────────────────────
+      __makeAdafruitILI9341() {
+        const BUF = new Uint16Array(240 * 320);
+        let cx = 0, cy = 0, textSz = 1, textColor = 0xFFFF, bgColor = 0x0000;
+        const CHAR_W = 6, CHAR_H = 8;
+
+        const FONT5X7 = {
+          32:[0,0,0,0,0],33:[0,0,95,0,0],34:[0,7,0,7,0],65:[126,9,9,9,126],66:[127,73,73,73,54],
+          67:[62,65,65,65,34],68:[127,65,65,34,28],69:[127,73,73,73,65],70:[127,9,9,9,1],
+          71:[62,65,65,73,122],72:[127,8,8,8,127],73:[0,65,127,65,0],74:[32,64,65,63,1],
+          75:[127,8,20,34,65],76:[127,64,64,64,64],77:[127,2,12,2,127],78:[127,4,8,16,127],
+          79:[62,65,65,65,62],80:[127,9,9,9,6],81:[62,65,81,33,94],82:[127,9,25,41,70],
+          83:[38,73,73,73,50],84:[1,1,127,1,1],85:[63,64,64,64,63],86:[31,32,64,32,31],
+          87:[63,64,56,64,63],88:[99,20,8,20,99],89:[7,8,112,8,7],90:[97,81,73,69,67],
+          97:[32,84,84,84,120],98:[127,68,68,68,56],99:[56,68,68,68,32],100:[56,68,68,68,127],
+          101:[56,84,84,84,24],110:[124,8,4,4,120],111:[56,68,68,68,56],115:[72,84,84,84,36],
+          116:[4,63,68,64,32],117:[60,64,64,32,124],
+        };
+
+        function rgb565(r,g,b){return((r&0xF8)<<8)|((g&0xFC)<<3)|(b>>3);}
+        const ILI9341_BLACK=0x0000,ILI9341_WHITE=0xFFFF,ILI9341_RED=rgb565(255,0,0),
+              ILI9341_GREEN=rgb565(0,255,0),ILI9341_BLUE=rgb565(0,0,255),
+              ILI9341_CYAN=rgb565(0,255,255),ILI9341_YELLOW=rgb565(255,255,0);
+
+        function setPixel(x,y,c){if(x>=0&&x<240&&y>=0&&y<320)BUF[y*240+x]=c;}
+
+        function drawChar(ch,c){
+          const code=ch.charCodeAt(0);
+          const cols=(FONT5X7[code]||FONT5X7[63]||[0,0,0,0,0]);
+          for(let col=0;col<5;col++){
+            const colData=cols[col]||0;
+            for(let row=0;row<8;row++){
+              const bit=(colData>>row)&1;
+              for(let sy=0;sy<textSz;sy++)for(let sx=0;sx<textSz;sx++)
+                setPixel(cx+col*textSz+sx, cy+row*textSz+sy, bit?c:bgColor);
+            }
+          }
+          cx+=CHAR_W*textSz;
+        }
+        function drawStr(s,c){for(const ch of String(s)){if(ch==='\n'){cx=0;cy+=CHAR_H*textSz;}else drawChar(ch,c);}}
+
+        let rot=0;
+        return {
+          begin(){},
+          setRotation(r){rot=parseInt(r)||0;},
+          fillScreen(c){BUF.fill(parseInt(c)||0); PeripheralSimulator._tftPush(BUF);},
+          fillRect(x,y,w,h,c){c=parseInt(c)||0;for(let px=x;px<x+w;px++)for(let py=y;py<y+h;py++)setPixel(px,py,c);PeripheralSimulator._tftPush(BUF);},
+          drawRect(x,y,w,h,c){c=parseInt(c)||0;for(let i=x;i<x+w;i++){setPixel(i,y,c);setPixel(i,y+h-1,c);}for(let i=y;i<y+h;i++){setPixel(x,i,c);setPixel(x+w-1,i,c);}PeripheralSimulator._tftPush(BUF);},
+          setCursor(x,y){cx=parseInt(x)||0;cy=parseInt(y)||0;},
+          setTextColor(c,bg){textColor=parseInt(c)||0xFFFF;bgColor=bg!==undefined?parseInt(bg)||0:0;},
+          setTextSize(s){textSz=Math.max(1,parseInt(s)||1);},
+          print(v){drawStr(typeof v==='number'&&!Number.isInteger(v)?v.toFixed(1):v,textColor);PeripheralSimulator._tftPush(BUF);},
+          println(v=''){drawStr(v,textColor);cx=0;cy+=CHAR_H*textSz;PeripheralSimulator._tftPush(BUF);},
+          // expose ILI9341 color constants as shim properties
+          ILI9341_BLACK,ILI9341_WHITE,ILI9341_RED,ILI9341_GREEN,ILI9341_BLUE,
+          ILI9341_CYAN,ILI9341_YELLOW,
+        };
+      },
+
+      // ILI9341 color constants referenced as bare identifiers in Arduino code
+      ILI9341_BLACK: 0x0000, ILI9341_WHITE: 0xFFFF,
+      ILI9341_RED:   0xF800, ILI9341_GREEN: 0x07E0, ILI9341_BLUE: 0x001F,
+      ILI9341_CYAN:  0x07FF, ILI9341_YELLOW: 0xFFE0, ILI9341_MAGENTA: 0xF81F,
+      ILI9341_ORANGE: 0xFD20,
+      // SSD1306 constants
+      SSD1306_WHITE: 1, SSD1306_BLACK: 0, SSD1306_INVERSE: 2,
+      SSD1306_SWITCHCAPVCC: 2,
+
       Math, parseInt, parseFloat, String, Array, isNaN, Number, Object,
     };
 
