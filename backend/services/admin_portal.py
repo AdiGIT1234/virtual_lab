@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Any, Dict, List
 
@@ -40,7 +41,7 @@ async def fetch_all_profiles() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     params = {
-        "select": "id,name,institute,updated_at,user:auth.users(email,last_sign_in_at)",
+        "select": "id,name,institute,created_at,updated_at,user:auth.users(email,last_sign_in_at,created_at)",
         "order": "updated_at.desc",
     }
     async with httpx.AsyncClient(timeout=10) as client:
@@ -59,27 +60,41 @@ async def fetch_admin_stats() -> Dict[str, Any]:
         "apikey": service_key,
         "Prefer": "count=exact",
     }
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta, timezone  # local import fine here
     now = datetime.now(timezone.utc)
     active_cutoff = (now - timedelta(hours=72)).isoformat()
     week_cutoff = (now - timedelta(days=7)).isoformat()
 
     async with httpx.AsyncClient(timeout=10) as client:
-        total_resp = await client.get(
-            f"{supabase_url}/rest/v1/profiles",
-            headers={**headers, "Range": "0-0"},
-            params={"select": "id"},
-        )
-        new_resp = await client.get(
-            f"{supabase_url}/rest/v1/profiles",
-            headers={**headers, "Range": "0-0"},
-            params={"select": "id", "updated_at": f"gte.{week_cutoff}"},
+        total_resp, new_resp, active_resp = await asyncio.gather(
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers={**headers, "Range": "0-0"},
+                params={"select": "id"},
+            ),
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers={**headers, "Range": "0-0"},
+                params={"select": "id", "created_at": f"gte.{week_cutoff}"},
+            ),
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers={**headers, "Range": "0-0"},
+                params={"select": "id", "updated_at": f"gte.{active_cutoff}"},
+            ),
         )
 
-    total = int(total_resp.headers.get("content-range", "0/0").split("/")[-1]) if total_resp.status_code in (200, 206) else 0
-    new_this_week = int(new_resp.headers.get("content-range", "0/0").split("/")[-1]) if new_resp.status_code in (200, 206) else 0
+    def _count(r):
+        if r.status_code in (200, 206):
+            cr = r.headers.get("content-range", "0/0")
+            return int(cr.split("/")[-1]) if cr else 0
+        return 0
 
-    return {"total": total, "new_this_week": new_this_week}
+    return {
+        "total": _count(total_resp),
+        "new_this_week": _count(new_resp),
+        "active_72h": _count(active_resp),
+    }
 
 
 async def delete_user_by_id(user_id: str) -> None:
@@ -105,6 +120,7 @@ def ensure_admin_email(email: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
 
 async def fetch_all_experiments() -> List[Dict[str, Any]]:
+    """Fetch master experiment definitions from the experiments table."""
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
     service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
     headers = {
@@ -112,13 +128,18 @@ async def fetch_all_experiments() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(f"{supabase_url}/rest/v1/saved_experiments", headers=headers, params={"order": "experiment_id.asc"})
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/experiments",
+            headers=headers,
+            params={"select": "id,title,difficulty,aim,objective,theory,procedure,pretest,posttest", "order": "id.asc"},
+        )
     if resp.status_code != status.HTTP_200_OK:
         return []
     return resp.json()
 
 
 async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Update a master experiment definition. Filter by id (PK of experiments table)."""
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
     service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
     headers = {
@@ -127,15 +148,41 @@ async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+    # Only allow updating known editable fields — never mutate the id
+    allowed = {"title", "difficulty", "aim", "objective", "theory", "procedure", "pretest", "posttest"}
+    payload = {k: v for k, v in data.items() if k in allowed}
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.patch(
-            f"{supabase_url}/rest/v1/saved_experiments",
+            f"{supabase_url}/rest/v1/experiments",
             headers=headers,
-            params={"experiment_id": f"eq.{exp_id}"},
-            json=data,
+            params={"id": f"eq.{exp_id}"},
+            json=payload,
         )
-    if resp.status_code != status.HTTP_200_OK:
+    if resp.status_code not in (200, 204):
         detail = resp.text or "Update failed"
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
-    results = resp.json()
-    return results[0] if results else {}
+    results = resp.json() if resp.text else []
+    return results[0] if results else payload
+
+
+async def fetch_user_activity() -> List[Dict[str, Any]]:
+    """Return all rows from saved_experiments with user email from profiles join."""
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/saved_experiments",
+            headers=headers,
+            params={
+                "select": "user_id,experiment_id,title,updated_at,profile:profiles(name,institute)",
+                "order": "updated_at.desc",
+                "limit": "500",
+            },
+        )
+    if resp.status_code != status.HTTP_200_OK:
+        return []
+    return resp.json()

@@ -21,6 +21,7 @@ from services.admin_portal import (  # type: ignore
     fetch_user_from_token,
     fetch_all_experiments,
     update_experiment_in_db,
+    fetch_user_activity,
 )
 
 from engine.gpio import GPIO  # type: ignore
@@ -373,6 +374,18 @@ async def list_admin_experiments(authorization: Optional[str] = Header(default=N
     ensure_admin_email(supabase_user.get("email"))
     exps = await fetch_all_experiments()
     return {"experiments": exps}
+
+
+@app.get("/api/admin/activity")
+async def admin_user_activity(authorization: Optional[str] = Header(default=None)):
+    """Return saved_experiments rows with user name/institute for activity tab."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    rows = await fetch_user_activity()
+    return {"activity": rows}
 
 
 @app.patch("/api/admin/experiments/{exp_id}")
