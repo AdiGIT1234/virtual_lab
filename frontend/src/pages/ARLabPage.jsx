@@ -215,6 +215,25 @@ export default function ARLabPage() {
     }
   }, [isRunning, isESP32, preset, startSimulation, stopSimulation]);
 
+  // Live analog inputs (pin → 0.0–1.0) — lets users move sliders while simulating
+  const [liveInputs, setLiveInputs] = useState(() => ({ ...(preset?.inputs || {}) }));
+  useEffect(() => {
+    setLiveInputs({ ...(preset?.inputs || {}) });
+  }, [presetParam, preset]);
+  // Push input changes into the active simulation engine
+  useEffect(() => {
+    Object.entries(liveInputs).forEach(([pin, val]) => {
+      const p = parseInt(pin);
+      if (!isNaN(p)) {
+        if (isESP32 && typeof window !== 'undefined' && window.__esp32AnalogInputs) {
+          window.__esp32AnalogInputs[pin] = val;
+        } else if (typeof window !== 'undefined' && window.setExternalPin) {
+          window.setExternalPin(String(p), val > 0.5);
+        }
+      }
+    });
+  }, [liveInputs, isESP32]);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [occupiedHoles, setOccupiedHoles] = useState(new Set());
   const [hoveredPart, setHoveredPart] = useState(null);
@@ -403,11 +422,6 @@ export default function ARLabPage() {
               Clear
             </button>
           )}
-          {simError && (
-            <span style={{ color: "#f87171", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={simError}>
-              {simError}
-            </span>
-          )}
           <button
             style={{ ...styles.simulateBtn, background: isRunning ? "#b91c1c" : "#1a7f37" }}
             onClick={handleSimulate}
@@ -496,6 +510,46 @@ export default function ARLabPage() {
 
         {/* 3D Canvas */}
         <div style={styles.canvasContainer} aria-label="3D circuit view">
+          {/* Simulation error banner */}
+          {simError && (
+            <div style={{
+              position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
+              zIndex: 40, background: "rgba(127,0,0,0.92)", backdropFilter: "blur(8px)",
+              border: "1px solid rgba(248,113,113,0.6)", borderRadius: 8,
+              padding: "8px 18px", color: "#fca5a5", fontSize: 12,
+              fontFamily: "monospace", maxWidth: 480, textAlign: "center",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+            }}>
+              ⚠ {simError}
+            </div>
+          )}
+          {/* Analog input sliders — shown when preset has tunable inputs */}
+          {Object.keys(liveInputs).length > 0 && (
+            <div style={{
+              position: "absolute", bottom: 50, right: 16, zIndex: 30,
+              background: "rgba(13,17,23,0.88)", backdropFilter: "blur(12px)",
+              border: "1px solid #21262d", borderRadius: 10,
+              padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8, minWidth: 180,
+            }}>
+              <span style={{ fontSize: 10, color: "#6e7681", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Analog Inputs</span>
+              {Object.entries(liveInputs).map(([pin, val]) => (
+                <div key={pin} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: "#8b949e", fontFamily: "monospace", minWidth: 36 }}>
+                    {isESP32 ? `G${pin}` : `A${parseInt(pin) - 14 >= 0 ? parseInt(pin) - 14 : pin}`}
+                  </span>
+                  <input
+                    type="range" min={0} max={1} step={0.01}
+                    value={val}
+                    onChange={e => setLiveInputs(prev => ({ ...prev, [pin]: parseFloat(e.target.value) }))}
+                    style={{ flex: 1, accentColor: "#00e5ff", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 10, color: "#00e5ff", fontFamily: "monospace", minWidth: 32, textAlign: "right" }}>
+                    {Math.round(val * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {wiringMode && (
             <div style={{
               position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",

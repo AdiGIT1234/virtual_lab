@@ -41,14 +41,47 @@ function resolveEndpoint(str, posMap) {
   if (!pos) return null;
 
   const [bx, by, bz] = pos;
-  switch (terminal) {
-    case "t1":   return [bx - 0.285, by, bz];   // left lead of horizontal resistor
-    case "t2":   return [bx + 0.285, by, bz];   // right lead
-    case "main": return [bx, by, bz];
-    case "sig":  return [bx + 0.05, by, bz];
-    case "gnd":  return [bx - 0.05, by, bz];
-    default:     return [bx, by, bz];            // b, c, e, out, vcc, etc.
-  }
+
+  // Named terminal → [dx, dy, dz] offset from component centre.
+  // All offsets are in scene-group units (1 unit ≈ 200 mm).
+  // Components sit at y≈0.085; wires drop down from y≈0.085 so dy=0 here.
+  const OFF = {
+    // Resistor leads (horizontal)
+    t1: [-0.025, 0, 0],  t2: [+0.025, 0, 0],
+    // Generic
+    main:[0,0,0], sig:[+0.05,0,0], out:[+0.05,0,0],
+    // Power (four-pin row: VCC GND SCL SDA or VCC GND SDA SCL)
+    vcc: [-0.015, 0, -0.044],  gnd: [-0.005, 0, -0.044],
+    scl: [+0.005, 0, -0.044],  sda: [+0.015, 0, -0.044],
+    // SPI five-pin row
+    cs:  [-0.020, 0, -0.044],  dc:  [-0.010, 0, -0.044],
+    rst: [+0.000, 0, -0.044],  mosi:[+0.010, 0, -0.044],
+    sck: [+0.020, 0, -0.044],
+    // UART (HC-05 six-pin row)
+    rxd: [+0.005, 0, -0.044],  txd: [+0.015, 0, -0.044],
+    en:  [+0.025, 0, -0.044],  state:[+0.035,0,-0.044],
+    // DHT22 / single data pin
+    data:[0, 0, -0.044],
+    // L298N H-bridge: control pins on -X side, motor outputs on +X side
+    ena: [-0.065, 0, -0.025],
+    in1: [-0.065, 0, -0.010],  in2: [-0.065, 0, +0.005],
+    in3: [-0.065, 0, +0.020],  in4: [-0.065, 0, +0.035],
+    enb: [-0.065, 0, +0.050],
+    out1:[+0.055, 0, -0.020],  out2:[+0.055, 0, +0.020],
+    // DC Motor leads (bottom of cylinder body)
+    "m+":[-0.05, 0, +0.015],   "m-":[-0.05, 0, -0.015],
+    // 7-segment: 8 pin stubs along +Z bottom edge
+    a: [-0.035, 0, 0.044],  b: [-0.025, 0, 0.044],
+    c: [-0.015, 0, 0.044],  d: [-0.005, 0, 0.044],
+    e: [+0.005, 0, 0.044],  f: [+0.015, 0, 0.044],
+    g: [+0.025, 0, 0.044],  dp:[+0.035, 0, 0.044],
+    // NPN/PNP transistor leads (b/c/e at base-collector-emitter)
+    b: [-0.015, 0, +0.030],  c: [0, 0, -0.030],  e: [+0.015, 0, +0.030],
+  };
+
+  const o = OFF[terminal];
+  if (o) return [bx + o[0], by + o[1], bz + o[2]];
+  return [bx, by, bz];
 }
 
 const PERP_EXIT = 0.10; // how far the wire rises perpendicular from the pin before routing

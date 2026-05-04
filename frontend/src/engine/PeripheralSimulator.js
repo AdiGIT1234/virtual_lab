@@ -16,15 +16,20 @@ class PeripheralSimulatorEngine {
     if (type === "OLED_SSD1306") {
       this.components.get(id).state = {
         buffer: new Uint8Array(1024),
-        page: 0,
-        col: 0,
+        page: 0, col: 0,
+        pageStart: 0, pageEnd: 7,
+        colStart: 0, colEnd: 127,
+        addrMode: 0,          // 0=horizontal, 1=vertical, 2=page
         isCommand: false,
-        address: config.address || 0x3C
+        multiByteCmd: null,   // tracks multi-byte command state
+        multiBytePending: 0,
+        address: config.address || 0x3C,
       };
     } else if (type === "LCD1602") {
       this.components.get(id).state = {
         buffer: new Array(32).fill(" "),
         cursorPos: 0,
+        nibbleWaiting: null,  // explicit null so first EN pulse is correctly handled
         pins: config.pins
       };
     } else if (type === "NEOPIXEL") {
@@ -116,33 +121,73 @@ class PeripheralSimulatorEngine {
   onTWIByte(value) {
     for (const [_id, comp] of this.components.entries()) {
       if (comp.type === "OLED_SSD1306" && comp.state.address === this.twiAddress) {
-        if (comp.state.awaitingControlByte) {
-          comp.state.isCommand = (value === 0x00); // 0x00 is Command, 0x40 is Data
-          comp.state.awaitingControlByte = false;
-        } else if (comp.state.isCommand) {
-          // Parse SSD1306 Commands
-          const cmd = value;
-          if (cmd >= 0xB0 && cmd <= 0xB7) {
-            comp.state.page = cmd & 0x0F; // Page Start Address
-          } else if ((cmd & 0xF0) === 0x00) {
-            comp.state.col = (comp.state.col & 0xF0) | (cmd & 0x0F); // Lower Column
-          } else if ((cmd & 0xF0) === 0x10) {
-            comp.state.col = (comp.state.col & 0x0F) | ((cmd & 0x0F) << 4); // Upper Column
-          }
-           // Trigger render callback if a major command happens like clear? Not necessary, data draws.
-        } else {
-          // Parse SSD1306 Data
-          const idx = comp.state.page * 128 + comp.state.col;
-          if (idx < 1024) {
-            comp.state.buffer[idx] = value;
-            comp.state.col++;
-            if (comp.state.col >= 128) {
-               // Typical addressing wraps or we handle horizontal/page addressing modes.
-               // Simple page mode wrap for logic:
-               comp.state.col = 0;
+        const s = comp.state;
+
+        // First byte after I2C address is the SSD1306 control byte:
+        //   0x00 → command stream, 0x40 → data stream,
+        //   0x80 → single command, 0xC0 → single data
+        if (s.awaitingControlByte) {
+          s.isCommand = (value & 0x40) === 0; // bit 6 = 0 means command
+          s.awaitingControlByte = false;
+          continue;
+        }
+
+        if (s.isCommand) {
+          // ── Multi-byte command state machine ────────────────────────────
+          if (s.multiByteCmd !== null) {
+            if (s.multiByteCmd === 0x20) {
+              s.addrMode = value & 0x03; // 0=horiz, 1=vert, 2=page
+            } else if (s.multiByteCmd === 0x21) {
+              if (s.multiBytePending === 1) { s.colStart = value & 0x7F; s.col = s.colStart; }
+              else                          { s.colEnd   = value & 0x7F; }
+            } else if (s.multiByteCmd === 0x22) {
+              if (s.multiBytePending === 1) { s.pageStart = value & 0x07; s.page = s.pageStart; }
+              else                          { s.pageEnd   = value & 0x07; }
             }
+            s.multiBytePending--;
+            if (s.multiBytePending <= 0) s.multiByteCmd = null;
+            continue;
           }
-          if (comp.config.onRenderTarget) comp.config.onRenderTarget(comp.state.buffer);
+
+          // ── Single-byte and initiating multi-byte commands ───────────────
+          const cmd = value;
+          if (cmd === 0x20) { s.multiByteCmd = 0x20; s.multiBytePending = 1; }  // set addr mode
+          else if (cmd === 0x21) { s.multiByteCmd = 0x21; s.multiBytePending = 2; } // col addr
+          else if (cmd === 0x22) { s.multiByteCmd = 0x22; s.multiBytePending = 2; } // page addr
+          else if (cmd >= 0xB0 && cmd <= 0xB7) { s.page = cmd & 0x07; }            // page start (page mode)
+          else if ((cmd & 0xF0) === 0x00)       { s.col = (s.col & 0xF0) | (cmd & 0x0F); }   // col lower nibble
+          else if ((cmd & 0xF0) === 0x10)       { s.col = (s.col & 0x0F) | ((cmd & 0x0F) << 4); } // col upper
+          else if (cmd === 0x2E || cmd === 0x2F) { /* scroll off/on — ignore */ }
+          else if (cmd === 0xAE) { /* display off */ }
+          else if (cmd === 0xAF) { /* display on — trigger render */ if (comp.config.onRenderTarget) comp.config.onRenderTarget(s.buffer); }
+          // Remaining commands (contrast, charge pump, etc.) accepted but ignored
+        } else {
+          // ── Data write ───────────────────────────────────────────────────
+          const idx = s.page * 128 + s.col;
+          if (idx >= 0 && idx < 1024) s.buffer[idx] = value;
+
+          // Advance position depending on addressing mode
+          if (s.addrMode === 0) {
+            // Horizontal: col → page
+            s.col++;
+            if (s.col > s.colEnd) {
+              s.col = s.colStart;
+              s.page = (s.page >= s.pageEnd) ? s.pageStart : s.page + 1;
+            }
+          } else if (s.addrMode === 1) {
+            // Vertical: page → col
+            s.page++;
+            if (s.page > s.pageEnd) {
+              s.page = s.pageStart;
+              s.col = (s.col >= s.colEnd) ? s.colStart : s.col + 1;
+            }
+          } else {
+            // Page: col only (wraps within page)
+            s.col++;
+            if (s.col >= 128) s.col = 0;
+          }
+
+          if (comp.config.onRenderTarget) comp.config.onRenderTarget(s.buffer);
         }
       }
     }
