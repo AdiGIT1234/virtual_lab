@@ -165,6 +165,46 @@ async def update_experiment_in_db(exp_id: str, data: Dict[str, Any]) -> Dict[str
     return results[0] if results else payload
 
 
+async def fetch_quiz_analytics() -> List[Dict[str, Any]]:
+    """Per-experiment quiz stats: attempt counts and average scores."""
+    supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)
+    service_key = _require_env("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY)
+    headers = {"Authorization": f"Bearer {service_key}", "apikey": service_key}
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/quiz_attempts",
+            headers=headers,
+            params={"select": "experiment_id,quiz_type,score,total,passed", "limit": "5000"},
+        )
+    if resp.status_code != 200:
+        return []
+    rows = resp.json()
+    # Aggregate client-side: group by experiment_id + quiz_type
+    from collections import defaultdict
+    agg: Dict[str, Dict] = defaultdict(lambda: {"attempts": 0, "total_score": 0, "total_q": 0, "passed": 0})
+    for r in rows:
+        key = f"{r['experiment_id']}::{r['quiz_type']}"
+        agg[key]["experiment_id"] = r["experiment_id"]
+        agg[key]["quiz_type"]     = r["quiz_type"]
+        agg[key]["attempts"]     += 1
+        agg[key]["total_score"]  += r.get("score", 0)
+        agg[key]["total_q"]      += r.get("total", 0)
+        if r.get("passed"): agg[key]["passed"] += 1
+    result = []
+    for item in agg.values():
+        attempts = item["attempts"]
+        result.append({
+            "experiment_id": item["experiment_id"],
+            "quiz_type":     item["quiz_type"],
+            "attempts":      attempts,
+            "avg_score":     round(item["total_score"] / attempts, 1) if attempts else 0,
+            "avg_total":     round(item["total_q"]     / attempts, 1) if attempts else 0,
+            "pass_rate":     round(item["passed"] / attempts * 100, 1) if attempts else 0,
+        })
+    result.sort(key=lambda x: (x["experiment_id"], x["quiz_type"]))
+    return result
+
+
 async def fetch_user_activity() -> List[Dict[str, Any]]:
     """Return all rows from saved_experiments with user email from profiles join."""
     supabase_url = _require_env("SUPABASE_URL", SUPABASE_URL)

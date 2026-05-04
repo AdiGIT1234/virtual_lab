@@ -51,8 +51,9 @@ export default function AdminControls() {
   const { isAdmin, loading: authLoading } = useAuth();
 
   const [users,       setUsers]       = useState([]);
-  const [experiments, setExperiments] = useState([]);
-  const [activity,    setActivity]    = useState([]);
+  const [experiments,   setExperiments]   = useState([]);
+  const [activity,      setActivity]      = useState([]);
+  const [quizAnalytics, setQuizAnalytics] = useState([]);
   const [backendStats,setBackendStats]= useState(null);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -99,21 +100,26 @@ export default function AdminControls() {
     setActivity(data.activity || []);
   }, []);
 
+  const loadQuizAnalytics = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/admin/quiz-analytics");
+      setQuizAnalytics(data.analytics || []);
+    } catch { /* table may not exist yet — silent */ }
+  }, []);
+
   const loadAll = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
     setError(null);
     try {
-      await loadUsers();
-      await loadExperiments();
-      await loadActivity();
+      await Promise.all([loadUsers(), loadExperiments(), loadActivity(), loadQuizAnalytics()]);
     } catch (err) {
       console.error("Admin fetch failed:", err);
       setError(err.message || "Unable to load data");
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, loadUsers, loadExperiments, loadActivity]);
+  }, [isAdmin, loadUsers, loadExperiments, loadActivity, loadQuizAnalytics]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -534,6 +540,59 @@ export default function AdminControls() {
             {filteredExps.length === 0 && (
               <p className="col-span-3 text-center text-[#94a3b8] font-mono text-sm py-10">No experiments found</p>
             )}
+          </div>
+        )}
+
+        {/* ── Quiz analytics (shown below experiments grid when data exists) ── */}
+        {activeTab === "experiments" && quizAnalytics.length > 0 && (
+          <div className="mt-10 space-y-4">
+            <div>
+              <p className="text-[10px] font-mono tracking-[0.3em] uppercase text-[#00F2FF] mb-1">Quiz Analytics</p>
+              <p className="text-xs text-[#64748B]">Aggregated pre/post-test results across all users.</p>
+            </div>
+            <div className="overflow-x-auto border border-white/8 bg-[#05050b]/80">
+              <table className="min-w-full text-left text-sm">
+                <thead className="uppercase text-[11px] tracking-[0.3em] text-[#64748B] font-mono bg-[#090915]">
+                  <tr>
+                    {["Experiment", "Quiz", "Attempts", "Avg Score", "Pass Rate"].map(h => (
+                      <th key={h} className="px-5 py-4">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {quizAnalytics.map((row, i) => (
+                    <tr key={i} className="border-t border-white/5 hover:bg-white/2">
+                      <td className="px-5 py-3 font-mono text-xs text-[#00F2FF]">{row.experiment_id}</td>
+                      <td className="px-5 py-3">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 ${
+                          row.quiz_type === "pretest"
+                            ? "bg-[#f5c518]/10 text-[#f5c518] border border-[#f5c518]/30"
+                            : "bg-[#22d3ee]/10 text-[#22d3ee] border border-[#22d3ee]/30"
+                        }`}>{row.quiz_type}</span>
+                      </td>
+                      <td className="px-5 py-3 font-mono">{row.attempts}</td>
+                      <td className="px-5 py-3 font-mono">
+                        {row.avg_score} / {row.avg_total}
+                        <span className="text-[#64748B] ml-1 text-xs">
+                          ({row.avg_total > 0 ? Math.round(row.avg_score / row.avg_total * 100) : 0}%)
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{
+                              width: `${row.pass_rate}%`,
+                              background: row.pass_rate >= 70 ? "#22d3ee" : row.pass_rate >= 40 ? "#f5c518" : "#e11d48"
+                            }} />
+                          </div>
+                          <span className="font-mono text-xs">{row.pass_rate}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

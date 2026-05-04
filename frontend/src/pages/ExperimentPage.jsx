@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget";
 import allExperiments from "../data/all_experiments.json";
 import { API_BASE_URL } from "../lib/api";
+import { useAuth } from "../context/useAuth";
 
 export default function ExperimentPage() {
   const { experimentId } = useParams();
   const navigate = useNavigate();
+  const { saveQuizAttempt, markExperimentComplete } = useAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,8 @@ export default function ExperimentPage() {
   const [postTestAnswers, setPostTestAnswers] = useState({});
   const [preTestScore, setPreTestScore] = useState(null);
   const [postTestScore, setPostTestScore] = useState(null);
+
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     if (!experimentId) return;
@@ -49,19 +53,46 @@ export default function ExperimentPage() {
   const handlePreTestSubmit = () => {
     if (!data?.pretest) return;
     let score = 0;
-    data.pretest.forEach((q, idx) => {
-      if (preTestAnswers[idx] === q.correct_answer_index) score++;
+    const answers = data.pretest.map((q, idx) => {
+      const ans = preTestAnswers[idx] ?? -1;
+      if (ans === q.correct_answer_index) score++;
+      return ans;
     });
     setPreTestScore(score);
+    saveQuizAttempt?.({
+      experimentId,
+      quizType: "pretest",
+      answers,
+      score,
+      total: data.pretest.length,
+    }).catch(() => {}); // non-blocking, guests can still use without saving
   };
 
   const handlePostTestSubmit = () => {
     if (!data?.posttest) return;
     let score = 0;
-    data.posttest.forEach((q, idx) => {
-      if (postTestAnswers[idx] === q.correct_answer_index) score++;
+    const answers = data.posttest.map((q, idx) => {
+      const ans = postTestAnswers[idx] ?? -1;
+      if (ans === q.correct_answer_index) score++;
+      return ans;
     });
     setPostTestScore(score);
+    const timeMs = Date.now() - startTimeRef.current;
+    saveQuizAttempt?.({
+      experimentId,
+      quizType: "posttest",
+      answers,
+      score,
+      total: data.posttest.length,
+    }).catch(() => {});
+    // Mark experiment complete when posttest is submitted
+    markExperimentComplete?.({
+      experimentId,
+      title: data.title || experimentId,
+      pretestScore: preTestScore,
+      posttestScore: score,
+      timeSpentMs: timeMs,
+    }).catch(() => {});
   };
 
   if (loading) {

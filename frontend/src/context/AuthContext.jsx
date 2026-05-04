@@ -208,6 +208,62 @@ export function AuthProvider({ children }) {
     return data || [];
   }, [user]);
 
+  /* ── Save quiz attempt + update saved_experiments scores ── */
+  const saveQuizAttempt = useCallback(
+    async ({ experimentId, quizType, answers, score, total }) => {
+      if (!user) return; // guests can still take quizzes, just not persist
+
+      // Insert attempt row
+      await supabase.from("quiz_attempts").insert({
+        user_id: user.id,
+        experiment_id: experimentId,
+        quiz_type: quizType,
+        answers,
+        score,
+        total,
+      });
+
+      // Update score columns on saved_experiments so the dashboard query is cheap
+      const scoreField = quizType === "pretest" ? "pretest_score" : "posttest_score";
+      await supabase
+        .from("saved_experiments")
+        .upsert(
+          {
+            user_id: user.id,
+            experiment_id: experimentId,
+            title: experimentId,
+            [scoreField]: score,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,experiment_id" }
+        );
+    },
+    [user]
+  );
+
+  /* ── Mark experiment completed + save final tab ── */
+  const markExperimentComplete = useCallback(
+    async ({ experimentId, title, pretestScore, posttestScore, timeSpentMs }) => {
+      if (!user) return;
+      await supabase
+        .from("saved_experiments")
+        .upsert(
+          {
+            user_id: user.id,
+            experiment_id: experimentId,
+            title,
+            completed: true,
+            pretest_score: pretestScore ?? null,
+            posttest_score: posttestScore ?? null,
+            time_spent_ms: timeSpentMs ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,experiment_id" }
+        );
+    },
+    [user]
+  );
+
   /* ── Delete saved experiment ── */
   const deleteSavedExperiment = useCallback(
     async (id) => {
@@ -248,6 +304,8 @@ export function AuthProvider({ children }) {
       saveExperiment,
       getSavedExperiments,
       deleteSavedExperiment,
+      saveQuizAttempt,
+      markExperimentComplete,
     }),
     [
       user,
@@ -266,6 +324,8 @@ export function AuthProvider({ children }) {
       saveExperiment,
       getSavedExperiments,
       deleteSavedExperiment,
+      saveQuizAttempt,
+      markExperimentComplete,
     ]
   );
 

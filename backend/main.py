@@ -22,6 +22,7 @@ from services.admin_portal import (  # type: ignore
     fetch_all_experiments,
     update_experiment_in_db,
     fetch_user_activity,
+    fetch_quiz_analytics,
 )
 
 from engine.gpio import GPIO  # type: ignore
@@ -374,6 +375,18 @@ async def list_admin_experiments(authorization: Optional[str] = Header(default=N
     ensure_admin_email(supabase_user.get("email"))
     exps = await fetch_all_experiments()
     return {"experiments": exps}
+
+
+@app.get("/api/admin/quiz-analytics")
+async def admin_quiz_analytics(authorization: Optional[str] = Header(default=None)):
+    """Return per-experiment quiz attempt counts, average scores and pass rates."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    access_token = authorization.split(" ", 1)[1]
+    supabase_user = await fetch_user_from_token(access_token)
+    ensure_admin_email(supabase_user.get("email"))
+    data = await fetch_quiz_analytics()
+    return {"analytics": data}
 
 
 @app.get("/api/admin/activity")
