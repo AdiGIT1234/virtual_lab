@@ -67,6 +67,9 @@ export const useCircuitStore = create((set) => ({
   inputs: { ...(defaultPreset.inputs || {}) },
   inputsVersion: 0,
   lastInputsSource: null,
+  // Wires drawn in the 2D sandbox — synced here so the 3D lab can read them
+  sandboxWires: [],
+  syncWires: (wires) => set(() => ({ sandboxWires: wires })),
   loadPreset: (presetId) => {
     const preset = CIRCUIT_PRESETS[presetId] || defaultPreset;
     const workspaceItems = cloneWorkspace(preset.workspace || []);
@@ -82,6 +85,7 @@ export const useCircuitStore = create((set) => ({
       inputs: nextInputs,
       inputsVersion: state.inputsVersion + 1,
       lastInputsSource: "arlab",
+      sandboxWires: [], // clear sandbox wires so 3D lab shows preset wires on fresh load
     }));
   },
   syncFromWorkspace: (workspaceItems, source = "sandbox") => {

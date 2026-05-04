@@ -18,7 +18,7 @@ import Timer555_3D from "./Timer555_3D";
 import DipIC3D from "./DipIC3D";
 import Buzzer3D from "./Buzzer3D";
 import SevenSegment3D from "./SevenSegment3D";
-import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D, DcMotor3D, L298nDriver3D } from "./SensorModule3D";
+import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D, DcMotor3D, L298nDriver3D, Hc05_3D, Rc522_3D } from "./SensorModule3D";
 
 // Convert Arduino pin number to scene-group coordinates
 function pinToSceneCoords(pinNum) {
@@ -119,6 +119,7 @@ export default function CircuitScene({
   const inputs      = useCircuitStore((s) => s.inputs);
   const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
   const presetId    = useCircuitStore((s) => s.presetId);
+  const sandboxWires = useCircuitStore((s) => s.sandboxWires);
 
   const preset = CIRCUIT_PRESETS[presetId] || {};
   const arlabPositions = preset.arlabPositions || {};
@@ -142,17 +143,20 @@ export default function CircuitScene({
     return map;
   }, [components, arlabPositions]);
 
-  // Resolve preset wires to 3D points
+  // Resolve wires to 3D points.
+  // Sandbox wires take precedence when the user has drawn connections in the 2D lab;
+  // otherwise fall back to the preset's built-in wire definitions.
   const resolvedWires = useMemo(() => {
-    const wires = preset.wires || [];
+    const wires = sandboxWires.length > 0 ? sandboxWires : (preset.wires || []);
     return wires.flatMap((wire) => {
+      if (!wire.source || !wire.target) return [];
       const p1 = resolveEndpoint(wire.source, posMap);
       const p2 = resolveEndpoint(wire.target, posMap);
       const pts = buildWirePoints(p1, p2);
       if (!pts) return [];
       return [{ ...wire, points: pts }];
     });
-  }, [preset.wires, posMap]);
+  }, [sandboxWires, preset.wires, posMap]);
 
   // Build sceneComponents with final positions/rotations
   const sceneComponents = useMemo(() => {
@@ -382,9 +386,9 @@ export default function CircuitScene({
         } else if (component.type === "L298N_DRIVER") {
           element = <L298nDriver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "HC05_BLUETOOTH" || component.type === "BLUETOOTH_MODULE") {
-          element = <SensorModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} label="HC-05" color="#07193a" borderColor="#1d4ed8" />;
+          element = <Hc05_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "RC522_RFID" || component.type === "RFID_MODULE") {
-          element = <SensorModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} label="RC522" color="#0f2d4a" borderColor="#1e5f8a" />;
+          element = <Rc522_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         }
 
         if (element) {

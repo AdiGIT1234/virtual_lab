@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState, useCallback, useRef } from "react";
 import ARLabCanvas from "../components/arlab/ARLabCanvas";
+import CodeEditor from "../components/arlab/CodeEditor";
 import { useCircuitStore } from "../state/useCircuitStore";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 import { UNO_PIN_COORDS } from "../constants/unoPinCoords";
@@ -220,6 +221,24 @@ export default function ARLabPage() {
   const [simError, setSimError] = useState("");
   const [editorCode, setEditorCode] = useState(preset?.starterCode || "");
   const [codeOpen, setCodeOpen] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(280);
+  const dragRef = useRef(null);
+
+  const startPanelDrag = useCallback((e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = panelHeight;
+    const onMove = (ev) => {
+      const delta = startY - ev.clientY;
+      setPanelHeight(Math.max(120, Math.min(600, startH + delta)));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [panelHeight]);
 
   // Sync editor when preset changes (warn user if they've made edits)
   useEffect(() => {
@@ -642,39 +661,54 @@ export default function ARLabPage() {
 
       {/* Code Editor Panel — slides up from bottom */}
       {codeOpen && (
-        <div style={styles.codePanel} role="region" aria-label="Code editor">
+        <div style={{ ...styles.codePanel, height: panelHeight }} role="region" aria-label="Code editor">
+          {/* Drag handle — grab to resize panel height */}
+          <div
+            ref={dragRef}
+            onMouseDown={startPanelDrag}
+            style={styles.codePanelDragHandle}
+            title="Drag to resize"
+            role="separator"
+            aria-label="Resize code panel"
+          />
           <div style={styles.codePanelHeader}>
             <span style={styles.codePanelTitle}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ marginRight: 6, verticalAlign: "middle", color: "#00e5ff" }}>
+                <path d="M5 3l-3 5 3 5M11 3l3 5-3 5M9 2l-2 12"/>
+              </svg>
               {preset?.mcu === "esp32" ? "ESP32" : "ATmega328P"} Sketch
               {editorCode !== preset?.starterCode && (
                 <span style={{ color: "#fbbf24", marginLeft: 8, fontSize: 10 }}>● modified</span>
               )}
             </span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#3d4451", fontFamily: "monospace" }}>
+                {editorCode.split("\n").length} lines
+              </span>
               <button
                 style={styles.codePanelBtn}
                 onClick={() => setEditorCode(preset?.starterCode || "")}
-                title="Reset to default"
+                title="Reset to default sketch"
               >
                 Reset
               </button>
               <button
-                style={{ ...styles.codePanelBtn, background: "#1a7f37", color: "#fff" }}
+                style={{
+                  ...styles.codePanelBtn,
+                  background: isRunning ? "#7f1d1d" : "#1a7f37",
+                  color: "#fff",
+                  border: "none",
+                  boxShadow: isRunning ? "0 0 8px rgba(185,28,28,0.4)" : "0 0 8px rgba(26,127,55,0.4)",
+                }}
                 onClick={handleSimulate}
               >
                 {isRunning ? "⏹ Stop" : "▶ Run"}
               </button>
             </div>
           </div>
-          <textarea
-            style={styles.codeTextarea}
-            value={editorCode}
-            onChange={e => setEditorCode(e.target.value)}
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-            aria-label="Sketch code editor"
-          />
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <CodeEditor value={editorCode} onChange={setEditorCode} />
+          </div>
         </div>
       )}
     </div>
@@ -960,12 +994,19 @@ const styles = {
 
   // Code editor panel
   codePanel: {
-    height: 240,
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
-    borderTop: "1px solid #21262d",
     background: "#0d1117",
+    // height is set dynamically via panelHeight state
+  },
+  codePanelDragHandle: {
+    height: 5,
+    background: "#161b22",
+    borderTop: "1px solid #21262d",
+    cursor: "ns-resize",
+    flexShrink: 0,
+    transition: "background 0.15s",
   },
   codePanelHeader: {
     height: 36,
@@ -982,6 +1023,8 @@ const styles = {
     fontWeight: 700,
     color: "#8b949e",
     fontFamily: "monospace",
+    display: "flex",
+    alignItems: "center",
   },
   codePanelBtn: {
     padding: "3px 10px",
@@ -993,18 +1036,5 @@ const styles = {
     color: "#c9d1d9",
     cursor: "pointer",
     fontFamily: "inherit",
-  },
-  codeTextarea: {
-    flex: 1,
-    background: "#0d1117",
-    color: "#e6edf3",
-    border: "none",
-    outline: "none",
-    fontFamily: "'Inconsolata', 'Fira Code', 'Courier New', monospace",
-    fontSize: 12,
-    lineHeight: 1.6,
-    padding: "10px 16px",
-    resize: "none",
-    tabSize: 2,
   },
 };

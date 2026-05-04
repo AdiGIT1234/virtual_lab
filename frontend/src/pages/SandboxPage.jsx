@@ -154,6 +154,7 @@ void loop() {
   const inputsSource = useCircuitStore((state) => state.lastInputsSource);
   const syncInputs = useCircuitStore((state) => state.syncInputs);
   const loadPreset = useCircuitStore((state) => state.loadPreset);
+  const syncWires = useCircuitStore((state) => state.syncWires);
 
   const defaultWorkspace = useMemo(() => [], []);
 
@@ -175,6 +176,11 @@ void loop() {
       internalSetWorkspaceItems(storedWorkspaceItems);
     }
   }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
+
+  // Keep the global store in sync with sandbox wires so the 3D lab reflects them
+  useEffect(() => {
+    syncWires(wires);
+  }, [wires, syncWires]);
 
   // Auto-load experiment preset from URL query param
   useEffect(() => {
