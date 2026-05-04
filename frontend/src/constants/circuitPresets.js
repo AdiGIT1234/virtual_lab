@@ -472,4 +472,210 @@ void loop() {
       "gnd-1": { pos: [0.0,   0.01,  0.24],  rot: [0, 0, 0] },
     },
   },
+
+  max30102_heartrate: {
+    id: "max30102_heartrate",
+    name: "Heart Rate Monitor (MAX30102)",
+    description: "ATmega328P reads BPM and SpO2 from a MAX30102 pulse oximeter over I2C (Wire) and prints live readings to Serial.",
+    mcu: "atmega328p",
+    starterCode: `#include <Wire.h>
+
+#define MAX30102_ADDR 0x57
+#define REG_INTR_ENABLE1 0x02
+#define REG_FIFO_CONFIG  0x08
+#define REG_MODE_CONFIG  0x09
+#define REG_SPO2_CONFIG  0x0A
+#define REG_LED1_PA      0x0C
+#define REG_LED2_PA      0x0D
+#define REG_FIFO_DATA    0x07
+
+void writeReg(uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(MAX30102_ADDR);
+  Wire.write(reg); Wire.write(val);
+  Wire.endTransmission();
+}
+
+uint32_t readFifoSample(bool readRed) {
+  Wire.beginTransmission(MAX30102_ADDR);
+  Wire.write(REG_FIFO_DATA);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MAX30102_ADDR, 6);
+  uint32_t r = 0, ir = 0;
+  for (int i = 0; i < 3; i++) r  = (r  << 8) | Wire.read();
+  for (int i = 0; i < 3; i++) ir = (ir << 8) | Wire.read();
+  return readRed ? r : ir;
+}
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  writeReg(REG_MODE_CONFIG,  0x03); // SpO2 mode
+  writeReg(REG_SPO2_CONFIG,  0x27); // 100 sps, 411us pulse, 16-bit ADC
+  writeReg(REG_LED1_PA,      0x24); // Red LED ~7 mA
+  writeReg(REG_LED2_PA,      0x24); // IR  LED ~7 mA
+  writeReg(REG_FIFO_CONFIG,  0x4F); // FIFO average 4, rollover, FIFO almost full=15
+  Serial.println("MAX30102 Heart Rate + SpO2 Monitor");
+}
+
+void loop() {
+  uint32_t ir  = readFifoSample(false);
+  uint32_t red = readFifoSample(true);
+
+  // Simple threshold check: finger present if IR > 50000
+  if (ir > 50000) {
+    // Estimate BPM and SpO2 from raw values (simplified)
+    int bpm  = map(constrain(ir, 50000, 110000), 50000, 110000, 55, 105);
+    int spo2 = map(constrain(red, 30000, 90000), 30000, 90000, 94, 100);
+    Serial.print("BPM: "); Serial.print(bpm);
+    Serial.print("  SpO2: "); Serial.print(spo2); Serial.println("%");
+  } else {
+    Serial.println("No finger detected");
+  }
+  delay(500);
+}`,
+    workspace: [
+      { id: "max-1", type: "MAX30102_PULSE", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 340, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 80,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 80,  y: 360 },
+    ],
+    wires: [
+      { id: "max-w1", source: "mcu::18",     target: "max-1::sda",   bends: [], color: "#fbbf24" },
+      { id: "max-w2", source: "mcu::19",     target: "max-1::scl",   bends: [], color: "#4dabf7" },
+      { id: "max-w3", source: "vcc-1::main", target: "max-1::vcc",   bends: [], color: "#dc2626" },
+      { id: "max-w4", source: "gnd-1::main", target: "max-1::gnd",   bends: [], color: "#333"    },
+    ],
+    outputs: {},
+    inputs: {},
+    arlabPositions: {
+      "max-1": { pos: [0.35, 0.085, 0],     rot: [0, 0, 0] },
+      "vcc-1": { pos: [0.55, 0.01, -0.16],  rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.55, 0.01,  0.16],  rot: [0, 0, 0] },
+    },
+  },
+
+  tcs34725_color: {
+    id: "tcs34725_color",
+    name: "Color Sensor (TCS34725)",
+    description: "ATmega328P reads RGBC values from a TCS34725 over I2C and prints hex color codes to Serial.",
+    mcu: "atmega328p",
+    starterCode: `#include <Wire.h>
+
+#define TCS34725_ADDR  0x29
+#define CMD_BIT        0x80
+#define REG_ENABLE     0x00
+#define REG_ID         0x12
+#define REG_STATUS     0x13
+#define REG_CDATAL     0x14
+
+void writeReg(uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(TCS34725_ADDR);
+  Wire.write(CMD_BIT | reg); Wire.write(val);
+  Wire.endTransmission();
+}
+
+uint16_t readWord(uint8_t reg) {
+  Wire.beginTransmission(TCS34725_ADDR);
+  Wire.write(CMD_BIT | reg);
+  Wire.endTransmission(false);
+  Wire.requestFrom(TCS34725_ADDR, 2);
+  uint16_t lo = Wire.read();
+  uint16_t hi = Wire.read();
+  return (hi << 8) | lo;
+}
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  writeReg(REG_ENABLE, 0x03); // PON + AEN
+  delay(50);
+  Serial.println("TCS34725 Color Sensor Ready");
+}
+
+void loop() {
+  uint16_t c = readWord(REG_CDATAL);
+  uint16_t r = readWord(0x16);
+  uint16_t g = readWord(0x18);
+  uint16_t b = readWord(0x1A);
+
+  // Scale to 0-255
+  uint8_t R8 = c > 0 ? (uint8_t)((uint32_t)r * 255 / c) : 0;
+  uint8_t G8 = c > 0 ? (uint8_t)((uint32_t)g * 255 / c) : 0;
+  uint8_t B8 = c > 0 ? (uint8_t)((uint32_t)b * 255 / c) : 0;
+
+  Serial.print("R="); Serial.print(R8);
+  Serial.print(" G="); Serial.print(G8);
+  Serial.print(" B="); Serial.print(B8);
+  Serial.print("  #");
+  if (R8 < 16) Serial.print("0"); Serial.print(R8, HEX);
+  if (G8 < 16) Serial.print("0"); Serial.print(G8, HEX);
+  if (B8 < 16) Serial.print("0"); Serial.println(B8, HEX);
+  delay(500);
+}`,
+    workspace: [
+      { id: "tcs-1", type: "TCS34725_COLOR", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 340, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 80,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 80,  y: 360 },
+    ],
+    wires: [
+      { id: "tcs-w1", source: "mcu::18",     target: "tcs-1::sda",   bends: [], color: "#fbbf24" },
+      { id: "tcs-w2", source: "mcu::19",     target: "tcs-1::scl",   bends: [], color: "#4dabf7" },
+      { id: "tcs-w3", source: "vcc-1::main", target: "tcs-1::vcc",   bends: [], color: "#dc2626" },
+      { id: "tcs-w4", source: "gnd-1::main", target: "tcs-1::gnd",   bends: [], color: "#333"    },
+    ],
+    outputs: {},
+    inputs: {},
+    arlabPositions: {
+      "tcs-1": { pos: [0.35, 0.085, 0],     rot: [0, 0, 0] },
+      "vcc-1": { pos: [0.55, 0.01, -0.16],  rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.55, 0.01,  0.16],  rot: [0, 0, 0] },
+    },
+  },
+
+  hc05_bluetooth: {
+    id: "hc05_bluetooth",
+    name: "Bluetooth Terminal (HC-05)",
+    description: "ATmega328P echoes Serial data through an HC-05 Bluetooth module — type in the panel to send to the MCU, watch its replies.",
+    mcu: "atmega328p",
+    starterCode: `// HC-05 uses hardware Serial (pins 0=RX, 1=TX) at 9600 baud
+// In this simulation, the HC-05 panel relays serial bytes directly.
+
+String inputBuffer = "";
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Bluetooth Terminal Ready");
+  Serial.println("Type a message and press Enter...");
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = (char)Serial.read();
+    if (c == '\\n') {
+      Serial.print("Echo: ");
+      Serial.println(inputBuffer);
+      inputBuffer = "";
+    } else {
+      inputBuffer += c;
+    }
+  }
+}`,
+    workspace: [
+      { id: "bt-1",  type: "HC05_BLUETOOTH", pin: 1,   pins: { TXD: 1, RXD: 0 },  x: 340, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",        pin: null, pins: { main: null },      x: 80,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",     pin: null, pins: { main: null },      x: 80,  y: 360 },
+    ],
+    wires: [
+      { id: "bt-w1", source: "mcu::1",      target: "bt-1::rxd",    bends: [], color: "#22d3ee" },
+      { id: "bt-w2", source: "mcu::0",      target: "bt-1::txd",    bends: [], color: "#fbbf24" },
+      { id: "bt-w3", source: "vcc-1::main", target: "bt-1::vcc",    bends: [], color: "#dc2626" },
+      { id: "bt-w4", source: "gnd-1::main", target: "bt-1::gnd",    bends: [], color: "#333"    },
+    ],
+    outputs: {},
+    inputs: {},
+    arlabPositions: {
+      "bt-1":  { pos: [0.35, 0.085, 0],    rot: [0, 0, 0] },
+      "vcc-1": { pos: [0.55, 0.01, -0.16], rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.55, 0.01,  0.16], rot: [0, 0, 0] },
+    },
+  },
 };

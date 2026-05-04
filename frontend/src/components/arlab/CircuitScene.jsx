@@ -18,6 +18,7 @@ import Timer555_3D from "./Timer555_3D";
 import DipIC3D from "./DipIC3D";
 import Buzzer3D from "./Buzzer3D";
 import SevenSegment3D from "./SevenSegment3D";
+import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D } from "./SensorModule3D";
 
 // Convert Arduino pin number to scene-group coordinates
 function pinToSceneCoords(pinNum) {
@@ -329,6 +330,23 @@ export default function CircuitScene({
               <pointLight color="#facc15" intensity={0.3} distance={0.4} decay={2} />
             </group>
           );
+        } else if (component.type === "DHT22") {
+          element = <Dht22_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "OLED_SSD1306") {
+          element = <OledDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "ILI9341_TFT") {
+          element = <TftDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "DIAL" || component.type === "POTENTIOMETER") {
+          const val = inputs[component.pin] ?? 0.5;
+          element = <Potentiometer3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} value={val} />;
+        } else if (component.type === "MAX30102" || component.type === "MAX30102_PULSE" || component.type === "PULSE_SENSOR") {
+          element = <Max30102_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "TCS34725" || component.type === "TCS34725_COLOR" || component.type === "COLOR_SENSOR") {
+          element = <Tcs34725_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "HC05_BLUETOOTH" || component.type === "BLUETOOTH_MODULE") {
+          element = <SensorModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} label="HC-05" color="#07193a" borderColor="#1d4ed8" />;
+        } else if (component.type === "RC522_RFID" || component.type === "RFID_MODULE") {
+          element = <SensorModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} label="RC522" color="#0f2d4a" borderColor="#1e5f8a" />;
         }
 
         if (element) {
