@@ -299,6 +299,7 @@ export default function ARLabPage() {
   const [wireAnchor, setWireAnchor] = useState(null); // { kind: 'pin'|'hole', id }
   const [drawnWires, setDrawnWires] = useState([]);
   const [selectedWireIdx, setSelectedWireIdx] = useState(null);
+  const [pendingPart, setPendingPart] = useState(null); // { type, label } — awaiting hole click to place
 
   const wiringFrom = wireAnchor?.kind === 'pin' ? wireAnchor.id : null;
   const wiringFromHole = wireAnchor?.kind === 'hole' ? wireAnchor.id : null;
@@ -325,6 +326,7 @@ export default function ARLabPage() {
       } else if (e.key === "Escape") {
         setSelectedWireIdx(null);
         setWireAnchor(null);
+        setPendingPart(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -332,6 +334,21 @@ export default function ARLabPage() {
   }, [selectedWireIdx]);
 
   const handleHoleClick = useCallback((holeId) => {
+    // Placement mode: place the pending part at this hole
+    if (pendingPart) {
+      const [scx, , scz] = holeToSceneCoords(holeId);
+      addComponent({
+        id: `${pendingPart.type.toLowerCase()}-${Date.now()}`,
+        type: pendingPart.type,
+        pin: null,
+        pins: { main: null },
+        x: scx / 0.005 + 450,
+        y: scz / 0.005 + 300,
+      });
+      setPendingPart(null);
+      return;
+    }
+
     if (!wiringMode) {
       setOccupiedHoles(prev => {
         const next = new Set(prev);
@@ -351,7 +368,7 @@ export default function ARLabPage() {
       from: { ...wireAnchor }, to: { kind: 'hole', id: holeId },
     }]);
     setWireAnchor(null);
-  }, [wiringMode, wireAnchor, drawnWires.length]);
+  }, [pendingPart, wiringMode, wireAnchor, drawnWires.length, addComponent]);
 
   const handlePinClick = useCallback((pinNum) => {
     if (!wiringMode) return;
@@ -368,26 +385,12 @@ export default function ARLabPage() {
   }, [wiringMode, wireAnchor, drawnWires.length]);
 
   const handleInsertPart = useCallback((part) => {
-    if (!addComponent || part.type === "BOARD" || part.type === "WIRE") return;
-
-    // Place at next available breadboard column, row 'f' (first bottom row).
-    // Inverse of posMap formula: scene_x = (c.x - 450)*0.005, scene_z = (c.y - 300)*0.005
-    // Breadboard col (1-indexed): scene_x = 1.2 - 1.575 + (col-1)*0.05
-    // Row 'f' (index 0):          scene_z = 0.04 + 0*0.05 + 0.025 = 0.065
-    const col = nextBbColRef.current;
-    nextBbColRef.current = col >= 55 ? 10 : col + 5;
-    const scene_x = 1.2 - 1.575 + (col - 1) * 0.05;
-    const scene_z = 0.065;
-
-    addComponent({
-      id: `${part.type.toLowerCase()}-${Date.now()}`,
-      type: part.type,
-      pin: null,
-      pins: { main: null },
-      x: scene_x / 0.005 + 450,
-      y: scene_z / 0.005 + 300,
-    });
-  }, [addComponent]);
+    if (part.type === "BOARD" || part.type === "WIRE") return;
+    // Enter placement mode — user clicks a hole to place it
+    setPendingPart({ type: part.type, label: part.label });
+    setWiringMode(false);
+    setWireAnchor(null);
+  }, []);
 
   return (
     <div style={styles.page}>
@@ -541,8 +544,12 @@ export default function ARLabPage() {
                 <button
                   style={{
                     ...styles.partItem,
-                    background: hoveredPart === part.id ? "rgba(0,229,255,0.08)" : "transparent",
-                    borderLeft: hoveredPart === part.id ? "2px solid rgba(0,229,255,0.5)" : "2px solid transparent",
+                    background: pendingPart?.type === part.type
+                      ? "rgba(251,191,36,0.12)"
+                      : hoveredPart === part.id ? "rgba(0,229,255,0.08)" : "transparent",
+                    borderLeft: pendingPart?.type === part.type
+                      ? "2px solid rgba(251,191,36,0.7)"
+                      : hoveredPart === part.id ? "2px solid rgba(0,229,255,0.5)" : "2px solid transparent",
                   }}
                   onMouseEnter={() => setHoveredPart(part.id)}
                   onMouseLeave={() => setHoveredPart(null)}
@@ -627,7 +634,20 @@ export default function ARLabPage() {
               ))}
             </div>
           )}
-          {wiringMode && (
+          {pendingPart && (
+            <div style={{
+              position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+              zIndex: 30, background: "rgba(0,10,20,0.9)", backdropFilter: "blur(10px)",
+              border: "1px solid rgba(251,191,36,0.6)",
+              borderRadius: 8, padding: "6px 16px", color: "#fbbf24",
+              fontSize: 12, fontFamily: "monospace", fontWeight: 700,
+              boxShadow: "0 0 14px rgba(251,191,36,0.25)",
+              pointerEvents: "none",
+            }}>
+              Click a hole to place {pendingPart.label} — Esc to cancel
+            </div>
+          )}
+          {wiringMode && !pendingPart && (
             <div style={{
               position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
               zIndex: 30, background: "rgba(0,10,20,0.85)", backdropFilter: "blur(10px)",

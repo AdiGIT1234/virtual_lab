@@ -40,15 +40,43 @@ async def fetch_all_profiles() -> List[Dict[str, Any]]:
         "Authorization": f"Bearer {service_key}",
         "apikey": service_key,
     }
-    params = {
-        "select": "id,name,institute,created_at,updated_at,user:auth.users(email,last_sign_in_at,created_at)",
-        "order": "updated_at.desc",
-    }
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(f"{supabase_url}/rest/v1/profiles", headers=headers, params=params)
-    if resp.status_code != status.HTTP_200_OK:
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        profiles_resp, users_resp = await asyncio.gather(
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={"select": "id,name,institute,created_at,updated_at", "order": "updated_at.desc"},
+            ),
+            client.get(
+                f"{supabase_url}/auth/v1/admin/users",
+                headers=headers,
+                params={"per_page": 1000},
+            ),
+        )
+
+    if profiles_resp.status_code != status.HTTP_200_OK:
+        import logging
+        logging.error("Supabase profiles error %s: %s", profiles_resp.status_code, profiles_resp.text)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to query Supabase profiles")
-    return resp.json()
+
+    profiles = profiles_resp.json()
+
+    # Build a lookup of auth user data keyed by user id
+    auth_users: dict[str, dict] = {}
+    if users_resp.status_code == status.HTTP_200_OK:
+        for u in users_resp.json().get("users", []):
+            auth_users[u["id"]] = {
+                "email": u.get("email"),
+                "last_sign_in_at": u.get("last_sign_in_at"),
+            }
+
+    for p in profiles:
+        au = auth_users.get(p["id"], {})
+        p["email"] = au.get("email")
+        p["last_sign_in_at"] = au.get("last_sign_in_at")
+
+    return profiles
 
 
 async def fetch_admin_stats() -> Dict[str, Any]:

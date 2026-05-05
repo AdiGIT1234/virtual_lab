@@ -14,11 +14,15 @@ const COLOR_HOVER    = new THREE.Color("#ff6200");
 const COLOR_OCCUPIED = new THREE.Color("#00cc55");
 const COLOR_WIRING   = new THREE.Color("#00e5ff");
 
-const holeGeo = new THREE.CylinderGeometry(HOLE_RADIUS, HOLE_RADIUS * 0.8, 0.015, 8);
-const holeMat = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: false });
+const holeGeo    = new THREE.CylinderGeometry(HOLE_RADIUS, HOLE_RADIUS * 0.8, 0.015, 8);
+const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true });
+// Larger transparent cylinders used only for pointer hit-testing — makes hover forgiving
+const holeHitGeo = new THREE.CylinderGeometry(0.020, 0.020, 0.020, 8);
+const holeHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick, onHoleHover: externalHover, wiringFromHole }) {
-  const instancedRef = useRef();
+  const instancedRef    = useRef();
+  const hitInstancedRef = useRef();
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
   const holes = useMemo(() => {
@@ -52,7 +56,8 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
 
   // Update all instance matrices + colors whenever deps change
   useEffect(() => {
-    const mesh = instancedRef.current;
+    const mesh    = instancedRef.current;
+    const hitMesh = hitInstancedRef.current;
     if (!mesh) return;
     const dummy = new THREE.Object3D();
 
@@ -60,6 +65,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
       dummy.position.set(hole.x, 0, hole.z);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
+      if (hitMesh) hitMesh.setMatrixAt(i, dummy.matrix);
 
       let col;
       if (hole.id === wiringFromHole) col = COLOR_WIRING;
@@ -71,6 +77,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
 
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    if (hitMesh) hitMesh.instanceMatrix.needsUpdate = true;
   }, [holes, occupiedHoles, hoveredIdx, wiringFromHole]);
 
   const handlePointerMove = useCallback((e) => {
@@ -143,11 +150,19 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
         })}
       </group>
 
-      {/* Single InstancedMesh for all 830+ holes — massive perf win */}
+      {/* Visual InstancedMesh — colored holes */}
       <group position={[0, 0.025, 0]}>
         <instancedMesh
           ref={instancedRef}
           args={[holeGeo, holeMat, holes.length]}
+        />
+      </group>
+
+      {/* Hit-area InstancedMesh — larger transparent cylinders for reliable hover */}
+      <group position={[0, 0.026, 0]}>
+        <instancedMesh
+          ref={hitInstancedRef}
+          args={[holeHitGeo, holeHitMat, holes.length]}
           onPointerMove={handlePointerMove}
           onPointerOut={handlePointerOut}
           onClick={handleClick}
@@ -155,7 +170,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
       </group>
 
       {hoveredIdx != null && holes[hoveredIdx] && (
-        <Html position={[holes[hoveredIdx].x, 0.12, holes[hoveredIdx].z]} center>
+        <Html position={[holes[hoveredIdx].x, 0.12, holes[hoveredIdx].z]} center zIndexRange={[200, 0]}>
           <div style={{
             background: "rgba(13,17,23,0.9)",
             color: "#00e5ff",

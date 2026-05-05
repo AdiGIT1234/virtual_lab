@@ -14,11 +14,25 @@ const cloneWorkspace = (items = []) => items.map((item) => ({
 }));
 
 const RENDERABLE_TYPES = new Set([
+  // Basic passives / actives
   "LED_RED", "LED_GREEN", "LED_YELLOW", "LED",
   "RESISTOR", "BUTTON", "RGB_LED", "SERVO", "SEVEN_SEG",
   "CAPACITOR", "NPN_TRANSISTOR", "PNP_TRANSISTOR",
   "TIMER_555", "SHIFT_REGISTER", "CUSTOM_DIGITAL_IC", "WASM_IC",
   "BUZZER",
+  // Power / utility markers
+  "GROUND_NODE", "VCC_NODE",
+  // Sensors / displays / modules
+  "DHT22",
+  "OLED_SSD1306",
+  "ILI9341_TFT",
+  "DIAL", "POTENTIOMETER",
+  "MAX30102", "MAX30102_PULSE", "PULSE_SENSOR",
+  "TCS34725", "TCS34725_COLOR", "COLOR_SENSOR",
+  "DC_MOTOR",
+  "L298N_DRIVER",
+  "HC05_BLUETOOTH", "BLUETOOTH_MODULE",
+  "RC522_RFID", "RFID_MODULE",
 ]);
 
 const deriveComponents = (workspaceItems = []) => {
@@ -31,6 +45,7 @@ const deriveComponents = (workspaceItems = []) => {
         id: item.id,
         type: componentType,
         pin,
+        pins: item.pins ? { ...item.pins } : undefined,
         metadata: {
           color: LED_COLORS[item.type] || LED_COLORS["LED"],
           index,
