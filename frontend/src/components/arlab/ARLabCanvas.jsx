@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, Suspense, Component } from "react";
+import { useState, useEffect, Suspense, Component } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stats } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -36,12 +36,8 @@ const CAMERA_PRESETS = {
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
 export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect }) {
-  const [isDragging, setIsDragging] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
-
-  const handleDragStart = useCallback(() => setIsDragging(true), []);
-  const handleDragEnd = useCallback(() => setIsDragging(false), []);
 
   // Keyboard shortcuts: 1-4 to switch camera views
   useEffect(() => {
@@ -73,8 +69,6 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           <CircuitScene
             highlightedComponentId={highlightedId}
             componentStyles={componentStyles}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onHoleClick={onHoleClick}
@@ -101,8 +95,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         <OrbitControls
           enableDamping
           dampingFactor={0.1}
-          enablePan={!isDragging}
-          enabled={!isDragging}
+          enablePan
           target={[-0.2, 0, 0.1]}
           maxPolarAngle={Math.PI / 2.05}
           minPolarAngle={0.05}

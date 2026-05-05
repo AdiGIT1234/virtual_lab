@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useCircuitStore } from "../../state/useCircuitStore";
 import { getPinCoord } from "../../constants/unoPinCoords";
 import { CIRCUIT_PRESETS } from "../../constants/circuitPresets";
-import { Environment, ContactShadows, DragControls } from "@react-three/drei";
+import { Environment, ContactShadows } from "@react-three/drei";
 import SceneLighting from "./SceneLighting";
 import BoardModel from "./BoardModel";
 import BreadboardModel from "./BreadboardModel";
@@ -101,8 +101,6 @@ function buildWirePoints(p1, p2) {
 export default function CircuitScene({
   highlightedComponentId,
   componentStyles = {},
-  onDragStart,
-  onDragEnd,
   selectedId,
   onSelect,
   onHoleClick,
@@ -393,11 +391,9 @@ export default function CircuitScene({
 
         if (element) {
           return (
-            <DragControls key={component.id} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-              <group onClick={(e) => { e.stopPropagation(); onSelect(component.id); }}>
-                {element}
-              </group>
-            </DragControls>
+            <group key={component.id} onClick={(e) => { e.stopPropagation(); onSelect?.(component.id); }}>
+              {element}
+            </group>
           );
         }
         return null;
