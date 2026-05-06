@@ -23,6 +23,7 @@ export const LIBRARY_COMPONENTS_MAP = {
   ANALOG_JOYSTICK: Lib.AnalogJoystick,
   DIP_SWITCH_8: Lib.DipSwitch8,
   SLIDE_SWITCH: Lib.SlideSwitch,
+  NEOPIXEL_MATRIX: Lib.NeopixelMatrix,
   NEOPIXEL_RING: Lib.NeopixelRing,
   NEOPIXEL_RING_12: Lib.NeopixelRing,
   NEOPIXEL_RING_16: Lib.NeopixelRing,
@@ -109,6 +110,7 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
     { id: "2", x: 27, y: 50 },
     { id: "3", x: 43, y: 50 }
   ],
+  NEOPIXEL_MATRIX:  ["5v","din","gnd"].map((id, i) => ({ id, x: 8 + i*22, y: 76 })),
   NEOPIXEL_RING:    ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
   NEOPIXEL_RING_12: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
   NEOPIXEL_RING_16: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),

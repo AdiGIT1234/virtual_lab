@@ -821,7 +821,21 @@ void loop() {
       return { pin: null, resistance: currentResistance, logicValue: true };
     }
 
-    // 9. Shift register 74HC595: SHCP rising edge shifts DS into register; STCP rising edge latches to Q0-Q7
+    // 9. Slide switch: pos=0 shorts 1-2; pos=1 shorts 2-3
+    if (item.type === "SLIDE_SWITCH" && (termId === "1" || termId === "2" || termId === "3")) {
+      const pos = (window.__slideSwitchStates || {})[compId] ?? 0;
+      if (termId === "2") {
+        const bridgeTerm = pos === 0 ? "1" : "3";
+        const result = resolveConnection(compId, bridgeTerm, visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+      if ((termId === "1" && pos === 0) || (termId === "3" && pos === 1)) {
+        const result = resolveConnection(compId, "2", visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+    }
+
+    // 10. Shift register 74HC595: SHCP rising edge shifts DS into register; STCP rising edge latches to Q0-Q7
     if (item.type === "SHIFT_REGISTER" && /^q[0-7]$|^q7'$/.test(termId)) {
       const dsConn  = resolveConnection(compId, "ds",   new Set(visited));
       const shcpConn = resolveConnection(compId, "shcp", new Set(visited));

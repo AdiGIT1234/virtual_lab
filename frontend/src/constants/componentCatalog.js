@@ -97,7 +97,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "LCD1602",
         status: "simulated",
         icon: "LCD",
-        description: "HD44780-compatible 16x2 character module placeholder.",
+        description: "Simulates 16×2 HD44780 character display — renders text sent via LiquidCrystal library.",
         terminals: ["VSS", "VDD", "V0", "RS", "RW", "E", "D4", "D5", "D6", "D7", "LED+", "LED-"],
       },
       {
@@ -106,7 +106,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "LCD2004",
         status: "simulated",
         icon: "LCD",
-        description: "Extended 4-line HD44780 LCD placeholder.",
+        description: "Simulates 20×4 HD44780 character display — renders text sent via LiquidCrystal library.",
         terminals: ["VSS", "VDD", "V0", "RS", "RW", "E", "D4", "D5", "D6", "D7", "BACK+", "BACK-"],
       },
       {
@@ -115,7 +115,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "OLED_SSD1306",
         status: "simulated",
         icon: "OLED",
-        description: "128x64 monochrome OLED (I2C/SPI) placeholder.",
+        description: "Simulates 128×64 monochrome OLED — renders pixel buffer from Adafruit_SSD1306 I2C commands.",
         terminals: ["VCC", "GND", "SCL", "SDA"],
       },
       {
@@ -124,7 +124,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "ILI9341_TFT",
         status: "simulated",
         icon: "TFT",
-        description: "2.4\" SPI TFT placeholder.",
+        description: "Simulates 2.4\" ILI9341 TFT color display — renders pixel buffer via Adafruit_ILI9341 SPI commands.",
         terminals: ["VCC", "GND", "CS", "RESET", "DC", "MOSI", "SCK", "LED"],
       },
       {
@@ -142,7 +142,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "LED_BAR_GRAPH",
         status: "simulated",
         icon: "BAR",
-        description: "10-segment LED bar placeholder.",
+        description: "10-segment LED bar graph — each segment lights individually based on its pin state.",
         terminals: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
       },
       {
@@ -151,7 +151,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "NEOPIXEL_MATRIX",
         status: "simulated",
         icon: "MTRX",
-        description: "Addressable RGB matrix placeholder with DIN pin.",
+        description: "Addressable WS2812B RGB matrix — pixel colors decoded live from the NeoPixel DIN signal.",
         terminals: ["5V", "DIN", "GND"],
       },
       {
@@ -160,7 +160,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "NEOPIXEL_RING",
         status: "simulated",
         icon: "RING",
-        description: "Addressable RGB strip/ring placeholder.",
+        description: "Addressable WS2812B RGB ring — pixel colors decoded live from the NeoPixel DIN signal.",
         terminals: ["5V", "DIN", "GND"],
       },
       {
@@ -196,7 +196,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "EPAPER_BASIC",
         status: "simulated",
         icon: "EPD",
-        description: "Slow-refresh e-ink placeholder with SPI pins.",
+        description: "E-ink display — renders a frame buffer on SPI transfer completion.",
         terminals: ["VCC", "GND", "SCK", "MOSI", "CS", "DC", "RST", "BUSY"],
       },
       {
@@ -205,7 +205,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "ANALOG_TV",
         status: "simulated",
         icon: "TV",
-        description: "Composite video output placeholder.",
+        description: "Composite video output — visual stub only, no pixel rendering.",
         terminals: ["VIDEO", "GND"],
       },
     ],
@@ -221,7 +221,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "DHT22",
         status: "simulated",
         icon: "TEMP",
-        description: "Digital humidity/temperature combo sensor placeholder.",
+        description: "Simulates DHT22 — adjust temperature and humidity sliders; values feed directly to the MCU.",
         terminals: ["VCC", "DATA", "GND"],
       },
       {
@@ -230,7 +230,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "NTC_SENSOR",
         status: "simulated",
         icon: "NTC",
-        description: "Two-wire thermistor placeholder.",
+        description: "NTC thermistor — drag the temperature slider to vary resistance; pushes ADC voltage to the wired pin.",
         terminals: ["T1", "T2"],
       },
       {
@@ -239,7 +239,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "PHOTORESISTOR",
         status: "simulated",
         icon: "LDR",
-        description: "Light-dependent resistor placeholder.",
+        description: "LDR photoresistor — drag the light slider to vary resistance; pushes analog voltage to the wired pin.",
         terminals: ["L1", "L2"],
       },
       {
@@ -248,7 +248,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "PIR_SENSOR",
         status: "simulated",
         icon: "PIR",
-        description: "Passive IR motion module placeholder.",
+        description: "PIR motion sensor — click 'Trigger motion' to pulse the OUT pin HIGH for 2 seconds.",
         terminals: ["VCC", "OUT", "GND"],
       },
       {
@@ -257,7 +257,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "MPU6050",
         status: "simulated",
         icon: "IMU",
-        description: "I2C accelerometer + gyroscope placeholder.",
+        description: "MPU-6050 6-axis IMU — visual only; I2C register simulation not yet implemented.",
         terminals: ["VCC", "GND", "SCL", "SDA"],
       },
       {
@@ -266,7 +266,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "HC_SR04",
         status: "simulated",
         icon: "US",
-        description: "Trig/Echo ultrasonic distance sensor placeholder.",
+        description: "HC-SR04 ultrasonic — set distance with the slider; auto-fires ECHO pulse on TRIG rising edge.",
         terminals: ["VCC", "TRIG", "ECHO", "GND"],
       },
       {
@@ -275,7 +275,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "FLAME_SENSOR",
         status: "simulated",
         icon: "FLAME",
-        description: "Analog flame detector placeholder.",
+        description: "Flame/IR sensor — analog slider sets intensity; DOUT goes HIGH above 50% threshold.",
         terminals: ["AOUT", "DOUT", "VCC", "GND"],
       },
       {
@@ -284,7 +284,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "GAS_SENSOR",
         status: "simulated",
         icon: "GAS",
-        description: "MQ-series type gas sensor placeholder.",
+        description: "MQ-2 gas sensor — analog slider sets concentration; DOUT goes HIGH above 50% threshold.",
         terminals: ["AOUT", "DOUT", "VCC", "GND"],
       },
       {
@@ -293,7 +293,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "HEARTBEAT_SENSOR",
         status: "simulated",
         icon: "HB",
-        description: "Pulse/PPG sensor placeholder.",
+        description: "MAX30102 pulse oximeter — use sliders to simulate BPM and SpO2 readings.",
         terminals: ["VCC", "SIGNAL", "GND"],
       },
       {
@@ -302,7 +302,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "SOUND_SENSOR",
         status: "simulated",
         icon: "MIC",
-        description: "Analog microphone module placeholder.",
+        description: "Sound/microphone module — analog slider sets level; DOUT goes HIGH above 50% threshold.",
         terminals: ["AOUT", "DOUT", "VCC", "GND"],
       },
       {
@@ -311,7 +311,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "HX711_LOAD_CELL",
         status: "simulated",
         icon: "HX711",
-        description: "Amplifier + strain gauge placeholder.",
+        description: "HX711 24-bit ADC + load cell — visual only; SPI register simulation not yet implemented.",
         terminals: ["E+", "E-", "A+", "A-", "DT", "SCK", "VCC", "GND"],
       },
       {
@@ -320,7 +320,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "TTP223_TOUCH",
         status: "simulated",
         icon: "TOUCH",
-        description: "Single-channel capacitive touch sensor module placeholder.",
+        description: "TTP223 capacitive touch — hold the pad to drive the IO pin HIGH.",
         terminals: ["GND", "VCC", "SIG"],
       },
       {
@@ -388,7 +388,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "MEMBRANE_KEYPAD",
         status: "simulated",
         icon: "KEYP",
-        description: "4x4 keypad placeholder.",
+        description: "4×4 membrane keypad — tap keys to fire row/column pin combinations.",
         terminals: ["R1", "R2", "R3", "R4", "C1", "C2", "C3", "C4"],
       },
       {
@@ -397,7 +397,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "ROTARY_ENCODER",
         status: "simulated",
         icon: "ENC",
-        description: "Incremental encoder placeholder with CLK/DT/SW.",
+        description: "KY-040 rotary encoder — CW/CCW buttons send CLK/DT pulses; count shown on the component.",
         terminals: ["CLK", "DT", "SW", "VCC", "GND"],
       },
       {
@@ -406,7 +406,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "ANALOG_JOYSTICK",
         status: "simulated",
         icon: "JOY",
-        description: "Dual-axis joystick placeholder.",
+        description: "Analog joystick — XY sliders feed VRX/VRY ADC pins; stick position shown live.",
         terminals: ["VRX", "VRY", "SW", "VCC", "GND"],
       },
       {
@@ -415,7 +415,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "DIP_SWITCH_8",
         status: "simulated",
         icon: "DIP",
-        description: "Eight-position DIP switch placeholder.",
+        description: "8-position DIP switch — click individual switches to toggle each pin HIGH or LOW.",
         terminals: ["1", "2", "3", "4", "5", "6", "7", "8", "COM"],
       },
       {
@@ -424,7 +424,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "ROTARY_DIALER",
         status: "simulated",
         icon: "DIAL",
-        description: "Pulse dial input placeholder.",
+        description: "Rotary dialer — visual only; pulse sequence simulation not yet implemented.",
         terminals: ["LINE", "GND"],
       },
     ],
@@ -473,7 +473,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "NEOPIXEL_PIXEL",
         status: "simulated",
         icon: "NEO",
-        description: "Single WS2812 pixel placeholder.",
+        description: "Single WS2812B addressable pixel — color decoded live from the NeoPixel DIN signal.",
         terminals: ["5V", "DIN", "GND"],
       },
       {
@@ -482,7 +482,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "NEOPIXEL_RING",
         status: "simulated",
         icon: "RING",
-        description: "Addressable LED ring placeholder.",
+        description: "Addressable WS2812B LED ring — pixel colors decoded live from the NeoPixel DIN signal.",
         terminals: ["5V", "DIN", "GND"],
       },
       {
@@ -499,7 +499,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "STEPPER_MOTOR",
         status: "simulated",
         icon: "STEP",
-        description: "Four-phase stepper placeholder.",
+        description: "Four-phase bipolar stepper — tracks coil pulses and shows rotor angle in real time.",
         terminals: ["A+", "A-", "B+", "B-"],
       },
       {
@@ -517,7 +517,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "DC_MOTOR",
         status: "simulated",
         icon: "MOTOR",
-        description: "Brushed DC motor placeholder with two power leads.",
+        description: "Brushed DC motor — animates spin speed and direction based on M+/M− pin states.",
         terminals: ["+", "-"],
       },
       {
@@ -590,7 +590,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "SLIDE_SWITCH",
         status: "simulated",
         icon: "SW",
-        description: "SPDT slide switch placeholder.",
+        description: "SPDT slide switch — toggles between two positions, shorting the corresponding pin pair.",
         terminals: ["1", "2", "3"],
       },
       {
@@ -599,7 +599,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "DIP_SWITCH_8",
         status: "simulated",
         icon: "DIP",
-        description: "8-way DIP switch placeholder.",
+        description: "8-way DIP switch — click individual switches to toggle each pin HIGH or LOW.",
       },
     ],
   },
@@ -614,7 +614,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "IR_RECEIVER",
         status: "simulated",
         icon: "IR",
-        description: "TSOP-style IR receiver placeholder.",
+        description: "TSOP IR receiver — lights up and shows received NEC hex code when an IR remote button is pressed.",
         terminals: ["OUT", "VCC", "GND"],
       },
       {
@@ -623,7 +623,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "IR_REMOTE",
         status: "simulated",
         icon: "REMOTE",
-        description: "Remote control placeholder emitting codes.",
+        description: "IR remote — click any button to broadcast its NEC code to a nearby IR receiver component.",
       },
       {
         id: "ds1307",
@@ -631,7 +631,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "DS1307_RTC",
         status: "simulated",
         icon: "RTC",
-        description: "I2C real-time clock placeholder.",
+        description: "DS1307 RTC — visual only; I2C register simulation not yet implemented.",
         terminals: ["VCC", "GND", "SCL", "SDA"],
       },
       {
@@ -640,7 +640,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "MICROSD_MODULE",
         status: "simulated",
         icon: "SD",
-        description: "SPI SD card breakout placeholder.",
+        description: "MicroSD breakout — visual only; SPI file I/O simulation not yet implemented.",
         terminals: ["VCC", "GND", "MISO", "MOSI", "SCK", "CS"],
       },
       {
@@ -657,7 +657,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "HC05_BLUETOOTH",
         status: "simulated",
         icon: "BT",
-        description: "Bluetooth serial (SPP) module placeholder for wireless UART.",
+        description: "HC-05 Bluetooth — shows a live serial terminal; echoes AT commands and MCU UART output.",
         terminals: ["EN", "VCC", "GND", "TXD", "RXD", "STATE"],
       },
       {
@@ -690,7 +690,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "BREADBOARD",
         status: "simulated",
         icon: "BRD",
-        description: "Placeholder for breadboard real estate.",
+        description: "Full-size solderless breadboard for component placement.",
       },
       {
         id: "breadboard_mini",
@@ -798,7 +798,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "SHIFT_REGISTER",
         status: "simulated",
         icon: "SHIFT",
-        description: "8-bit serial-in parallel-out placeholder.",
+        description: "74HC595 shift register — SHCP/STCP/DS pins drive Q0–Q7 outputs with live bit display.",
         terminals: ["VCC", "GND", "SER", "SRCLK", "RCLK", "OE", "MR", "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7"],
         datasheet: {
           datasheetUrl: "https://www.ti.com/lit/ds/symlink/sn74hc595.pdf",
@@ -881,7 +881,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "CUSTOM_DIGITAL_IC",
         status: "simulated",
         icon: "ASIC",
-        description: "Placeholder for custom digital ICs via API.",
+        description: "Not yet available — planned support for custom digital ICs defined via external API.",
       },
       {
         id: "wasm_ic",
@@ -889,7 +889,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "WASM_IC",
         status: "simulated",
         icon: "WASM",
-        description: "Future WebAssembly-simulated IC placeholder.",
+        description: "Not yet available — planned support for custom ICs defined as WebAssembly modules.",
       },
     ],
   },
@@ -904,7 +904,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "RELAY_MODULE",
         status: "simulated",
         icon: "RELAY",
-        description: "Single-channel relay placeholder.",
+        description: "Relay module — coil activates on IN pin HIGH; COM switches to NO. COM→NC when coil is off.",
         terminals: ["IN", "VCC", "GND", "COM", "NO", "NC"],
       },
       {
@@ -921,7 +921,7 @@ export const COMPONENT_CATEGORIES = [
         workspaceType: "LED_MATRIX",
         status: "simulated",
         icon: "MATRIX",
-        description: "8x8 LED matrix placeholder.",
+        description: "8×8 LED matrix — row/column pin states drive individual LED pixels.",
         terminals: ["ROW0", "ROW1", "ROW2", "ROW3", "ROW4", "ROW5", "ROW6", "ROW7", "COL0", "COL1", "COL2", "COL3", "COL4", "COL5", "COL6", "COL7"],
       },
       {

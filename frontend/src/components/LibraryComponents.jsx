@@ -778,6 +778,57 @@ export const NeopixelRing = ({ id, type, wiredPins }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+// NeoPixel 4×4 matrix
+// ══════════════════════════════════════════════════════════════════════════
+export const NeopixelMatrix = ({ id, wiredPins }) => {
+  const COLS = 4, ROWS = 4, SIZE = COLS * ROWS;
+  const [colors, setColors] = useState(new Array(SIZE).fill('#1e293b'));
+
+  useEffect(() => {
+    if (!id || !wiredPins?.din) return;
+    PeripheralSimulator.registerComponent(id, 'NEOPIXEL', {
+      pin: wiredPins['din'],
+      length: SIZE,
+      onRenderTarget: (buf) => {
+        const c = [];
+        for (let i = 0; i < SIZE; i++) {
+          const g = buf[i * 3], r = buf[i * 3 + 1] ?? 0, b = buf[i * 3 + 2] ?? 0;
+          c.push(r === 0 && g === 0 && b === 0 ? '#1e293b' : `rgb(${r},${g},${b})`);
+        }
+        setColors(c);
+      },
+    });
+    return () => PeripheralSimulator.unregisterComponent(id);
+  }, [id, wiredPins]);
+
+  const CELL = 14;
+  const W = COLS * CELL + 6, H = ROWS * CELL + 22;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={0} y={0} width={W} height={H - 10} rx={4} fill="#111827" stroke="#1e293b" strokeWidth={1.5} />
+      <text x={W / 2} y={11} fill="#334155" fontSize={6} fontWeight="700" textAnchor="middle" fontFamily="monospace">WS2812B 4×4</text>
+      {colors.map((c, i) => {
+        const col = i % COLS, row = Math.floor(i / COLS);
+        const x = 3 + col * CELL + CELL / 2, y = 14 + row * CELL + CELL / 2;
+        const active = c !== '#1e293b';
+        return (
+          <g key={i}>
+            {active && <rect x={3 + col * CELL} y={14 + row * CELL} width={CELL} height={CELL} fill={c} opacity={0.15} />}
+            <circle cx={x} cy={y} r={4.5} fill={active ? c : '#0f172a'} stroke={active ? c : '#1e293b'} strokeWidth={0.5}
+              style={active ? { filter: `drop-shadow(0 0 2px ${c})` } : {}} />
+          </g>
+        );
+      })}
+      {['5V','DIN','GND'].map((l, i) => (
+        <Pin key={i} x={8 + i * (W / 3 - 2)} y={H - 2} label={l}
+          color={i === 0 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
+        />
+      ))}
+    </svg>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════
 // NeoPixel single pixel
 // ══════════════════════════════════════════════════════════════════════════
 export const NeopixelPixel = ({ id, wiredPins }) => {
@@ -1392,17 +1443,46 @@ export const DipSwitch8 = ({ id, wiredPins = {} }) => {
   );
 };
 
-export const SlideSwitch = () => (
-  <svg width={60} height={60} viewBox="0 0 60 60" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={5} y={12} width={50} height={30} rx={6} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
-    <rect x={8} y={15} width={20} height={24} rx={4} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1} />
-    {/* Knurls */}
-    {[18,21,24].map(y => <line key={y} x1={10} y1={y} x2={26} y2={y} stroke="#94a3b8" strokeWidth={1} opacity={0.5} />)}
-    {['1','2','3'].map((l, i) => (
-      <Pin key={i} x={14 + i * 16} y={52} label={l} />
-    ))}
-  </svg>
-);
+export const SlideSwitch = ({ id, wiredPins = {} }) => {
+  // pos=0: pin 1-2 shorted; pos=1: pin 2-3 shorted
+  const [pos, setPos] = useState(0);
+
+  useEffect(() => {
+    // Broadcast position to global so resolveConnection can read it
+    window.__slideSwitchStates = window.__slideSwitchStates || {};
+    window.__slideSwitchStates[id] = pos;
+    // Also drive the common pin (2) high so downstream LEDs see a signal in simple circuits
+    const p2 = wiredPins['2'];
+    if (p2 != null) PeripheralSimulator.setButtonState(String(p2), true);
+  }, [id, pos, wiredPins]);
+
+  return (
+    <svg width={60} height={60} viewBox="0 0 60 60"
+      style={{ display: 'block', overflow: 'visible', cursor: 'pointer', userSelect: 'none' }}
+      onClick={() => setPos(p => 1 - p)}
+    >
+      <rect x={5} y={12} width={50} height={30} rx={6} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
+      <rect x={pos === 0 ? 8 : 32} y={15} width={20} height={24} rx={4}
+        fill="#22d3ee" stroke="#0ea5e9" strokeWidth={1}
+        style={{ transition: 'x 0.12s ease' }}
+      />
+      {[18,21,24].map(y => (
+        <line key={y} x1={pos === 0 ? 10 : 34} y1={y} x2={pos === 0 ? 26 : 50} y2={y}
+          stroke="#0ea5e9" strokeWidth={1} opacity={0.6} />
+      ))}
+      <text x={30} y={10} fill="#64748b" fontSize={6} textAnchor="middle" fontFamily="monospace">
+        {pos === 0 ? '1–2' : '2–3'}
+      </text>
+      {['1','2','3'].map((l, i) => (
+        <Pin key={i} x={14 + i * 16} y={52} label={l}
+          color={
+            (pos === 0 && i < 2) || (pos === 1 && i > 0) ? '#22d3ee' : '#475569'
+          }
+        />
+      ))}
+    </svg>
+  );
+};
 
 export const StepperMotor = ({ pinStates = {} }) => {
   const stepCountRef = useRef(0);
