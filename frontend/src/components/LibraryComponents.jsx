@@ -930,52 +930,107 @@ export const NtcSensor = ({ id, wiredPins = {} }) => {
   );
 };
 
-export const Photoresistor = () => (
-  <svg width={55} height={85} viewBox="0 0 55 85" style={{ display: 'block', overflow: 'visible' }}>
-    <defs>
-      <radialGradient id="ldrGrad" cx="45%" cy="35%" r="55%">
-        <stop offset="0%" stopColor="#fde68a" /><stop offset="100%" stopColor="#f59e0b" />
-      </radialGradient>
-    </defs>
-    <rect x={7} y={22} width={40} height={26} rx={10} fill="url(#ldrGrad)" stroke="#d97706" strokeWidth={1.5} />
-    <path d="M14 35 L19 28 L24 42 L29 28 L34 35 L39 28" stroke="#92400e" strokeWidth={2} fill="none" strokeLinejoin="round" />
-    {/* Light rays */}
-    {[-20,-10,0,10,20].map((offset, i) => (
-      <line key={i} x1={27 + offset} y1={18} x2={27 + offset - 2} y2={10} stroke="#fde68a" strokeWidth={1.5} strokeLinecap="round" opacity={0.7} />
-    ))}
-    <path d="M14 78 C14 60 14 52 20 52" stroke="#94a3b8" strokeWidth={2} fill="none" />
-    <path d="M40 78 C40 60 40 52 34 52" stroke="#94a3b8" strokeWidth={2} fill="none" />
-    <Pin x={14} y={82} label="L1" />
-    <Pin x={40} y={82} label="L2" />
-  </svg>
-);
+export const Photoresistor = ({ id, wiredPins = {} }) => {
+  const [light, setLight] = useState(50);
 
-export const PirSensor = () => (
-  <svg width={80} height={95} viewBox="0 0 80 95" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={5} y={18} width={70} height={62} rx={4} fill="#166534" stroke="#15803d" strokeWidth={1} />
-    <defs>
-      <radialGradient id="pirDome" cx="50%" cy="40%" r="55%">
-        <stop offset="0%" stopColor="#f8fafc" /><stop offset="100%" stopColor="#d1d5db" />
-      </radialGradient>
-    </defs>
-    <circle cx={40} cy={50} r={28} fill="url(#pirDome)" stroke="#94a3b8" strokeWidth={1.5} />
-    {[0,1,2,3].map(i => (
-      <circle key={i} cx={40} cy={50} r={8 + i * 5.5} fill="none" stroke="#94a3b8" strokeWidth={0.5} opacity={0.5} />
-    ))}
-    {[0,1,2,3].map(i => (
-      <line key={i} x1={40} y1={22} x2={40} y2={78} stroke="#94a3b8" strokeWidth={0.5} opacity={0.4}
-        transform={`rotate(${i * 45} 40 50)`} />
-    ))}
-    <circle cx={40} cy={50} r={4.5} fill="#9ca3af" />
-    <circle cx={20} cy={68} r={7} fill="#0f172a" stroke="#374151" strokeWidth={1.5} />
-    <circle cx={60} cy={68} r={7} fill="#0f172a" stroke="#374151" strokeWidth={1.5} />
-    {['VCC','OUT','GND'].map((l, i) => (
-      <Pin key={i} x={18 + i * 22} y={90} label={l}
-        color={i === 0 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+  useEffect(() => {
+    // Resistance drops with more light; push inverse as analog (0=dark, 1=bright)
+    const pin = wiredPins.l1 ?? wiredPins.l2;
+    pushAnalog(pin, light / 100);
+    if (window.setExternalPin) window.setExternalPin(String(pin), light > 50);
+  }, [id, light, wiredPins.l1, wiredPins.l2]);
+
+  const rayOpacity = light / 100;
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={55} height={85} viewBox="0 0 55 85" style={{ display: 'block', overflow: 'visible' }}>
+        <defs>
+          <radialGradient id="ldrGrad" cx="45%" cy="35%" r="55%">
+            <stop offset="0%" stopColor="#fde68a" /><stop offset="100%" stopColor="#f59e0b" />
+          </radialGradient>
+        </defs>
+        <rect x={7} y={22} width={40} height={26} rx={10}
+          fill="url(#ldrGrad)" stroke="#d97706" strokeWidth={1.5} opacity={0.3 + light * 0.007} />
+        <path d="M14 35 L19 28 L24 42 L29 28 L34 35 L39 28" stroke="#92400e" strokeWidth={2} fill="none" strokeLinejoin="round" />
+        {[-20,-10,0,10,20].map((offset, i) => (
+          <line key={i} x1={27 + offset} y1={18} x2={27 + offset - 2} y2={10}
+            stroke="#fde68a" strokeWidth={1.5} strokeLinecap="round" opacity={rayOpacity * 0.9} />
+        ))}
+        <path d="M14 78 C14 60 14 52 20 52" stroke="#94a3b8" strokeWidth={2} fill="none" />
+        <path d="M40 78 C40 60 40 52 34 52" stroke="#94a3b8" strokeWidth={2} fill="none" />
+        <Pin x={14} y={82} label="L1" />
+        <Pin x={40} y={82} label="L2" />
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="☀" value={light} min={0} max={100} step={1} unit="%" color="#fde68a" onChange={setLight} />
+      </div>
+    </div>
+  );
+};
+
+export const PirSensor = ({ id, wiredPins = {} }) => {
+  const [detected, setDetected] = useState(false);
+  const timerRef = useRef(null);
+
+  const triggerMotion = useCallback(() => {
+    const pin = wiredPins.out;
+    if (pin == null) return;
+    setDetected(true);
+    PeripheralSimulator.setButtonState(String(pin), true);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setDetected(false);
+      PeripheralSimulator.setButtonState(String(pin), false);
+    }, 2000);
+  }, [wiredPins.out]);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={80} height={95} viewBox="0 0 80 95" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={5} y={18} width={70} height={62} rx={4}
+          fill={detected ? '#14532d' : '#166534'} stroke={detected ? '#22c55e' : '#15803d'} strokeWidth={1} />
+        <defs>
+          <radialGradient id="pirDome" cx="50%" cy="40%" r="55%">
+            <stop offset="0%" stopColor="#f8fafc" /><stop offset="100%" stopColor="#d1d5db" />
+          </radialGradient>
+        </defs>
+        <circle cx={40} cy={50} r={28} fill="url(#pirDome)" stroke="#94a3b8" strokeWidth={1.5} />
+        {[0,1,2,3].map(i => (
+          <circle key={i} cx={40} cy={50} r={8 + i * 5.5} fill="none"
+            stroke={detected ? '#22c55e' : '#94a3b8'} strokeWidth={0.5} opacity={detected ? 0.8 : 0.5} />
+        ))}
+        {[0,1,2,3].map(i => (
+          <line key={i} x1={40} y1={22} x2={40} y2={78} stroke="#94a3b8" strokeWidth={0.5} opacity={0.4}
+            transform={`rotate(${i * 45} 40 50)`} />
+        ))}
+        <circle cx={40} cy={50} r={4.5} fill={detected ? '#22c55e' : '#9ca3af'} />
+        <circle cx={20} cy={68} r={7} fill="#0f172a" stroke="#374151" strokeWidth={1.5} />
+        <circle cx={60} cy={68} r={7} fill="#0f172a" stroke="#374151" strokeWidth={1.5} />
+        {['VCC','OUT','GND'].map((l, i) => (
+          <Pin key={i} x={18 + i * 22} y={90} label={l}
+            color={i === 0 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={{ ...SENSOR_PANEL, textAlign: 'center' }}>
+        <button
+          onClick={triggerMotion}
+          style={{
+            background: detected ? '#14532d' : '#1e293b',
+            color: detected ? '#22c55e' : '#94a3b8',
+            border: `1px solid ${detected ? '#22c55e' : '#334155'}`,
+            borderRadius: 3, padding: '2px 10px', fontSize: 8,
+            fontFamily: 'monospace', cursor: 'pointer',
+          }}
+        >
+          {detected ? 'MOTION — HIGH for 2s' : 'Trigger motion'}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const Mpu6050 = () => (
   <svg width={90} height={70} viewBox="0 0 90 70" style={{ display: 'block', overflow: 'visible' }}>
@@ -995,74 +1050,145 @@ export const Mpu6050 = () => (
   </svg>
 );
 
-export const HcSr04 = () => (
-  <svg width={118} height={70} viewBox="0 0 118 70" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={0} width={118} height={55} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
-    <defs>
-      <radialGradient id="transducerGrad" cx="45%" cy="35%" r="55%">
-        <stop offset="0%" stopColor="#e2e8f0" /><stop offset="100%" stopColor="#94a3b8" />
-      </radialGradient>
-    </defs>
-    {[32, 86].map(cx => (
-      <g key={cx}>
-        <circle cx={cx} cy={27} r={20} fill="url(#transducerGrad)" stroke="#64748b" strokeWidth={1.5} />
-        <circle cx={cx} cy={27} r={10} fill="#475569" />
-        <circle cx={cx} cy={27} r={4} fill="#94a3b8" />
-      </g>
-    ))}
-    {/* Ripple waves */}
-    <path d="M46 16 Q54 27 46 38" stroke="white" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.35} />
-    <path d="M72 16 Q64 27 72 38" stroke="white" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.35} />
-    {/* HC-SR04 label */}
-    <text x={59} y={52} fill="#93c5fd" fontSize={7} fontWeight="700" textAnchor="middle">HC-SR04</text>
-    {['VCC','TRIG','ECHO','GND'].map((l, i) => (
-      <Pin key={i} x={15 + i * 28} y={65} label={l}
-        color={i === 0 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+export const HcSr04 = ({ id, pinStates = {}, wiredPins = {} }) => {
+  const [distance, setDistance] = useState(20);
+  const prevTrigRef = useRef(false);
+  const [pinging, setPinging] = useState(false);
 
-export const FlameSensor = () => (
-  <svg width={75} height={95} viewBox="0 0 75 95" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={22} width={75} height={60} rx={4} fill="#7e22ce" stroke="#9333ea" strokeWidth={1} />
-    <path d="M57 18 C57 18, 49 28, 49 33 C49 36.5, 51.5 38 55 38 C55 38, 51 34, 54 30 C54 30, 56 36, 59 34 C62 32, 62 28, 60 23 C59 21, 57 18, 57 18 Z"
-      fill="#f97316" />
-    <path d="M57 24 C57 24, 53 30, 53 33 C53 35, 55 37, 57 37 C59 37, 60 35, 60 33 C60 30, 57 24, 57 24 Z"
-      fill="#fbbf24" />
-    <circle cx={57} cy={35} r={2} fill="#fef3c7" />
-    <text x={37} y={56} fill="white" fontSize={9} fontWeight="800" textAnchor="middle">FLAME</text>
-    <text x={37} y={68} fill="#c4b5fd" fontSize={7} textAnchor="middle">IR Sensor</text>
-    {['AOUT','DOUT','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={10 + i * 18} y={90} label={l}
-        color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#a78bfa'}
-      />
-    ))}
-  </svg>
-);
+  useEffect(() => {
+    const trig = !!pinStates['trig'];
+    if (trig && !prevTrigRef.current) {
+      // Rising edge of TRIG: fire ECHO pulse proportional to distance
+      const echoPin = String(wiredPins.echo);
+      const echoDurationMs = (distance * 58.2) / 1000;
+      setPinging(true);
+      if (window.setExternalPin) {
+        window.setExternalPin(echoPin, true);
+        setTimeout(() => {
+          window.setExternalPin(echoPin, false);
+          setPinging(false);
+        }, echoDurationMs);
+      }
+    }
+    prevTrigRef.current = trig;
+  });
 
-export const GasSensor = () => (
-  <svg width={85} height={105} viewBox="0 0 85 105" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={32} width={85} height={60} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1} />
-    {/* MQ sensor element */}
-    <rect x={20} y={5} width={45} height={30} rx={3} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
-    {[6,11,16,21,26].map(x => (
-      <line key={x} x1={20 + x} y1={5} x2={20 + x} y2={35} stroke="#94a3b8" strokeWidth={0.8} />
-    ))}
-    {[8,14,20,26].map(y => (
-      <line key={y} x1={20} y1={y} x2={65} y2={y} stroke="#94a3b8" strokeWidth={0.8} />
-    ))}
-    {/* Heating element */}
-    <circle cx={42} cy={20} r={8} fill="#dc2626" opacity={0.7} />
-    <circle cx={42} cy={20} r={4} fill="#fca5a5" opacity={0.8} />
-    <text x={42} y={70} fill="white" fontSize={11} fontWeight="800" textAnchor="middle">MQ-2</text>
-    {['AOUT','DOUT','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={12 + i * 20} y={100} label={l}
-        color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={118} height={70} viewBox="0 0 118 70" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={0} y={0} width={118} height={55} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
+        <defs>
+          <radialGradient id="transducerGrad" cx="45%" cy="35%" r="55%">
+            <stop offset="0%" stopColor="#e2e8f0" /><stop offset="100%" stopColor="#94a3b8" />
+          </radialGradient>
+        </defs>
+        {[32, 86].map(tcx => (
+          <g key={tcx}>
+            <circle cx={tcx} cy={27} r={20} fill="url(#transducerGrad)" stroke="#64748b" strokeWidth={1.5} />
+            <circle cx={tcx} cy={27} r={10} fill="#475569" />
+            <circle cx={tcx} cy={27} r={4} fill="#94a3b8" />
+          </g>
+        ))}
+        {pinging && [1,2,3].map(r => (
+          <path key={r} d={`M${46 + r*4} ${16-r*2} Q59 27 ${46+r*4} ${38+r*2}`}
+            stroke="#22d3ee" strokeWidth={1.5 - r*0.3} fill="none" strokeLinecap="round" opacity={1 - r*0.25} />
+        ))}
+        {!pinging && (
+          <>
+            <path d="M46 16 Q54 27 46 38" stroke="white" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.35} />
+            <path d="M72 16 Q64 27 72 38" stroke="white" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.35} />
+          </>
+        )}
+        <text x={59} y={48} fill="#93c5fd" fontSize={7} fontWeight="700" textAnchor="middle">HC-SR04</text>
+        <text x={59} y={54} fill={pinging ? '#22d3ee' : '#64748b'} fontSize={6} textAnchor="middle" fontFamily="monospace">
+          {pinging ? `ECHO ${distance}cm` : `${distance}cm`}
+        </text>
+        {['VCC','TRIG','ECHO','GND'].map((l, i) => (
+          <Pin key={i} x={15 + i * 28} y={65} label={l}
+            color={i === 0 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="d" value={distance} min={2} max={400} step={1} unit="cm" color="#22d3ee" onChange={setDistance} />
+      </div>
+    </div>
+  );
+};
+
+export const FlameSensor = ({ id, wiredPins = {} }) => {
+  const [intensity, setIntensity] = useState(0);
+  const above = intensity > 50;
+
+  useEffect(() => {
+    pushAnalog(wiredPins.aout, intensity / 100);
+    PeripheralSimulator.setButtonState(String(wiredPins.dout), above);
+  }, [id, intensity, wiredPins.aout, wiredPins.dout, above]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={75} height={95} viewBox="0 0 75 95" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={0} y={22} width={75} height={60} rx={4} fill="#7e22ce" stroke="#9333ea" strokeWidth={1} />
+        <path d="M57 18 C57 18, 49 28, 49 33 C49 36.5, 51.5 38 55 38 C55 38, 51 34, 54 30 C54 30, 56 36, 59 34 C62 32, 62 28, 60 23 C59 21, 57 18, 57 18 Z"
+          fill={intensity > 0 ? '#f97316' : '#78350f'} opacity={0.4 + intensity * 0.006} />
+        <path d="M57 24 C57 24, 53 30, 53 33 C53 35, 55 37, 57 37 C59 37, 60 35, 60 33 C60 30, 57 24, 57 24 Z"
+          fill={intensity > 0 ? '#fbbf24' : '#92400e'} opacity={0.4 + intensity * 0.006} />
+        <circle cx={57} cy={35} r={2} fill={intensity > 20 ? '#fef3c7' : '#475569'} />
+        <text x={37} y={56} fill="white" fontSize={9} fontWeight="800" textAnchor="middle">FLAME</text>
+        <text x={37} y={68} fill={above ? '#f97316' : '#c4b5fd'} fontSize={7} textAnchor="middle">
+          {above ? 'DOUT HIGH' : 'IR Sensor'}
+        </text>
+        {['AOUT','DOUT','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={10 + i * 18} y={90} label={l}
+            color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#a78bfa'}
+          />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="~" value={intensity} min={0} max={100} step={1} unit="%" color="#f97316" onChange={setIntensity} />
+      </div>
+    </div>
+  );
+};
+
+export const GasSensor = ({ id, wiredPins = {} }) => {
+  const [ppm, setPpm] = useState(0);
+  const above = ppm > 50;
+
+  useEffect(() => {
+    pushAnalog(wiredPins.aout, ppm / 100);
+    PeripheralSimulator.setButtonState(String(wiredPins.dout), above);
+  }, [id, ppm, wiredPins.aout, wiredPins.dout, above]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={85} height={105} viewBox="0 0 85 105" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={0} y={32} width={85} height={60} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1} />
+        <rect x={20} y={5} width={45} height={30} rx={3} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
+        {[6,11,16,21,26].map(x => (
+          <line key={x} x1={20 + x} y1={5} x2={20 + x} y2={35} stroke="#94a3b8" strokeWidth={0.8} />
+        ))}
+        {[8,14,20,26].map(y => (
+          <line key={y} x1={20} y1={y} x2={65} y2={y} stroke="#94a3b8" strokeWidth={0.8} />
+        ))}
+        <circle cx={42} cy={20} r={8} fill="#dc2626" opacity={0.4 + ppm * 0.006} />
+        <circle cx={42} cy={20} r={4} fill="#fca5a5" opacity={0.4 + ppm * 0.006} />
+        <text x={42} y={70} fill={above ? '#ef4444' : 'white'} fontSize={11} fontWeight="800" textAnchor="middle">MQ-2</text>
+        <text x={42} y={82} fill={above ? '#ef4444' : '#64748b'} fontSize={7} textAnchor="middle">
+          {above ? 'DOUT HIGH' : `${ppm}%`}
+        </text>
+        {['AOUT','DOUT','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={12 + i * 20} y={100} label={l}
+            color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="~" value={ppm} min={0} max={100} step={1} unit="%" color="#ef4444" onChange={setPpm} />
+      </div>
+    </div>
+  );
+};
 
 export const HeartbeatSensor = () => (
   <svg width={75} height={95} viewBox="0 0 75 95" style={{ display: 'block', overflow: 'visible' }}>
@@ -1081,25 +1207,46 @@ export const HeartbeatSensor = () => (
   </svg>
 );
 
-export const SoundSensor = () => (
-  <svg width={80} height={95} viewBox="0 0 80 95" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={22} width={80} height={60} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
-    {/* Microphone capsule */}
-    <circle cx={18} cy={14} r={12} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
-    <circle cx={18} cy={14} r={7} fill="#1e293b" />
-    {/* Mesh pattern */}
-    {[0,1,2].map(r => [0,1,2].map(c => (
-      <circle key={`${r}${c}`} cx={13 + c * 5} cy={9 + r * 5} r={1} fill="#374151" />
-    )))}
-    <text x={50} y={54} fill="white" fontSize={10} fontWeight="800" textAnchor="middle">SOUND</text>
-    <text x={50} y={66} fill="#93c5fd" fontSize={7} textAnchor="middle">Microphone</text>
-    {['AOUT','DOUT','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={11 + i * 19} y={90} label={l}
-        color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+export const SoundSensor = ({ id, wiredPins = {} }) => {
+  const [level, setLevel] = useState(0);
+  const above = level > 50;
+
+  useEffect(() => {
+    pushAnalog(wiredPins.aout, level / 100);
+    PeripheralSimulator.setButtonState(String(wiredPins.dout), above);
+  }, [id, level, wiredPins.aout, wiredPins.dout, above]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={80} height={95} viewBox="0 0 80 95" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={0} y={22} width={80} height={60} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
+        <circle cx={18} cy={14} r={12} fill="#475569" stroke="#64748b" strokeWidth={1.5} />
+        <circle cx={18} cy={14} r={7} fill="#1e293b" />
+        {[0,1,2].map(r => [0,1,2].map(c => (
+          <circle key={`${r}${c}`} cx={13 + c * 5} cy={9 + r * 5} r={1} fill="#374151" />
+        )))}
+        {/* Sound wave bars */}
+        {[0,1,2,3].map(i => (
+          <rect key={i} x={35 + i * 8} y={42 - level * 0.1 * (i % 2 === 0 ? 1 : 0.6)} width={5}
+            height={level * 0.1 * (i % 2 === 0 ? 1 : 0.6) * 2 + 4}
+            fill={above ? '#22c55e' : '#3b82f6'} rx={2} opacity={0.8} />
+        ))}
+        <text x={50} y={76} fill="white" fontSize={10} fontWeight="800" textAnchor="middle">SOUND</text>
+        <text x={50} y={84} fill={above ? '#22c55e' : '#93c5fd'} fontSize={7} textAnchor="middle">
+          {above ? 'DOUT HIGH' : 'Microphone'}
+        </text>
+        {['AOUT','DOUT','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={11 + i * 19} y={90} label={l}
+            color={i === 2 ? '#facc15' : i === 3 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="~" value={level} min={0} max={100} step={1} unit="%" color="#3b82f6" onChange={setLevel} />
+      </div>
+    </div>
+  );
+};
 
 export const LoadCellHx711 = () => (
   <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>
@@ -1116,63 +1263,134 @@ export const LoadCellHx711 = () => (
   </svg>
 );
 
-export const RotaryEncoder = () => (
-  <svg width={70} height={95} viewBox="0 0 70 95" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={5} y={26} width={60} height={56} rx={4} fill="#334155" stroke="#475569" strokeWidth={1.5} />
-    {/* Encoder disc */}
-    <circle cx={35} cy={22} r={18} fill="#94a3b8" stroke="#64748b" strokeWidth={1.5} />
-    {/* Knurled edge */}
-    {Array.from({ length: 24 }).map((_, i) => {
-      const a = (i / 24) * Math.PI * 2;
-      return (
-        <line key={i}
-          x1={35 + 16 * Math.cos(a)} y1={22 + 16 * Math.sin(a)}
-          x2={35 + 19 * Math.cos(a)} y2={22 + 19 * Math.sin(a)}
-          stroke="#64748b" strokeWidth={1} />
-      );
-    })}
-    <circle cx={35} cy={22} r={10} fill="#cbd5e1" />
-    <circle cx={35} cy={22} r={4} fill="#475569" />
-    <line x1={35} y1={22} x2={35} y2={14} stroke="#1e293b" strokeWidth={3} strokeLinecap="round" />
-    {['CLK','DT','SW','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={10 + i * 12} y={90} label={l}
-        color={i === 3 ? '#facc15' : i === 4 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+export const RotaryEncoder = ({ id, wiredPins = {} }) => {
+  const [count, setCount] = useState(0);
+  const [angle, setAngle] = useState(0);
 
-export const AnalogJoystick = () => (
-  <svg width={90} height={100} viewBox="0 0 90 100" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={18} width={90} height={68} rx={4} fill="#166534" stroke="#15803d" strokeWidth={1} />
-    <circle cx={45} cy={52} r={28} fill="#0f172a" stroke="#1e293b" strokeWidth={1.5} />
-    <circle cx={45} cy={52} r={18} fill="#374151" stroke="#475569" strokeWidth={1} />
-    <circle cx={45} cy={52} r={8} fill="#94a3b8" />
-    <circle cx={41} cy={48} r={3} fill="#cbd5e1" opacity={0.4} />
-    {['VRX','VRY','SW','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={10 + i * 17} y={96} label={l}
-        color={i === 3 ? '#facc15' : i === 4 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+  const pulse = useCallback((cw) => {
+    const clkPin = String(wiredPins.clk);
+    const dtPin = String(wiredPins.dt);
+    if (!wiredPins.clk && !wiredPins.dt) return;
+    // CW: CLK falls first; CCW: DT falls first
+    if (cw) {
+      PeripheralSimulator.setButtonState(dtPin, true);
+      PeripheralSimulator.setButtonState(clkPin, false);
+      setTimeout(() => PeripheralSimulator.setButtonState(clkPin, true), 5);
+    } else {
+      PeripheralSimulator.setButtonState(clkPin, true);
+      PeripheralSimulator.setButtonState(dtPin, false);
+      setTimeout(() => {
+        PeripheralSimulator.setButtonState(clkPin, false);
+        setTimeout(() => {
+          PeripheralSimulator.setButtonState(clkPin, true);
+          PeripheralSimulator.setButtonState(dtPin, true);
+        }, 5);
+      }, 5);
+    }
+    setCount(c => c + (cw ? 1 : -1));
+    setAngle(a => a + (cw ? 15 : -15));
+  }, [wiredPins.clk, wiredPins.dt]);
 
-export const DipSwitch8 = () => (
-  <svg width={120} height={70} viewBox="0 0 120 70" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={0} width={120} height={50} rx={4} fill="#b91c1c" stroke="#ef4444" strokeWidth={1} />
-    {/* Labels */}
-    <text x={60} y={10} fill="white" fontSize={7} fontWeight="700" textAnchor="middle">DIP-8</text>
-    {[1,2,3,4,5,6,7,8].map(i => (
-      <g key={i}>
-        <rect x={i * 11 - 4} y={12} width={8} height={22} rx={2} fill="#f8fafc" stroke="#e2e8f0" strokeWidth={0.5} />
-        {/* Slider thumb — half off for some */}
-        <rect x={i * 11 - 4} y={i % 2 === 0 ? 12 : 23} width={8} height={10} rx={1.5} fill={i % 2 === 0 ? '#dc2626' : '#e2e8f0'} />
-        <text x={i * 11} y={44} fill="white" fontSize={7} textAnchor="middle">{i}</text>
-      </g>
-    ))}
-    <Pin x={110} y={60} label="COM" color="#f59e0b" />
-  </svg>
-);
+  const markerX = 35 + 10 * Math.sin((angle * Math.PI) / 180);
+  const markerY = 22 - 10 * Math.cos((angle * Math.PI) / 180);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={70} height={95} viewBox="0 0 70 95" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={5} y={26} width={60} height={56} rx={4} fill="#334155" stroke="#475569" strokeWidth={1.5} />
+        <circle cx={35} cy={22} r={18} fill="#94a3b8" stroke="#64748b" strokeWidth={1.5} />
+        {Array.from({ length: 24 }).map((_, i) => {
+          const a = (i / 24) * Math.PI * 2;
+          return (
+            <line key={i}
+              x1={35 + 16 * Math.cos(a)} y1={22 + 16 * Math.sin(a)}
+              x2={35 + 19 * Math.cos(a)} y2={22 + 19 * Math.sin(a)}
+              stroke="#64748b" strokeWidth={1} />
+          );
+        })}
+        <circle cx={35} cy={22} r={10} fill="#cbd5e1" />
+        <circle cx={35} cy={22} r={4} fill="#475569" />
+        <line x1={35} y1={22} x2={markerX} y2={markerY} stroke="#1e293b" strokeWidth={3} strokeLinecap="round" />
+        <text x={35} y={55} fill="#22d3ee" fontSize={8} fontWeight="700" textAnchor="middle" fontFamily="monospace">{count}</text>
+        {['CLK','DT','SW','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={10 + i * 12} y={90} label={l}
+            color={i === 3 ? '#facc15' : i === 4 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={{ ...SENSOR_PANEL, flexDirection: 'row', gap: 6, justifyContent: 'center' }}>
+        <button onClick={() => pulse(false)} style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: 3, padding: '2px 8px', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }}>{'<< CCW'}</button>
+        <button onClick={() => pulse(true)}  style={{ background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: 3, padding: '2px 8px', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }}>{'CW >>'}</button>
+      </div>
+    </div>
+  );
+};
+
+export const AnalogJoystick = ({ id, wiredPins = {} }) => {
+  const [vrx, setVrx] = useState(50);
+  const [vry, setVry] = useState(50);
+
+  useEffect(() => {
+    pushAnalog(wiredPins.vrx, vrx / 100);
+    pushAnalog(wiredPins.vry, vry / 100);
+  }, [id, vrx, vry, wiredPins.vrx, wiredPins.vry]);
+
+  const stickX = 45 + (vrx - 50) * 0.28;
+  const stickY = 52 + (vry - 50) * 0.28;
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={90} height={100} viewBox="0 0 90 100" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={0} y={18} width={90} height={68} rx={4} fill="#166534" stroke="#15803d" strokeWidth={1} />
+        <circle cx={45} cy={52} r={28} fill="#0f172a" stroke="#1e293b" strokeWidth={1.5} />
+        <circle cx={45} cy={52} r={18} fill="#374151" stroke="#475569" strokeWidth={1} />
+        <circle cx={stickX} cy={stickY} r={8} fill="#94a3b8" />
+        <circle cx={stickX - 2} cy={stickY - 2} r={3} fill="#cbd5e1" opacity={0.4} />
+        {['VRX','VRY','SW','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={10 + i * 17} y={96} label={l}
+            color={i === 3 ? '#facc15' : i === 4 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={SENSOR_PANEL}>
+        <SliderRow label="X" value={vrx} min={0} max={100} step={1} unit="%" color="#22d3ee" onChange={setVrx} />
+        <SliderRow label="Y" value={vry} min={0} max={100} step={1} unit="%" color="#a78bfa" onChange={setVry} />
+      </div>
+    </div>
+  );
+};
+
+export const DipSwitch8 = ({ id, wiredPins = {} }) => {
+  const [states, setStates] = useState(Array(8).fill(false));
+
+  const toggle = useCallback((i) => {
+    setStates(prev => {
+      const next = [...prev];
+      next[i] = !next[i];
+      const pin = wiredPins[String(i + 1)];
+      PeripheralSimulator.setButtonState(String(pin), next[i]);
+      return next;
+    });
+  }, [wiredPins]);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={120} height={70} viewBox="0 0 120 70" style={{ display: 'block', overflow: 'visible', cursor: 'pointer' }}>
+        <rect x={0} y={0} width={120} height={50} rx={4} fill="#b91c1c" stroke="#ef4444" strokeWidth={1} />
+        <text x={60} y={10} fill="white" fontSize={7} fontWeight="700" textAnchor="middle">DIP-8</text>
+        {[0,1,2,3,4,5,6,7].map(i => (
+          <g key={i} onClick={() => toggle(i)} style={{ cursor: 'pointer' }}>
+            <rect x={8 + i * 13} y={12} width={10} height={22} rx={2} fill="#f8fafc" stroke="#e2e8f0" strokeWidth={0.5} />
+            <rect x={8 + i * 13} y={states[i] ? 12 : 24} width={10} height={10} rx={1.5}
+              fill={states[i] ? '#dc2626' : '#e2e8f0'} />
+            <text x={13 + i * 13} y={45} fill="white" fontSize={7} textAnchor="middle">{i + 1}</text>
+          </g>
+        ))}
+        <Pin x={110} y={60} label="COM" color="#f59e0b" />
+      </svg>
+    </div>
+  );
+};
 
 export const SlideSwitch = () => (
   <svg width={60} height={60} viewBox="0 0 60 60" style={{ display: 'block', overflow: 'visible' }}>
@@ -1186,59 +1404,170 @@ export const SlideSwitch = () => (
   </svg>
 );
 
-export const StepperMotor = () => (
-  <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>
-    <defs>
-      <radialGradient id="stepperGrad" cx="45%" cy="35%" r="55%">
-        <stop offset="0%" stopColor="#e2e8f0" /><stop offset="100%" stopColor="#94a3b8" />
-      </radialGradient>
-    </defs>
-    <circle cx={47} cy={43} r={40} fill="url(#stepperGrad)" stroke="#94a3b8" strokeWidth={2} />
-    {/* Stator slots */}
-    {Array.from({ length: 12 }).map((_, i) => {
-      const a = (i / 12) * Math.PI * 2;
-      return (
-        <line key={i}
-          x1={47 + 28 * Math.cos(a)} y1={43 + 28 * Math.sin(a)}
-          x2={47 + 38 * Math.cos(a)} y2={43 + 38 * Math.sin(a)}
-          stroke="#64748b" strokeWidth={2} />
-      );
-    })}
-    <circle cx={47} cy={43} r={18} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1.5} />
-    <circle cx={47} cy={43} r={5} fill="#475569" />
-    <rect x={15} y={80} width={65} height={5} fill="#0ea5e9" rx={2} />
-    {['A+','A-','B+','B-'].map((l, i) => (
-      <Pin key={i} x={20 + i * 18} y={90} label={l} color="#f59e0b" />
-    ))}
-  </svg>
-);
+export const StepperMotor = ({ pinStates = {} }) => {
+  const stepCountRef = useRef(0);
+  const prevStateRef = useRef({ aPlus: false, aMinus: false, bPlus: false, bMinus: false });
+  const [angle, setAngle] = useState(0);
 
-export const IrReceiver = () => (
-  <svg width={55} height={75} viewBox="0 0 55 75" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={10} y={14} width={35} height={44} rx={18} fill="#111827" stroke="#1e293b" strokeWidth={1.5} />
-    <circle cx={27} cy={30} r={10} fill="#1e293b" stroke="#334155" strokeWidth={1} />
-    <circle cx={27} cy={30} r={5} fill="#374151" />
-    <circle cx={25} cy={28} r={2} fill="#475569" opacity={0.6} />
-    {['OUT','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={12 + i * 15} y={70} label={l}
-        color={i === 1 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+  useEffect(() => {
+    const aPlus  = !!pinStates['a+'];
+    const aMinus = !!pinStates['a-'];
+    const bPlus  = !!pinStates['b+'];
+    const bMinus = !!pinStates['b-'];
+    const prev = prevStateRef.current;
+    // Detect step: any coil transition counts as a step
+    if (aPlus !== prev.aPlus || bPlus !== prev.bPlus) {
+      const cw = (aPlus && !bPlus) || (!aPlus && bPlus && aMinus);
+      stepCountRef.current += cw ? 1 : -1;
+      setAngle(stepCountRef.current * (360 / 200)); // 200 steps/rev (1.8°/step)
+    }
+    prevStateRef.current = { aPlus, aMinus, bPlus, bMinus };
+  });
 
-export const IrRemote = () => (
-  <svg width={80} height={135} viewBox="0 0 80 135" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={5} y={5} width={70} height={125} rx={12} fill="#111827" stroke="#1e293b" strokeWidth={1.5} />
-    <circle cx={40} cy={20} r={8} fill="#ef4444" stroke="#dc2626" strokeWidth={1} />
-    {[35,58,80,102].map(y =>
-      [18, 35, 52].map(x => (
-        <rect key={`${x}${y}`} x={x} y={y} width={14} height={12} rx={3}
-          fill="#1e293b" stroke="#334155" strokeWidth={0.8} />
-      ))
-    )}
-  </svg>
-);
+  const coilA = !!pinStates['a+'] || !!pinStates['a-'];
+  const coilB = !!pinStates['b+'] || !!pinStates['b-'];
+  const markerAngle = (angle * Math.PI) / 180;
+
+  return (
+    <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>
+      <defs>
+        <radialGradient id="stepperGrad" cx="45%" cy="35%" r="55%">
+          <stop offset="0%" stopColor="#e2e8f0" /><stop offset="100%" stopColor="#94a3b8" />
+        </radialGradient>
+      </defs>
+      <circle cx={47} cy={43} r={40} fill="url(#stepperGrad)" stroke="#94a3b8" strokeWidth={2} />
+      {Array.from({ length: 12 }).map((_, i) => {
+        const a = (i / 12) * Math.PI * 2;
+        const isCoilA = i % 3 === 0;
+        const active = isCoilA ? coilA : coilB;
+        return (
+          <line key={i}
+            x1={47 + 28 * Math.cos(a)} y1={43 + 28 * Math.sin(a)}
+            x2={47 + 38 * Math.cos(a)} y2={43 + 38 * Math.sin(a)}
+            stroke={active ? '#f59e0b' : '#64748b'} strokeWidth={active ? 3 : 2} />
+        );
+      })}
+      <circle cx={47} cy={43} r={18} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1.5} />
+      <circle cx={47} cy={43} r={5} fill="#475569" />
+      {/* Rotor position marker */}
+      <line
+        x1={47} y1={43}
+        x2={47 + 14 * Math.sin(markerAngle)}
+        y2={43 - 14 * Math.cos(markerAngle)}
+        stroke="#0ea5e9" strokeWidth={3} strokeLinecap="round" />
+      <text x={47} y={88} fill="#94a3b8" fontSize={6.5} textAnchor="middle" fontFamily="monospace">
+        {((((angle % 360) + 360) % 360)).toFixed(1)}°
+      </text>
+      <rect x={15} y={80} width={65} height={5} fill={coilA || coilB ? '#0ea5e9' : '#1e293b'} rx={2} />
+      {['A+','A-','B+','B-'].map((l, i) => (
+        <Pin key={i} x={20 + i * 18} y={90} label={l} color="#f59e0b" />
+      ))}
+    </svg>
+  );
+};
+
+// Shared IR global — IrRemote fires, IrReceiver listens
+function irBroadcast(code, label) {
+  window.__irLastCode = code;
+  window.__irLastLabel = label;
+  window.__irPulseTime = Date.now();
+}
+
+export const IrReceiver = ({ id, wiredPins = {} }) => {
+  const [lastCode, setLastCode] = useState(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (window.__irPulseTime && Date.now() - window.__irPulseTime < 150) return;
+      if (!window.__irLastCode) return;
+      const code = window.__irLastCode;
+      const label = window.__irLastLabel;
+      window.__irLastCode = null;
+      window.__irPulseTime = 0;
+      const pin = wiredPins.out;
+      setLastCode(`0x${code.toString(16).toUpperCase().padStart(8,'0')} (${label})`);
+      setActive(true);
+      if (pin != null) {
+        PeripheralSimulator.setButtonState(String(pin), true);
+        setTimeout(() => {
+          PeripheralSimulator.setButtonState(String(pin), false);
+          setActive(false);
+        }, 120);
+      } else {
+        setTimeout(() => setActive(false), 300);
+      }
+    }, 20);
+    return () => clearInterval(interval);
+  }, [wiredPins.out]);
+
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <svg width={55} height={75} viewBox="0 0 55 75" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={10} y={14} width={35} height={44} rx={18}
+          fill="#111827" stroke={active ? '#f59e0b' : '#1e293b'} strokeWidth={1.5} />
+        <circle cx={27} cy={30} r={10} fill={active ? '#1e293b' : '#1e293b'} stroke="#334155" strokeWidth={1} />
+        <circle cx={27} cy={30} r={5} fill={active ? '#f59e0b' : '#374151'}
+          style={active ? { filter: 'drop-shadow(0 0 4px #f59e0b)' } : {}} />
+        <circle cx={25} cy={28} r={2} fill="#475569" opacity={0.6} />
+        {['OUT','VCC','GND'].map((l, i) => (
+          <Pin key={i} x={12 + i * 15} y={70} label={l}
+            color={i === 1 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
+          />
+        ))}
+      </svg>
+      <div style={{ ...SENSOR_PANEL, minWidth: 55 }}>
+        <span style={{ color: active ? '#f59e0b' : '#475569', fontSize: 7, fontFamily: 'monospace', display: 'block', textAlign: 'center' }}>
+          {lastCode ?? 'awaiting signal'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const IR_BUTTONS = [
+  ['CH-', 0xFFA25D], ['CH',  0xFF629D], ['CH+', 0xFFE21D],
+  ['|<<', 0xFF22DD], ['>>|', 0xFF02FD], ['>||', 0xFFC23D],
+  ['-',   0xFFE01F], ['+',   0xFFA857], ['EQ',  0xFF906F],
+  ['0',   0xFF6897], ['100+',0xFF9867], ['200+',0xFFB04F],
+  ['1',   0xFF30CF], ['2',   0xFF18E7], ['3',   0xFF7A85],
+  ['4',   0xFF10EF], ['5',   0xFF38C7], ['6',   0xFF5AA5],
+  ['7',   0xFF42BD], ['8',   0xFF4AB5], ['9',   0xFF52AD],
+];
+
+export const IrRemote = () => {
+  const [pressed, setPressed] = useState(null);
+
+  const handlePress = useCallback((label, code) => {
+    irBroadcast(code, label);
+    setPressed(label);
+    setTimeout(() => setPressed(null), 200);
+  }, []);
+
+  return (
+    <div style={{ display: 'inline-block', userSelect: 'none' }}>
+      <svg width={80} height={28} viewBox="0 0 80 28" style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={5} y={0} width={70} height={24} rx={8} fill="#111827" stroke="#1e293b" strokeWidth={1.5} />
+        <circle cx={40} cy={12} r={7} fill="#ef4444" stroke="#dc2626" strokeWidth={1} />
+        <text x={40} y={16} fill="white" fontSize={7} fontWeight="800" textAnchor="middle">IR</text>
+      </svg>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, marginTop: 2 }}>
+        {IR_BUTTONS.map(([label, code]) => (
+          <button key={label}
+            onMouseDown={() => handlePress(label, code)}
+            style={{
+              background: pressed === label ? '#78350f' : '#1e293b',
+              color: pressed === label ? '#f59e0b' : '#94a3b8',
+              border: `1px solid ${pressed === label ? '#f59e0b' : '#334155'}`,
+              borderRadius: 3, padding: '3px 0', fontSize: 8,
+              fontFamily: 'monospace', cursor: 'pointer', minWidth: 24,
+            }}
+          >{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export const Ds1307Rtc = () => (
   <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>
@@ -1282,50 +1611,73 @@ export const MicroSdModule = () => (
   </svg>
 );
 
-export const ShiftRegister = () => (
-  <svg width={110} height={115} viewBox="0 0 110 115" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={22} y={10} width={66} height={95} rx={4} fill="#0f172a" stroke="#1e293b" strokeWidth={1.5} />
-    {/* Notch */}
-    <rect x={44} y={10} width={22} height={8} rx={4} fill="#1e293b" />
-    <text x={55} y={62} fill="white" fontSize={9} fontWeight="700" textAnchor="middle" transform="rotate(-90 55 62)">74HC595</text>
-    {['VCC','Q0','DS','OE','STCP','SHCP','MR','Q7\''].map((l, i) => (
-      <Pin key={i} x={12} y={18 + i * 10} label={l}
-        color={i === 0 ? '#facc15' : '#22d3ee'}
-      />
-    ))}
-    {['Q7','Q6','Q5','Q4','Q3','Q2','Q1','GND'].map((l, i) => (
-      <Pin key={i} x={98} y={18 + i * 10} label={l}
-        color={i === 7 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-  </svg>
-);
+export const ShiftRegister = ({ pinStates = {} }) => {
+  // Q0-Q7 output state driven by resolveConnection in SandboxPage
+  const bits = [0,1,2,3,4,5,6,7].map(i => !!pinStates[`q${i}`]);
+  return (
+    <svg width={110} height={115} viewBox="0 0 110 115" style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={22} y={10} width={66} height={95} rx={4} fill="#0f172a" stroke="#1e293b" strokeWidth={1.5} />
+      <rect x={44} y={10} width={22} height={8} rx={4} fill="#1e293b" />
+      <text x={55} y={62} fill="white" fontSize={9} fontWeight="700" textAnchor="middle" transform="rotate(-90 55 62)">74HC595</text>
+      {/* Q0-Q7 indicator row */}
+      {bits.map((on, i) => (
+        <circle key={i} cx={28 + i * 8} cy={57} r={3}
+          fill={on ? '#22c55e' : '#1e293b'}
+          stroke={on ? '#22c55e' : '#334155'} strokeWidth={0.8}
+          style={on ? { filter: 'drop-shadow(0 0 3px #22c55e)' } : {}}
+        />
+      ))}
+      {['VCC','Q0','DS','OE','STCP','SHCP','MR',"Q7'"].map((l, i) => (
+        <Pin key={i} x={12} y={18 + i * 10} label={l}
+          color={i === 0 ? '#facc15' : '#22d3ee'}
+        />
+      ))}
+      {['Q7','Q6','Q5','Q4','Q3','Q2','Q1','GND'].map((l, i) => (
+        <Pin key={i} x={98} y={18 + i * 10} label={l}
+          color={i === 7 ? '#94a3b8' : !!bits[7 - i] ? '#22c55e' : '#22d3ee'}
+        />
+      ))}
+    </svg>
+  );
+};
 
-export const RelayModule = () => (
-  <svg width={95} height={105} viewBox="0 0 95 105" style={{ display: 'block', overflow: 'visible' }}>
-    <rect x={0} y={0} width={95} height={82} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
-    {/* Relay coil */}
-    <rect x={8} y={8} width={50} height={55} rx={3} fill="#2563eb" stroke="#3b82f6" strokeWidth={1} />
-    <rect x={12} y={12} width={42} height={46} rx={2} fill="#1d4ed8" />
-    <text x={33} y={35} fill="white" fontSize={11} fontWeight="800" textAnchor="middle">RELAY</text>
-    <text x={33} y={47} fill="#93c5fd" fontSize={7} textAnchor="middle">5V coil</text>
-    {/* Status LED */}
-    <circle cx={68} cy={24} r={7} fill="#22c55e" opacity={0.5} />
-    <circle cx={68} cy={24} r={4} fill="#22c55e" />
-    {/* Screw terminals */}
-    {[8,28,48,68].map(y => (
-      <rect key={y} x={76} y={y} width={16} height={14} rx={2} fill="#374151" stroke="#4b5563" strokeWidth={1} />
-    ))}
-    {['IN','VCC','GND'].map((l, i) => (
-      <Pin key={i} x={16 + i * 18} y={98} label={l}
-        color={i === 1 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
-      />
-    ))}
-    {['COM','NO','NC'].map((l, i) => (
-      <Pin key={i} x={58 + i * 14} y={98} label={l} color="#f59e0b" />
-    ))}
-  </svg>
-);
+export const RelayModule = ({ pinStates = {} }) => {
+  const activated = !!pinStates['in'];
+  return (
+    <svg width={95} height={105} viewBox="0 0 95 105" style={{ display: 'block', overflow: 'visible' }}>
+      <rect x={0} y={0} width={95} height={82} rx={4} fill="#1d4ed8" stroke="#3b82f6" strokeWidth={1} />
+      {/* Relay coil block */}
+      <rect x={8} y={8} width={50} height={55} rx={3} fill="#2563eb" stroke="#3b82f6" strokeWidth={1} />
+      <rect x={12} y={12} width={42} height={46} rx={2} fill="#1d4ed8" />
+      <text x={33} y={32} fill="white" fontSize={11} fontWeight="800" textAnchor="middle">RELAY</text>
+      <text x={33} y={44} fill="#93c5fd" fontSize={7} textAnchor="middle">5V coil</text>
+      {/* State label */}
+      <text x={33} y={56} fill={activated ? '#22c55e' : '#64748b'} fontSize={7} fontWeight="700" textAnchor="middle">
+        {activated ? 'ENERGIZED' : 'OFF'}
+      </text>
+      {/* Status LED */}
+      {activated && <circle cx={68} cy={24} r={9} fill="#22c55e" opacity={0.25} />}
+      <circle cx={68} cy={24} r={5} fill={activated ? '#22c55e' : '#374151'}
+        style={activated ? { filter: 'drop-shadow(0 0 4px #22c55e)' } : {}} />
+      {/* Contact state indicator */}
+      <text x={68} y={50} fill={activated ? '#22c55e' : '#64748b'} fontSize={6} textAnchor="middle">
+        COM→{activated ? 'NO' : 'NC'}
+      </text>
+      {/* Screw terminals */}
+      {[8, 28, 48, 68].map(y => (
+        <rect key={y} x={76} y={y} width={16} height={14} rx={2} fill="#374151" stroke="#4b5563" strokeWidth={1} />
+      ))}
+      {['IN', 'VCC', 'GND'].map((l, i) => (
+        <Pin key={i} x={16 + i * 18} y={98} label={l}
+          color={i === 1 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
+        />
+      ))}
+      {['COM', 'NO', 'NC'].map((l, i) => (
+        <Pin key={i} x={58 + i * 14} y={98} label={l} color="#f59e0b" />
+      ))}
+    </svg>
+  );
+};
 
 export const LedMatrix8x8 = ({ pinStates = {} }) => (
   <svg width={95} height={95} viewBox="0 0 95 95" style={{ display: 'block', overflow: 'visible' }}>

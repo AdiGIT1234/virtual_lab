@@ -25,6 +25,11 @@ void loop() {
       { id: "blink-w3", source: "led-1::main", target: "gnd-1::main", bends: [], color: "#333" },
     ],
     outputs: { 13: 1 },
+    circuitCheck: [
+      { pin: 13, componentTypes: ['LED'], label: 'LED connected to pin 13' },
+      { pin: 13, componentTypes: ['RESISTOR'], label: 'Series resistor on pin 13 path' },
+      { componentTypes: ['GROUND_NODE', 'GND'], label: 'Ground connection present' },
+    ],
     arlabPositions: {
       "res-1": { pos: [0.175, 0.085, -0.065], rot: [0, 0, 0] },
       "led-1": { pos: [0.675, 0.10, 0],       rot: [0, 0, 0] },
@@ -63,6 +68,11 @@ void loop() {
     ],
     outputs: { 13: 0 },
     inputs:  { 2: 0 },
+    circuitCheck: [
+      { pin: 2,  componentTypes: ['BUTTON'], label: 'Button connected to pin 2' },
+      { pin: 13, componentTypes: ['LED'],    label: 'LED connected to pin 13' },
+      { pin: 13, componentTypes: ['RESISTOR'], label: 'Resistor on LED path' },
+    ],
     arlabPositions: {
       "btn-1": { pos: [-0.175, 0.085, 0],      rot: [0, 0, 0] },
       "led-1": { pos: [0.675,  0.10,  0],      rot: [0, 0, 0] },
@@ -104,6 +114,10 @@ void loop() {
       { id: "servo-w2", source: "vcc-1::main", target: "srv-1::main", bends: [], color: "#dc2626" },
     ],
     outputs: { 9: 0.5 },
+    circuitCheck: [
+      { pin: 9, componentTypes: ['SERVO'], label: 'Servo signal wire on pin 9' },
+      { componentTypes: ['VCC_NODE'], label: 'VCC power connected to servo' },
+    ],
     arlabPositions: {
       "srv-1": { pos: [0.575, 0.085, 0],    rot: [0, Math.PI/2, 0] },
       "vcc-1": { pos: [0.0,   0.01, -0.24], rot: [0, 0, 0] },
@@ -804,6 +818,147 @@ void loop() {
       "mot-1":  { pos: [0.55, 0.085, 0],    rot: [0, 0, 0] },
       "vcc-1":  { pos: [0.0,  0.01, -0.20], rot: [0, 0, 0] },
       "gnd-1":  { pos: [0.0,  0.01,  0.20], rot: [0, 0, 0] },
+    },
+  },
+
+  logic_gate_demo: {
+    id: "logic_gate_demo",
+    name: "Logic Gate Demo",
+    description: "ATmega328P reads two buttons and demonstrates AND/OR/NOT logic gates driving LEDs.",
+    mcu: "atmega328p",
+    starterCode: `// Logic Gate Demo
+// Buttons on pins 2 & 3, LEDs on pins 10, 11, 12
+
+void setup() {
+  pinMode(2, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
+  pinMode(12, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  bool a = !digitalRead(2);  // active HIGH (pullup inverts)
+  bool b = !digitalRead(3);
+
+  digitalWrite(10, a && b);   // AND
+  digitalWrite(11, a || b);   // OR
+  digitalWrite(12, !a);       // NOT A
+
+  Serial.print("A="); Serial.print(a);
+  Serial.print(" B="); Serial.print(b);
+  Serial.print("  AND="); Serial.print(a && b);
+  Serial.print(" OR="); Serial.print(a || b);
+  Serial.print(" NOT_A="); Serial.println(!a);
+  delay(100);
+}`,
+    workspace: [
+      { id: "btn-a",  type: "BUTTON",       pin: 2,  pins: { main: 2  }, x: 100, y: 160 },
+      { id: "btn-b",  type: "BUTTON",       pin: 3,  pins: { main: 3  }, x: 100, y: 280 },
+      { id: "and-1",  type: "LOGIC_AND",    pin: 10, pins: { in1: 2, in2: 3, out: 10 }, x: 280, y: 160 },
+      { id: "or-1",   type: "LOGIC_OR",     pin: 11, pins: { in1: 2, in2: 3, out: 11 }, x: 280, y: 250 },
+      { id: "not-1",  type: "LOGIC_NOT",    pin: 12, pins: { in1: 2, out: 12 }, x: 280, y: 340 },
+      { id: "led-and", type: "LED_GREEN",   pin: 10, pins: { main: 10 }, x: 440, y: 160 },
+      { id: "led-or",  type: "LED_YELLOW",  pin: 11, pins: { main: 11 }, x: 440, y: 250 },
+      { id: "led-not", type: "LED_RED",     pin: 12, pins: { main: 12 }, x: 440, y: 340 },
+      { id: "res-and", type: "RESISTOR",    pin: 10, pins: { main: 10 }, resistance: 330, x: 380, y: 160 },
+      { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 380, y: 250 },
+      { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 380, y: 340 },
+      { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 540, y: 260 },
+      { id: "vcc-1",   type: "VCC_NODE",    pin: null, pins: { main: null }, x: 60,  y: 220 },
+    ],
+    wires: [
+      { id: "lg-w1",  source: "mcu::2",       target: "btn-a::main",    bends: [], color: "#4dabf7" },
+      { id: "lg-w2",  source: "mcu::3",       target: "btn-b::main",    bends: [], color: "#4dabf7" },
+      { id: "lg-w3",  source: "mcu::2",       target: "and-1::in1",     bends: [], color: "#64748b" },
+      { id: "lg-w4",  source: "mcu::3",       target: "and-1::in2",     bends: [], color: "#64748b" },
+      { id: "lg-w5",  source: "mcu::2",       target: "or-1::in1",      bends: [], color: "#64748b" },
+      { id: "lg-w6",  source: "mcu::3",       target: "or-1::in2",      bends: [], color: "#64748b" },
+      { id: "lg-w7",  source: "mcu::2",       target: "not-1::in1",     bends: [], color: "#64748b" },
+      { id: "lg-w8",  source: "mcu::10",      target: "res-and::t1",    bends: [], color: "#22c55e" },
+      { id: "lg-w9",  source: "res-and::t2",  target: "led-and::main",  bends: [], color: "#22c55e" },
+      { id: "lg-w10", source: "led-and::main", target: "gnd-1::main",   bends: [], color: "#333"    },
+      { id: "lg-w11", source: "mcu::11",      target: "res-or::t1",     bends: [], color: "#fbbf24" },
+      { id: "lg-w12", source: "res-or::t2",   target: "led-or::main",   bends: [], color: "#fbbf24" },
+      { id: "lg-w13", source: "led-or::main", target: "gnd-1::main",    bends: [], color: "#333"    },
+      { id: "lg-w14", source: "mcu::12",      target: "res-not::t1",    bends: [], color: "#f87171" },
+      { id: "lg-w15", source: "res-not::t2",  target: "led-not::main",  bends: [], color: "#f87171" },
+      { id: "lg-w16", source: "led-not::main", target: "gnd-1::main",   bends: [], color: "#333"    },
+    ],
+    outputs: { 10: 0, 11: 0, 12: 0 },
+    inputs: { 2: 0, 3: 0 },
+    arlabPositions: {
+      "btn-a":   { pos: [-0.20, 0.085, -0.15], rot: [0, 0, 0] },
+      "btn-b":   { pos: [-0.20, 0.085,  0.15], rot: [0, 0, 0] },
+      "and-1":   { pos: [ 0.05, 0.085, -0.15], rot: [0, 0, 0] },
+      "or-1":    { pos: [ 0.05, 0.085,  0],    rot: [0, 0, 0] },
+      "not-1":   { pos: [ 0.05, 0.085,  0.15], rot: [0, 0, 0] },
+      "res-and": { pos: [ 0.25, 0.085, -0.15], rot: [0, 0, 0] },
+      "res-or":  { pos: [ 0.25, 0.085,  0],    rot: [0, 0, 0] },
+      "res-not": { pos: [ 0.25, 0.085,  0.15], rot: [0, 0, 0] },
+      "led-and": { pos: [ 0.40, 0.085, -0.15], rot: [0, 0, 0] },
+      "led-or":  { pos: [ 0.40, 0.085,  0],    rot: [0, 0, 0] },
+      "led-not": { pos: [ 0.40, 0.085,  0.15], rot: [0, 0, 0] },
+      "vcc-1":   { pos: [-0.35, 0.01,  0],     rot: [0, 0, 0] },
+      "gnd-1":   { pos: [ 0.55, 0.01,  0],     rot: [0, 0, 0] },
+    },
+  },
+
+  stepper_motor_demo: {
+    id: "stepper_motor_demo",
+    name: "Stepper Motor (28BYJ-48)",
+    description: "ATmega328P drives a 28BYJ-48 unipolar stepper motor using half-step sequence.",
+    mcu: "atmega328p",
+    starterCode: `// 28BYJ-48 Stepper Motor — half-step sequence
+// IN1=8, IN2=9, IN3=10, IN4=11
+
+const int pins[4] = {8, 9, 10, 11};
+// Half-step sequence (8 steps / electrical cycle)
+const byte seq[8] = {
+  0b0001, 0b0011, 0b0010, 0b0110,
+  0b0100, 0b1100, 0b1000, 0b1001
+};
+
+int stepIdx = 0;
+
+void step(int dir) {
+  stepIdx = (stepIdx + dir + 8) % 8;
+  for (int i = 0; i < 4; i++)
+    digitalWrite(pins[i], (seq[stepIdx] >> i) & 1);
+}
+
+void setup() {
+  for (int i = 0; i < 4; i++) pinMode(pins[i], OUTPUT);
+  Serial.begin(9600);
+  Serial.println("Stepper ready");
+}
+
+void loop() {
+  // Rotate CW 512 steps (1 full revolution)
+  for (int i = 0; i < 512; i++) { step(1); delayMicroseconds(900); }
+  delay(500);
+  // Rotate CCW 512 steps
+  for (int i = 0; i < 512; i++) { step(-1); delayMicroseconds(900); }
+  delay(500);
+}`,
+    workspace: [
+      { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 400, y: 220 },
+      { id: "vcc-1", type: "VCC_NODE",      pin: null, pins: { main: null }, x: 80, y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 80, y: 380 },
+    ],
+    wires: [
+      { id: "stp-w1", source: "mcu::8",  target: "stp-1::a+", bends: [], color: "#f97316" },
+      { id: "stp-w2", source: "mcu::9",  target: "stp-1::a-", bends: [], color: "#fb923c" },
+      { id: "stp-w3", source: "mcu::10", target: "stp-1::b+", bends: [], color: "#60a5fa" },
+      { id: "stp-w4", source: "mcu::11", target: "stp-1::b-", bends: [], color: "#93c5fd" },
+    ],
+    outputs: { 8: 0, 9: 0, 10: 0, 11: 0 },
+    inputs: {},
+    arlabPositions: {
+      "stp-1": { pos: [0.35, 0.085, 0],    rot: [0, 0, 0] },
+      "vcc-1": { pos: [0.0,  0.01, -0.20], rot: [0, 0, 0] },
+      "gnd-1": { pos: [0.0,  0.01,  0.20], rot: [0, 0, 0] },
     },
   },
 };

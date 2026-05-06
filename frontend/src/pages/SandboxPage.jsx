@@ -52,6 +52,37 @@ import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
 
 const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
 
+// Circuit wiring checker — validates workspace against preset circuitCheck rules
+function checkCircuit(checks, workspaceItems, wires) {
+  return checks.map(({ pin, componentTypes, label }) => {
+    if (!componentTypes?.length) return { label, pass: false };
+    // Rule without pin: just check presence of a component of that type
+    if (pin == null) {
+      const pass = workspaceItems.some(item =>
+        componentTypes.some(t => item.type === t || item.type.startsWith(t + '_'))
+      );
+      return { label, pass };
+    }
+    // Rule with pin: BFS from mcu::{pin} through wires to reach a matching component
+    const pinKey = `mcu::${pin}`;
+    const visited = new Set([pinKey]);
+    const queue = [pinKey];
+    while (queue.length > 0) {
+      const curr = queue.shift();
+      const [currId] = curr.split('::');
+      const item = workspaceItems.find(i => i.id === currId);
+      if (item && componentTypes.some(t => item.type === t || item.type.startsWith(t + '_'))) {
+        return { label, pass: true };
+      }
+      for (const w of wires) {
+        const other = w.source === curr ? w.target : w.target === curr ? w.source : null;
+        if (other && !visited.has(other)) { visited.add(other); queue.push(other); }
+      }
+    }
+    return { label, pass: false };
+  });
+}
+
 const POWER_HIGH_TERMINALS = {
   AA_BATTERY:     ["pos"],
   BENCH_PSU:      ["v+"],
@@ -209,6 +240,9 @@ void loop() {
   const chipDragDataRef = useRef(null);
   const [isChipDragging, setIsChipDragging] = useState(false);
 
+  const [saveStatus, setSaveStatus] = useState(null); // 'local' | 'cloud' | 'error'
+  const [activePresetKey, setActivePresetKey] = useState(null);
+  const [wiringCheckResults, setWiringCheckResults] = useState(null);
   const [inputs, setInputsState] = useState(storeInputs || {});
   const setInputs = useCallback((updater, source = "sandbox") => {
     setInputsState((prev) => {
@@ -262,6 +296,7 @@ void loop() {
   const manualMemoryRef = useRef(new Array(256).fill(0));
   // Persistent state for edge-triggered D flip-flops: { [compId]: { prevClk: bool, q: bool } }
   const dffStateRef = useRef({});
+  const shiftRegRef = useRef({});
 
   const [breakpoints, setBreakpoints] = useState([]);
   const [breakpointHit, setBreakpointHit] = useState(null);
@@ -292,7 +327,7 @@ void loop() {
   }, [currentRegisters, manualRegisters, setOutputsFromRegisters]);
 
   useEffect(() => {
-    if (!isRunning) dffStateRef.current = {};
+    if (!isRunning) { dffStateRef.current = {}; shiftRegRef.current = {}; }
   }, [isRunning]);
 
   useEffect(() => {
@@ -786,7 +821,42 @@ void loop() {
       return { pin: null, resistance: currentResistance, logicValue: true };
     }
 
-    // 9. Buck converter: vout+ follows vin+
+    // 9. Shift register 74HC595: SHCP rising edge shifts DS into register; STCP rising edge latches to Q0-Q7
+    if (item.type === "SHIFT_REGISTER" && /^q[0-7]$|^q7'$/.test(termId)) {
+      const dsConn  = resolveConnection(compId, "ds",   new Set(visited));
+      const shcpConn = resolveConnection(compId, "shcp", new Set(visited));
+      const stcpConn = resolveConnection(compId, "stcp", new Set(visited));
+      const oeConn  = resolveConnection(compId, "oe",   new Set(visited));
+      const ds   = dsConn.pin  != null ? !!getPinLogic(dsConn.pin)   : (dsConn.logicValue   ?? false);
+      const shcp = shcpConn.pin != null ? !!getPinLogic(shcpConn.pin) : (shcpConn.logicValue ?? false);
+      const stcp = stcpConn.pin != null ? !!getPinLogic(stcpConn.pin) : (stcpConn.logicValue ?? false);
+      const oeHigh = oeConn.pin != null ? !!getPinLogic(oeConn.pin)   : (oeConn.logicValue   ?? false);
+      if (oeHigh) return { pin: null, resistance: currentResistance, logicValue: false };
+      const prev = shiftRegRef.current[compId] ?? { prevShcp: false, prevStcp: false, shift: 0, out: 0 };
+      let { shift, out } = prev;
+      if (!prev.prevShcp && shcp) shift = ((ds ? 0x80 : 0) | (shift >> 1)) & 0xFF;
+      if (!prev.prevStcp && stcp) out = shift;
+      shiftRegRef.current[compId] = { prevShcp: shcp, prevStcp: stcp, shift, out };
+      const bit = termId === "q7'" ? 7 : parseInt(termId[1], 10);
+      return { pin: null, resistance: currentResistance, logicValue: !!((out >> bit) & 1) };
+    }
+
+    // 10. Relay module: COM conducts to NO when IN is HIGH, NC when LOW
+    if (item.type === "RELAY_MODULE") {
+      const inConn = resolveConnection(compId, "in", new Set(visited));
+      const energized = inConn.pin != null ? !!getPinLogic(inConn.pin) : (inConn.logicValue ?? false);
+      if (termId === "com") {
+        const closedTerm = energized ? "no" : "nc";
+        const result = resolveConnection(compId, closedTerm, visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+      if ((termId === "no" && energized) || (termId === "nc" && !energized)) {
+        const result = resolveConnection(compId, "com", visited, currentResistance);
+        if (result.pin != null || result.logicValue !== undefined) return result;
+      }
+    }
+
+    // 10. Buck converter: vout+ follows vin+
     if (item.type === "BUCK_CONVERTER" && termId === "vout+") {
       const inConn = resolveConnection(compId, "vin+", visited);
       if (inConn.pin != null || inConn.logicValue !== undefined) {
@@ -802,8 +872,7 @@ void loop() {
   const handleSaveWorkspace = async () => {
     const payload = { items: workspaceItems, inputs, wireColors, wires };
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(payload));
-    
-    // Also save to Supabase if the function exists
+
     if (saveExperiment) {
       try {
         await saveExperiment({
@@ -812,13 +881,14 @@ void loop() {
           code: code,
           resultJson: payload
         });
-        console.log("Workspace saved securely to your account!");
+        setSaveStatus('cloud');
       } catch (err) {
-        console.error("Cloud save failed:", err);
+        setSaveStatus('local');
       }
     } else {
-      console.log("Workspace saved to local storage!");
+      setSaveStatus('local');
     }
+    setTimeout(() => setSaveStatus(null), 2500);
   };
 
   const handleLoadWorkspace = () => {
@@ -1060,7 +1130,26 @@ void loop() {
           <ProtectedFeature compact action="save your workspace">
             <button style={styles.actionBtn} onClick={handleSaveWorkspace}>💾 Save</button>
           </ProtectedFeature>
+          {saveStatus && (
+            <span style={{
+              fontSize: 10, fontFamily: 'monospace', padding: '2px 8px',
+              borderRadius: 4, background: saveStatus === 'cloud' ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.2)',
+              color: saveStatus === 'cloud' ? '#22c55e' : '#fbbf24',
+              border: `1px solid ${saveStatus === 'cloud' ? '#22c55e44' : '#fbbf2444'}`,
+            }}>
+              {saveStatus === 'cloud' ? '✓ Saved to cloud' : '✓ Saved locally'}
+            </span>
+          )}
           <button style={styles.actionBtn} onClick={handleLoadWorkspace}>↺ Load</button>
+          {activePresetKey && CIRCUIT_PRESETS[activePresetKey]?.circuitCheck && (
+            <button
+              style={{ ...styles.actionBtn, color: '#a78bfa', borderColor: 'rgba(167,139,250,0.4)' }}
+              onClick={() => {
+                const checks = CIRCUIT_PRESETS[activePresetKey].circuitCheck;
+                setWiringCheckResults(checkCircuit(checks, workspaceItems, wires));
+              }}
+            >✓ Check Wiring</button>
+          )}
           <ProtectedFeature compact action="export workspaces">
             <button style={styles.actionBtn} onClick={handleExportWorkspace}>⤴ Export</button>
           </ProtectedFeature>
@@ -1075,6 +1164,8 @@ void loop() {
 
               stopSimulation();
               loadPreset(key);
+              setActivePresetKey(key);
+              setWiringCheckResults(null);
 
               // Wires
               setWires(preset.wires || []);
@@ -1108,6 +1199,28 @@ void loop() {
           </button>
         </div>
       </div>
+
+      {wiringCheckResults && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 6, padding: '6px 16px',
+          background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid #30363d',
+        }}>
+          {wiringCheckResults.map((r, i) => (
+            <span key={i} style={{
+              fontSize: 10, fontFamily: 'monospace', padding: '2px 8px', borderRadius: 4,
+              background: r.pass ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+              color: r.pass ? '#22c55e' : '#f87171',
+              border: `1px solid ${r.pass ? '#22c55e44' : '#f8717144'}`,
+            }}>
+              {r.pass ? '✓' : '✗'} {r.label}
+            </span>
+          ))}
+          <button
+            onClick={() => setWiringCheckResults(null)}
+            style={{ fontSize: 10, background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', padding: '0 4px' }}
+          >✕</button>
+        </div>
+      )}
 
       <div style={{ ...styles.body, flexDirection: isCompact ? "column" : "row" }}>
         <button
