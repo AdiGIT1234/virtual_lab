@@ -35,7 +35,7 @@ const CAMERA_PRESETS = {
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
-export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent }) {
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
 
@@ -165,7 +165,11 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
 
       {/* Property Inspector */}
       {selectedId && (
-        <PropertyInspectorHUD selectedId={selectedId} onClose={() => setSelectedId(null)} />
+        <PropertyInspectorHUD
+          selectedId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onRemove={onRemoveComponent}
+        />
       )}
     </div>
   );
@@ -196,7 +200,7 @@ function CameraController({ view }) {
   return null;
 }
 
-function PropertyInspectorHUD({ selectedId, onClose }) {
+function PropertyInspectorHUD({ selectedId, onClose, onRemove }) {
   const components = useCircuitStore((s) => s.components);
   const outputs    = useCircuitStore((s) => s.outputs);
   const component  = components.find((c) => c.id === selectedId);
@@ -230,6 +234,15 @@ function PropertyInspectorHUD({ selectedId, onClose }) {
             }}>{row.value}</span>
           </div>
         ))}
+        {component.manuallyPlaced && onRemove && (
+          <button
+            style={styles.removeBtn}
+            onClick={() => { onRemove(selectedId); onClose(); }}
+            aria-label="Remove component"
+          >
+            Remove Component
+          </button>
+        )}
       </div>
     </div>
   );
@@ -332,6 +345,19 @@ const styles = {
     color: "#79c0ff",
     fontWeight: 600,
     fontFamily: "monospace",
+  },
+  removeBtn: {
+    marginTop: 12,
+    width: "100%",
+    padding: "6px 0",
+    fontSize: 11,
+    fontWeight: 600,
+    border: "1px solid rgba(248,113,113,0.4)",
+    borderRadius: 6,
+    background: "rgba(248,113,113,0.08)",
+    color: "#f87171",
+    cursor: "pointer",
+    fontFamily: "'Inter', sans-serif",
   },
   hintsBar: {
     position: "absolute",

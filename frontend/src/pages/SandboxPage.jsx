@@ -50,7 +50,7 @@ import ProtectedFeature from "../components/ProtectedFeature";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
 
-const WORKSPACE_STORAGE_KEY = "vlab_workspace_v1";
+const workspaceKey = (mcuId) => `vlab_workspace_v2_${mcuId}`;
 
 // Circuit wiring checker — validates workspace against preset circuitCheck rules
 function checkCircuit(checks, workspaceItems, wires) {
@@ -885,7 +885,7 @@ void loop() {
 
   const handleSaveWorkspace = async () => {
     const payload = { items: workspaceItems, inputs, wireColors, wires };
-    localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(workspaceKey(selectedMcuId), JSON.stringify(payload));
 
     if (saveExperiment) {
       try {
@@ -906,11 +906,8 @@ void loop() {
   };
 
   const handleLoadWorkspace = () => {
-    const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
-    if (!raw) {
-      console.warn("No saved workspace found.");
-      return;
-    }
+    const raw = localStorage.getItem(workspaceKey(selectedMcuId));
+    if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
       // Load Workspace
@@ -939,9 +936,8 @@ void loop() {
           });
       }
       setWires(loadedWires || []);
-      console.log("Workspace loaded successfully!");
-    } catch (e) {
-      console.warn("Failed to parse workspace JSON", e);
+    } catch {
+      // silently ignore malformed saved data
     }
   };
 
@@ -1109,11 +1105,15 @@ void loop() {
           <span style={styles.titleLabel}>{selectedMcu?.name || "Sandbox"}</span>
         </div>
         <div style={styles.topGroup}>
-          <button style={styles.runButton} onClick={runCode} disabled={!isMcuSupported}>
-            ▶ Run
+          <button
+            style={isRunning ? styles.stopButton : styles.runButton}
+            onClick={isRunning ? stopSimulation : runCode}
+            disabled={!isRunning && !isMcuSupported}
+          >
+            {isRunning ? "⏹ Stop" : "▶ Run"}
           </button>
           <button style={styles.xrButton} onClick={() => setIs3DMode(!is3DMode)}>
-            {is3DMode ? "2D Workbench" : "3D Lab Preview"}
+            {is3DMode ? "2D Workbench" : "3D Lab"}
           </button>
         </div>
       </div>
@@ -1957,6 +1957,16 @@ function getStyles(theme, isCompact) {
       borderRadius: 10,
       fontWeight: 700,
       cursor: "pointer",
+    },
+    stopButton: {
+      padding: "10px 22px",
+      background: "#b91c1c",
+      color: "#fff",
+      border: "none",
+      borderRadius: 10,
+      fontWeight: 700,
+      cursor: "pointer",
+      boxShadow: "0 0 12px rgba(185,28,28,0.4)",
     },
     xrButton: {
       padding: "9px 18px",

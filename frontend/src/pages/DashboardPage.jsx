@@ -24,13 +24,14 @@ function formatDuration(ms) {
   return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 }
 
-function ScoreBadge({ score, total, label }) {
+function ScoreBadge({ score, total }) {
   if (score == null) return <span className="text-[#475569] font-mono text-xs">—</span>;
-  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+  if (total == null) return <span className="font-mono text-xs text-[#94A3B8]">{score} pts</span>;
+  const pct = Math.round((score / total) * 100);
   const color = pct >= 70 ? "#22d3ee" : pct >= 40 ? "#f5c518" : "#e11d48";
   return (
     <span className="font-mono text-xs" style={{ color }}>
-      {score}{total != null ? `/${total}` : ""} <span style={{ color: "#475569", fontSize: 10 }}>({pct}%)</span>
+      {score}/{total} <span style={{ color: "#475569", fontSize: 10 }}>({pct}%)</span>
     </span>
   );
 }
@@ -279,8 +280,8 @@ export default function DashboardPage() {
 
   const tabs = [
     { id: "overview",  label: "Overview" },
-    { id: "progress",  label: `Progress (${savedExperiments.length})` },
-    { id: "saved",     label: `Saved (${savedExperiments.length})` },
+    { id: "progress",  label: "Progress" },
+    { id: "saved",     label: `Experiments${savedExperiments.length ? ` (${savedExperiments.length})` : ""}` },
     { id: "profile",   label: "Profile" },
   ];
 
@@ -384,7 +385,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
               {[
                 { title: "Launch Sandbox",    desc: "Free-form AVR/ESP32 development environment", icon: "⚙️", color: "#00F2FF", action: () => navigate("/sandbox") },
-                { title: "Start Experiment",  desc: "Choose from guided guided experiments",         icon: "🔬", color: "#7000FF", action: () => navigate("/") },
+                { title: "Start Experiment",  desc: "Choose from guided lab experiments",            icon: "🔬", color: "#7000FF", action: () => navigate("/") },
                 { title: "Hardware Library",  desc: "Register reference and timing diagrams",         icon: "📖", color: "#00FFB2", action: () => navigate("/reference") },
               ].map((card, i) => (
                 <motion.button key={i} onClick={card.action}
@@ -618,7 +619,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <style>{`.font-mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace !important; }`}</style>
     </div>
   );
 }

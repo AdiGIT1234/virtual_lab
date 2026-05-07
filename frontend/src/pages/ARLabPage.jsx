@@ -170,6 +170,8 @@ export default function ARLabPage() {
   const loadPreset = useCircuitStore((state) => state.loadPreset);
   const presetMeta = useCircuitStore((state) => state.presetMeta);
   const addComponent = useCircuitStore((state) => state.addComponent);
+  const updateComponent = useCircuitStore((state) => state.updateComponent);
+  const removeComponent = useCircuitStore((state) => state.removeComponent);
   const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
 
   const preset = CIRCUIT_PRESETS[presetParam];
@@ -194,29 +196,7 @@ export default function ARLabPage() {
     if (cpuState?.registers) setOutputsFromRegisters(cpuState.registers);
   }, [cpuState, setOutputsFromRegisters]);
 
-  // Breadboard net propagation: when drawn wires change, build a pin→hole map
-  // and assign output levels to sidebar-inserted components sitting on those holes.
-  const setOutputLevel = useCircuitStore(s => s.setOutputLevel);
-  const components     = useCircuitStore(s => s.components);
-  const outputs        = useCircuitStore(s => s.outputs);
-  useEffect(() => {
-    if (drawnWires.length === 0) return;
-    const holePinMap = buildHolePinMap(drawnWires);
-    if (holePinMap.size === 0) return;
-    // For each component placed in the scene, check if its position aligns
-    // with a breadboard column that has a connected Arduino pin.
-    components.forEach(comp => {
-      if (comp.pin !== null || !comp.x || !comp.y) return; // already wired, skip
-      const sx = (comp.x - 450) * 0.005;
-      const sz = (comp.y - 300) * 0.005;
-      const nodeKey = posToNodeKey(sx, sz);
-      if (!nodeKey) return;
-      const pin = holePinMap.get(nodeKey);
-      if (pin === undefined) return;
-      const level = outputs[pin] ?? 0;
-      setOutputLevel(`bb_${comp.id}`, level);
-    });
-  }, [drawnWires, components, outputs, setOutputLevel]);
+  const components = useCircuitStore(s => s.components);
 
   const [simError, setSimError] = useState("");
   const [editorCode, setEditorCode] = useState(preset?.starterCode || "");
@@ -297,6 +277,7 @@ export default function ARLabPage() {
   const [hoveredPart, setHoveredPart] = useState(null);
   const [wiringMode, setWiringMode] = useState(false);
   const [wireAnchor, setWireAnchor] = useState(null); // { kind: 'pin'|'hole', id }
+  const [activeWireColor, setActiveWireColor] = useState(WIRE_PALETTE[0]);
   const [drawnWires, setDrawnWires] = useState([]);
   const [selectedWireIdx, setSelectedWireIdx] = useState(null);
   const [pendingPart, setPendingPart] = useState(null); // { type, label } — awaiting hole click to place
@@ -304,11 +285,46 @@ export default function ARLabPage() {
   const wiringFrom = wireAnchor?.kind === 'pin' ? wireAnchor.id : null;
   const wiringFromHole = wireAnchor?.kind === 'hole' ? wireAnchor.id : null;
 
+  // Restore drawn wires from sessionStorage when preset changes
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(`arlab-wires-${presetParam}`);
+      setDrawnWires(saved ? JSON.parse(saved) : []);
+    } catch { setDrawnWires([]); }
+    setSelectedWireIdx(null);
+    setWireAnchor(null);
+  }, [presetParam]);
+
+  // Persist drawn wires to sessionStorage whenever they change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`arlab-wires-${presetParam}`, JSON.stringify(drawnWires));
+    } catch {}
+  }, [drawnWires, presetParam]);
+
+  // Breadboard net propagation: update pin on manually placed components based on drawn wires.
+  // Runs after drawnWires is fully initialized to avoid temporal dead zone issues.
+  useEffect(() => {
+    const holePinMap = buildHolePinMap(drawnWires);
+    components.forEach((comp) => {
+      if (!manuallyPlacedIds.current.has(comp.id)) return;
+      if (!comp.x || !comp.y) return;
+      const sx = (comp.x - 450) * 0.005;
+      const sz = (comp.y - 300) * 0.005;
+      const nodeKey = posToNodeKey(sx, sz);
+      const newPin = nodeKey ? (holePinMap.get(nodeKey) ?? null) : null;
+      if (comp.pin !== newPin) updateComponent(comp.id, { pin: newPin });
+    });
+  }, [drawnWires, components, updateComponent]);
+
   // Tracks next available breadboard column for sidebar-inserted parts (resets on preset change)
   const nextBbColRef = useRef(10);
+  // Tracks IDs of components placed via sidebar (vs. from preset workspace)
+  const manuallyPlacedIds = useRef(new Set());
   useEffect(() => {
     loadPreset(presetParam);
     nextBbColRef.current = 10;
+    manuallyPlacedIds.current = new Set();
   }, [presetParam, loadPreset]);
 
   // Keyboard shortcuts: Ctrl+Z = undo last wire, Delete/Backspace = delete selected wire
@@ -337,13 +353,16 @@ export default function ARLabPage() {
     // Placement mode: place the pending part at this hole
     if (pendingPart) {
       const [scx, , scz] = holeToSceneCoords(holeId);
+      const newId = `${pendingPart.type.toLowerCase()}-${Date.now()}`;
+      manuallyPlacedIds.current.add(newId);
       addComponent({
-        id: `${pendingPart.type.toLowerCase()}-${Date.now()}`,
+        id: newId,
         type: pendingPart.type,
         pin: null,
         pins: { main: null },
         x: scx / 0.005 + 450,
         y: scz / 0.005 + 300,
+        manuallyPlaced: true,
       });
       setPendingPart(null);
       return;
@@ -362,13 +381,12 @@ export default function ARLabPage() {
     if (wireAnchor.kind === 'hole' && wireAnchor.id === holeId) { setWireAnchor(null); return; }
     const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
     const p2 = holeToSceneCoords(holeId);
-    const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
     setDrawnWires(prev => [...prev, {
-      points: buildWirePoints(p1, p2), color: nextColor,
+      points: buildWirePoints(p1, p2), color: activeWireColor,
       from: { ...wireAnchor }, to: { kind: 'hole', id: holeId },
     }]);
     setWireAnchor(null);
-  }, [pendingPart, wiringMode, wireAnchor, drawnWires.length, addComponent]);
+  }, [pendingPart, wiringMode, wireAnchor, activeWireColor, addComponent]);
 
   const handlePinClick = useCallback((pinNum) => {
     if (!wiringMode) return;
@@ -376,13 +394,12 @@ export default function ARLabPage() {
     if (wireAnchor.kind === 'pin' && wireAnchor.id === pinNum) { setWireAnchor(null); return; }
     const p1 = wireAnchor.kind === 'pin' ? pinToSceneCoords(wireAnchor.id) : holeToSceneCoords(wireAnchor.id);
     const p2 = pinToSceneCoords(pinNum);
-    const nextColor = WIRE_PALETTE[drawnWires.length % WIRE_PALETTE.length];
     setDrawnWires(prev => [...prev, {
-      points: buildWirePoints(p1, p2), color: nextColor,
+      points: buildWirePoints(p1, p2), color: activeWireColor,
       from: { ...wireAnchor }, to: { kind: 'pin', id: pinNum },
     }]);
     setWireAnchor(null);
-  }, [wiringMode, wireAnchor, drawnWires.length]);
+  }, [wiringMode, wireAnchor, activeWireColor]);
 
   const handleInsertPart = useCallback((part) => {
     if (part.type === "BOARD" || part.type === "WIRE") return;
@@ -391,6 +408,11 @@ export default function ARLabPage() {
     setWiringMode(false);
     setWireAnchor(null);
   }, []);
+
+  const handleRemoveComponent = useCallback((id) => {
+    removeComponent(id);
+    manuallyPlacedIds.current.delete(id);
+  }, [removeComponent]);
 
   return (
     <div style={styles.page}>
@@ -501,6 +523,25 @@ export default function ARLabPage() {
             >
               Clear
             </button>
+          )}
+          {/* Wire color palette — visible in wiring mode */}
+          {wiringMode && (
+            <div style={styles.colorPalette} role="group" aria-label="Wire color">
+              {WIRE_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  style={{
+                    ...styles.colorSwatch,
+                    background: c,
+                    boxShadow: activeWireColor === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "none",
+                    transform: activeWireColor === c ? "scale(1.25)" : "scale(1)",
+                  }}
+                  onClick={() => setActiveWireColor(c)}
+                  aria-label={`Wire color ${c}`}
+                  title={c}
+                />
+              ))}
+            </div>
           )}
           <button
             style={{ ...styles.simulateBtn, background: isRunning ? "#b91c1c" : "#1a7f37" }}
@@ -675,6 +716,7 @@ export default function ARLabPage() {
             drawnWires={drawnWires}
             selectedWireIdx={selectedWireIdx}
             onWireSelect={setSelectedWireIdx}
+            onRemoveComponent={handleRemoveComponent}
           />
         </div>
       </div>
@@ -863,6 +905,26 @@ const styles = {
     fontFamily: "inherit",
     outline: "none",
     whiteSpace: "nowrap",
+  },
+  colorPalette: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "3px 8px",
+    background: "rgba(13,17,23,0.7)",
+    border: "1px solid #30363d",
+    borderRadius: 8,
+  },
+  colorSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: "50%",
+    border: "none",
+    cursor: "pointer",
+    padding: 0,
+    outline: "none",
+    transition: "transform 0.12s, box-shadow 0.12s",
+    flexShrink: 0,
   },
   simulateBtn: {
     display: "flex",

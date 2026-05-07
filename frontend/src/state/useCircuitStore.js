@@ -64,7 +64,7 @@ const deriveComponents = (workspaceItems = []) => {
         };
       }
 
-      return base;
+      return { ...base, manuallyPlaced: item.manuallyPlaced || false };
     });
 };
 
@@ -209,6 +209,17 @@ export const useCircuitStore = create((set) => ({
   addComponent: (component, source = "arlab") => {
     set((state) => {
       const nextItems = [...state.workspaceItems, component];
+      return {
+        workspaceItems: nextItems,
+        workspaceVersion: state.workspaceVersion + 1,
+        lastUpdatedBy: source,
+        components: deriveComponents(nextItems),
+      };
+    });
+  },
+  removeComponent: (id, source = "arlab") => {
+    set((state) => {
+      const nextItems = state.workspaceItems.filter((item) => item.id !== id);
       return {
         workspaceItems: nextItems,
         workspaceVersion: state.workspaceVersion + 1,
