@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 import chromadb  # type: ignore
 from groq import Groq  # type: ignore
+from groq.types.chat import ChatCompletionMessageParam # type: ignore
 
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "chromadb_store")
 COLLECTION_NAME = "atmega328p_docs"
@@ -40,7 +41,7 @@ class RAGEngine:
         self.chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
 
         try:
-            self.collection = self.chroma_client.get_collection(COLLECTION_NAME)
+            self.collection: Any = self.chroma_client.get_collection(COLLECTION_NAME)
             self.has_documents = self.collection.count() > 0
         except Exception:
             self.collection = None
@@ -83,9 +84,12 @@ class RAGEngine:
 
     def _generate(self, messages: list[dict[str, str]], max_tokens: int = 1024) -> str:
         """Call Groq chat completions with a system prompt."""
+        # Wrap messages in a list of ChatCompletionMessageParam objects for the SDK
+        full_messages = [{"role": "system", "content": self.SYSTEM_PROMPT}] + messages
+        
         response = self.client.chat.completions.create(
             model=self.model_name,
-            messages=[{"role": "system", "content": self.SYSTEM_PROMPT}] + messages,
+            messages=full_messages, # type: ignore
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content or ""
