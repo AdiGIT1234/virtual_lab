@@ -15,7 +15,15 @@ import {
   AVRSPI,
   spiConfig,
   AVRTWI,
-  twiConfig
+  twiConfig,
+  AVRADC,
+  adcConfig,
+  atmega328Channels,
+  AVREEPROM,
+  EEPROMMemoryBackend,
+  eepromConfig,
+  AVRWatchdog,
+  watchdogConfig,
 } from 'avr8js';
 
 // Parses Intel Hex format directly into a Uint8Array
@@ -256,6 +264,10 @@ export function useAVR(activeMcuId = "atmega328p") {
           if (port) port.setPin(bit, isHigh);
        };
     }
+    // Analog input bus: keyed by Arduino pin number, value 0-1 (normalized)
+    if (typeof window !== 'undefined') {
+      window.__avrAnalogInputs = {};
+    }
     let currentTWIAddr = 0;
     twi.eventHandler = {
       start: () => { twi.completeStart(); },
@@ -277,7 +289,27 @@ export function useAVR(activeMcuId = "atmega328p") {
       }
     };
 
-    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi, usart };
+    // Mount ADC — required for analog reads (ADCSRA polling must not hang)
+    const adc = new AVRADC(cpu, { ...adcConfig, muxChannels: atmega328Channels });
+    adc.onADCRead = (input) => {
+      if (input.type === 0 /* SingleEnded */ && input.channel !== undefined) {
+        const pinIdx = 14 + input.channel; // A0=14, A1=15, …
+        const norm = (typeof window !== 'undefined' && window.__avrAnalogInputs)
+          ? (window.__avrAnalogInputs[pinIdx] ?? 0)
+          : 0;
+        return norm * 5; // return voltage 0-5V
+      }
+      return 0;
+    };
+
+    // Mount EEPROM — required for eeprom_read_byte / eeprom_write_byte
+    const eepromBackend = new EEPROMMemoryBackend(1024);
+    new AVREEPROM(cpu, eepromBackend, eepromConfig);
+
+    // Mount Watchdog — required for wdt_enable / WDT reset
+    new AVRWatchdog(cpu, watchdogConfig, 16000000);
+
+    cpuRef.current = { cpu, portB, portC, portD, serialBuffer: "", spi, twi, usart, adc };
     
     usart.onByteTransmit = (data) => {
       cpuRef.current.serialBuffer += String.fromCharCode(data);

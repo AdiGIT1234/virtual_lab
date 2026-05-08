@@ -49,6 +49,7 @@ import { useAuth } from "../context/useAuth";
 import ProtectedFeature from "../components/ProtectedFeature";
 import { CIRCUIT_PRESETS } from "../constants/circuitPresets";
 import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
+import { PeripheralSimulator } from "../engine/PeripheralSimulator";
 
 const workspaceKey = (mcuId) => `vlab_workspace_v2_${mcuId}`;
 
@@ -222,6 +223,22 @@ void loop() {
       // Load workspace components
       if (preset.workspace) {
         setWorkspaceItems(preset.workspace, "experiment");
+        // Auto-generate wires from the preset pins so resolveConnection works
+        const autoWires = [];
+        preset.workspace.forEach(item => {
+          if (!item.pins) return;
+          Object.entries(item.pins).forEach(([termId, targetPin]) => {
+            if (targetPin == null || targetPin === "") return;
+            autoWires.push({
+              id: `wire-preset-${item.id}-${termId}`,
+              source: `${item.id}::${termId}`,
+              target: `mcu::${targetPin}`,
+              bends: [],
+              color: "#4dabf7",
+            });
+          });
+        });
+        setWires(autoWires);
       }
       // Load starter code
       if (preset.code) {
@@ -1590,13 +1607,20 @@ void loop() {
               } else if (item.type === "DIAL") {
                 usesEmbeddedTerminals = false;
                 renderedContent = (
-                  <Dial 
-                    value={item.value ?? 0} 
+                  <Dial
+                    value={item.value ?? 0}
                     onChange={(val) => {
                       updateComponentSettings(item.id, { value: val });
-                      if (resolvedMain.pin != null) setAnalogInput(resolvedMain.pin, val);
-                    }} 
-                    label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} 
+                      if (resolvedMain.pin != null) {
+                        setAnalogInput(resolvedMain.pin, val);
+                        // Feed normalized voltage (0-5V) to AVR ADC peripheral
+                        if (typeof window !== 'undefined' && window.__avrAnalogInputs) {
+                          window.__avrAnalogInputs[resolvedMain.pin] = val / 10000;
+                        }
+                        PeripheralSimulator.setAnalogValue(resolvedMain.pin, val / 10000);
+                      }
+                    }}
+                    label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"}
                   />
                 );
               } else if (item.type === "SLIDE_POT") {
@@ -1649,7 +1673,20 @@ void loop() {
                 );
               } else if (item.type === "SERVO") {
                 usesEmbeddedTerminals = false;
-                renderedContent = <Servo angle={analogState > 0 ? (analogState / 255) * 180 : 0} />;
+                // For Timer1 OC1A (pin 9) or OC1B (pin 10), read full 16-bit OCR1 from memory
+                // Standard servo: 1000 ticks = 0° (1ms), 2000 ticks = 180° (2ms) at prescaler 8
+                const servoPin = resolvedMain.pin;
+                let servoAngle = 0;
+                if (servoPin === 9 && currentMemory) {
+                  const ocr1a = ((currentMemory[0x89] || 0) << 8) | (currentMemory[0x88] || 0);
+                  servoAngle = ocr1a > 0 ? Math.max(0, Math.min(180, ((ocr1a - 1000) / 1000) * 180)) : 0;
+                } else if (servoPin === 10 && currentMemory) {
+                  const ocr1b = ((currentMemory[0x8B] || 0) << 8) | (currentMemory[0x8A] || 0);
+                  servoAngle = ocr1b > 0 ? Math.max(0, Math.min(180, ((ocr1b - 1000) / 1000) * 180)) : 0;
+                } else {
+                  servoAngle = analogState > 0 ? (analogState / 255) * 180 : 0;
+                }
+                renderedContent = <Servo angle={servoAngle} />;
               } else if (item.type === "SEVEN_SEG") {
                 usesEmbeddedTerminals = false;
                 renderedContent = (

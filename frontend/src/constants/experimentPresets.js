@@ -68,23 +68,30 @@ int main(void) {
   exp03_seven_segment: {
     name: "7-Segment Display",
     code: `// 7-Segment Display Experiment
-// Drive segments using PORTD pins
+// Segments: a→D2, b→D3, c→D4, d→D5, e→D6, f→D7, g→B0
 
 #include <avr/io.h>
 #include <util/delay.h>
 
-// Segment lookup for digits 0–9
-const uint8_t digits[] = {
-    0x3F, 0x06, 0x5B, 0x4F, 0x66,
-    0x6D, 0x7D, 0x07, 0x7F, 0x6F
+// Precomputed PORTD values (bits 2-7 = segments a-f)
+// and PORTB bit-0 = segment g
+const uint8_t seg_portD[] = {
+    0xFC, 0x18, 0x6C, 0x3C, 0x98,
+    0xB4, 0xF4, 0x1C, 0xFC, 0xBC
+};
+const uint8_t seg_g[] = {
+    0, 0, 1, 1, 1, 1, 1, 0, 1, 1
 };
 
 int main(void) {
-    DDRD = 0x7F; // Pins 0-6 as output (segments a-g)
+    DDRD  = 0xFC;       // D2-D7 as output (segments a-f)
+    DDRB |= (1 << PB0); // B0 (pin 8) as output (segment g)
 
     while (1) {
         for (uint8_t i = 0; i < 10; i++) {
-            PORTD = digits[i];
+            PORTD = seg_portD[i];
+            if (seg_g[i]) PORTB |= (1 << PB0);
+            else          PORTB &= ~(1 << PB0);
             _delay_ms(1000);
         }
     }
@@ -217,7 +224,6 @@ int main(void) {
     workspace: [
       { id: "led-exp07", type: "LED_GREEN", pins: { main: 6 }, x: 460, y: 160, scale: 1 },
       { id: "res-exp07", type: "RESISTOR", pins: { t1: 6, t2: "" }, resistance: 220, x: 460, y: 240, scale: 1 },
-      { id: "dial-exp07", type: "DIAL", pins: { main: 14 }, x: 80, y: 160, scale: 1 },
       { id: "gnd-exp07", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
   },
@@ -239,11 +245,11 @@ int main(void) {
     TCCR1B = (1 << WGM13) | (1 << CS11); // prescaler 8
 
     while (1) {
-        OCR1A = 2000;  // 0°
+        OCR1A = 1000;  // 0°  (1ms pulse)
         _delay_ms(1000);
-        OCR1A = 3000;  // 90°
+        OCR1A = 1500;  // 90° (1.5ms pulse)
         _delay_ms(1000);
-        OCR1A = 4000;  // 180°
+        OCR1A = 2000;  // 180° (2ms pulse)
         _delay_ms(1000);
     }
 }`,
