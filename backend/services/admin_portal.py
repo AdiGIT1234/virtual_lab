@@ -15,7 +15,10 @@ ADMIN_EMAILS = [email.strip().lower() for email in admin_email_env.split(",") if
 
 def _require_env(name: str, value: str | None) -> str:
     if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Server configuration error: {name} is not set. Contact the administrator.",
+        )
     return value
 
 
@@ -41,18 +44,26 @@ async def fetch_all_profiles() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        profiles_resp, users_resp = await asyncio.gather(
-            client.get(
-                f"{supabase_url}/rest/v1/profiles",
-                headers=headers,
-                params={"select": "id,name,institute,created_at,updated_at", "order": "updated_at.desc"},
-            ),
-            client.get(
-                f"{supabase_url}/auth/v1/admin/users",
-                headers=headers,
-                params={"per_page": 1000},
-            ),
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            profiles_resp, users_resp = await asyncio.gather(
+                client.get(
+                    f"{supabase_url}/rest/v1/profiles",
+                    headers=headers,
+                    params={"select": "id,name,institute,created_at,updated_at", "order": "updated_at.desc"},
+                ),
+                client.get(
+                    f"{supabase_url}/auth/v1/admin/users",
+                    headers=headers,
+                    params={"per_page": 1000},
+                ),
+            )
+    except (httpx.TimeoutException, httpx.RequestError) as exc:
+        import logging
+        logging.error("Supabase connection error in fetch_all_profiles: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Supabase — check SUPABASE_URL and network connectivity.",
         )
 
     if profiles_resp.status_code != status.HTTP_200_OK:
@@ -93,23 +104,31 @@ async def fetch_admin_stats() -> Dict[str, Any]:
     active_cutoff = (now - timedelta(hours=72)).isoformat()
     week_cutoff = (now - timedelta(days=7)).isoformat()
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        total_resp, new_resp, active_resp = await asyncio.gather(
-            client.get(
-                f"{supabase_url}/rest/v1/profiles",
-                headers={**headers, "Range": "0-0"},
-                params={"select": "id"},
-            ),
-            client.get(
-                f"{supabase_url}/rest/v1/profiles",
-                headers={**headers, "Range": "0-0"},
-                params={"select": "id", "created_at": f"gte.{week_cutoff}"},
-            ),
-            client.get(
-                f"{supabase_url}/rest/v1/profiles",
-                headers={**headers, "Range": "0-0"},
-                params={"select": "id", "updated_at": f"gte.{active_cutoff}"},
-            ),
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            total_resp, new_resp, active_resp = await asyncio.gather(
+                client.get(
+                    f"{supabase_url}/rest/v1/profiles",
+                    headers={**headers, "Range": "0-0"},
+                    params={"select": "id"},
+                ),
+                client.get(
+                    f"{supabase_url}/rest/v1/profiles",
+                    headers={**headers, "Range": "0-0"},
+                    params={"select": "id", "created_at": f"gte.{week_cutoff}"},
+                ),
+                client.get(
+                    f"{supabase_url}/rest/v1/profiles",
+                    headers={**headers, "Range": "0-0"},
+                    params={"select": "id", "updated_at": f"gte.{active_cutoff}"},
+                ),
+            )
+    except (httpx.TimeoutException, httpx.RequestError) as exc:
+        import logging
+        logging.error("Supabase connection error in fetch_admin_stats: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Supabase — check SUPABASE_URL and network connectivity.",
         )
 
     def _count(r):

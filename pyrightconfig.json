@@ -1,7 +1,12 @@
 {
-  "venvPath": ".",
-  "venv": "backend/venv",
+  "venvPath": "backend",
+  "venv": "venv",
+  "pythonInterpreter": "backend/venv/bin/python3.12",
+  "pythonVersion": "3.12",
   "extraPaths": [
     "backend"
-  ]
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none"
 }
+

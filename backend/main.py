@@ -12,6 +12,7 @@ from typing import Dict, Optional, Any, List
 import json
 import os
 import glob
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field 
 from services.admin_portal import (  # type: ignore
     ensure_admin_email,
@@ -33,21 +34,43 @@ from engine.parser import parse_code  # type: ignore
 from engine.compiler import compile_code  # type: ignore
 from engine.esp32_gpio import ESP32GPIO  # type: ignore
 from engine.esp32_parser import parse_esp32_code  # type: ignore
+# pyrefly: ignore [missing-import]
 from slowapi import Limiter, _rate_limit_exceeded_handler
+# pyrefly: ignore [missing-import]
 from slowapi.util import get_remote_address
+# pyrefly: ignore [missing-import]
 from slowapi.errors import RateLimitExceeded
+# pyrefly: ignore [missing-import]
 from starlette.requests import Request
 
-# RAG engine (lazy-loaded — only initialized when first chatbot request arrives)
+# RAG engine — initialized at startup in a background thread to prevent
+# the first user request from blocking for 15-20 s while ChromaDB loads.
+import threading as _threading
 _rag_engine = None
+_rag_lock = _threading.Lock()
+_rag_ready = False
 
 def get_rag_engine():
-    """Lazy-load the RAG engine so the server starts even without GROQ_API_KEY."""
+    """Return the RAG engine, waiting up to 30 s if warm-up is still in progress."""
     global _rag_engine
-    if _rag_engine is None:
-        from rag.query import RAGEngine  # type: ignore
-        _rag_engine = RAGEngine()
+    with _rag_lock:
+        if _rag_engine is None:
+            from rag.query import RAGEngine  # type: ignore
+            _rag_engine = RAGEngine()
     return _rag_engine
+
+def _warmup_rag():
+    """Background thread: initialise RAG engine at server startup."""
+    global _rag_ready
+    try:
+        import logging as _log
+        _log.info("[RAG] Warming up engine in background …")
+        get_rag_engine()
+        _rag_ready = True
+        _log.info("[RAG] Engine ready.")
+    except Exception as exc:
+        import logging as _log
+        _log.warning("[RAG] Warm-up failed (chatbot will still work): %s", exc)
 
 # -------------------------
 # App initialization
@@ -76,6 +99,9 @@ app = FastAPI(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Kick off RAG warm-up as soon as the server process starts
+_threading.Thread(target=_warmup_rag, daemon=True, name="rag-warmup").start()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -143,6 +169,7 @@ async def _experiments_from_supabase(fields: str = "*") -> list | None:
     if not sb_url or not sb_key:
         return None
     headers = {"Authorization": f"Bearer {sb_key}", "apikey": sb_key}
+    # pyrefly: ignore [missing-import]
     import httpx as _httpx
     try:
         async with _httpx.AsyncClient(timeout=5) as client:
@@ -284,6 +311,7 @@ def run_esp32_experiment(payload: ESP32CodeInput, request:Request):
     inputs = payload.inputs
     if inputs is not None:
         for pin, value in inputs.items():
+            # pyrefly: ignore [unnecessary-type-conversion]
             gpio.set_input(int(pin), value)
 
     # Parse & execute code on virtual ESP32 GPIO

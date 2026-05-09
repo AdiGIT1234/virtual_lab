@@ -373,11 +373,30 @@ void loop() {
         await startSimulation(code, manualRegisters, inputs, code);
       } else {
         // Arduino Uno: compile to hex + avr8js WASM execution
-        const response = await fetch(`${API_BASE_URL}/run-experiment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, inputs }),
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 s hard timeout
+
+        let response;
+        try {
+          response = await fetch(`${API_BASE_URL}/run-experiment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, inputs }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          let detail = `Server error ${response.status}`;
+          try {
+            const errBody = await response.json();
+            detail = errBody?.detail || detail;
+          } catch (parseErr) { void parseErr; /* ignore JSON parse errors on error responses */ }
+          setHexError(`Compilation failed: ${detail}`);
+          return;
+        }
 
         const data = await response.json();
 
@@ -396,13 +415,20 @@ void loop() {
           setCurrentStep(0);
           setIsPlaying(true);
           setIsAnalyzerOpen(true);
+        } else if (data.hex_error) {
+          setHexError(data.hex_error);
+          setTimeline([]);
         } else {
           setTimeline([]);
         }
       }
     } catch (e) {
       console.error("Simulation failed:", e);
-      setHexError("Simulation failed — check backend logs.");
+      if (e.name === "AbortError") {
+        setHexError("Request timed out — the backend took too long. Please try again.");
+      } else {
+        setHexError("Simulation failed — could not reach the backend. Check your connection.");
+      }
     }
   };
 
@@ -913,7 +939,7 @@ void loop() {
           resultJson: payload
         });
         setSaveStatus('cloud');
-      } catch (err) {
+      } catch {
         setSaveStatus('local');
       }
     } else {

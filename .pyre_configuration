@@ -4,5 +4,10 @@
   ],
   "search_path": [
     "backend"
+  ],
+  "python_interpreter": "backend/venv/bin/python3.12",
+  "python_version": "3.12",
+  "exclude": [
+    "backend/venv"
   ]
 }
