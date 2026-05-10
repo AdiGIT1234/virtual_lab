@@ -192,7 +192,10 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
 
 function getMcuPin(portStr) {
   if (!portStr) return null;
-  if (portStr.startsWith('mcu::')) return parseInt(portStr.split('::')[1], 10);
+  if (portStr.startsWith('mcu::')) {
+    const n = parseInt(portStr.split('::')[1], 10);
+    return isNaN(n) ? null : n;   // named pins (5V, GND…) have no register index
+  }
   return null;
 }
 

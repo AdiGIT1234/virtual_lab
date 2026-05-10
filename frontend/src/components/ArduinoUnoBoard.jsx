@@ -67,24 +67,80 @@ function getPinState(registers, pinId) {
   return false;
 }
 
-// ── Static pad (power / special pins) ────────────────────────────────────────
-function StaticPad({ pin }) {
+// ── Wirable pad (power / special pins: 5V, GND, RST, SCL, SDA, AREF, VIN…) ───
+// Visually identical to the old StaticPad but exposes a wiring hit-target so
+// users can drag wires to/from 5V, GND, SCL/SDA, etc.
+function WirablePad({ pin }) {
+  const [hovered, setHovered] = useState(false);
   const isTop = pin.y < 100;
   const lx = pin.x;
   const ly = isTop ? pin.y - 22 : pin.y + 22;
+  const tooltipY = isTop ? pin.y + 18 : pin.y - 38;
+
+  function handleMouseDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.getActiveWire?.()) {
+      window.onCompleteWire?.(pin.id);         // complete an in-progress wire
+    } else {
+      const r = e.target.getBoundingClientRect();
+      window.onStartWire?.(`mcu::${pin.id}`, null,
+        r.left + r.width / 2, r.top + r.height / 2);
+    }
+  }
+
   return (
-    <g>
+    <g
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ cursor: "crosshair" }}
+      data-chip-node="interactive"
+    >
+      {/* Pad housing */}
       <rect x={pin.x - 5} y={pin.y - 5} width={10} height={10} rx={1}
-        fill="#0c0c0c" stroke="#b8943a" strokeWidth="1.2" />
+        fill="#0c0c0c"
+        stroke={hovered ? "#00ff88" : "#b8943a"}
+        strokeWidth="1.2" />
+      {/* Pad fill */}
       <rect x={pin.x - 3} y={pin.y - 3} width={6} height={6} rx={0.5} fill="#c8a34a" />
+      {/* Drill hole */}
       <rect x={pin.x - 1.5} y={pin.y - 1.5} width={3} height={3} fill="#080808" />
+      {/* Hover glow ring */}
+      {hovered && (
+        <rect x={pin.x - 7} y={pin.y - 7} width={14} height={14} rx={2}
+          fill="none" stroke="#00ff88" strokeWidth={1} opacity={0.7} />
+      )}
+
+      {/* Wiring hit-target — same pattern as InteractivePad */}
+      <circle
+        id={`chip-pin-tip-${pin.id}`}
+        cx={pin.x} cy={pin.y} r={7}
+        fill="transparent" stroke="transparent"
+        onMouseDown={handleMouseDown}
+        onClick={e => e.stopPropagation()}
+        data-chip-node="interactive"
+      />
+
+      {/* Rotated label */}
       <text x={lx} y={ly} textAnchor="middle"
-        fill="rgba(255,255,255,0.72)" fontSize={5.5}
-        fontFamily="'JetBrains Mono', monospace" fontWeight="600"
+        fill={hovered ? "#fff" : "rgba(255,255,255,0.72)"}
+        fontSize={5.5} fontFamily="'JetBrains Mono', monospace" fontWeight="600"
         transform={`rotate(-90,${lx},${ly})`}
-        style={{ userSelect: "none" }}>
+        style={{ userSelect: "none", pointerEvents: "none" }}>
         {pin.label}
       </text>
+
+      {/* Hover tooltip */}
+      {hovered && (
+        <g style={{ pointerEvents: "none" }}>
+          <rect x={pin.x - 28} y={tooltipY} width={56} height={22} rx={3}
+            fill="#0a0a0a" stroke="#333" strokeWidth={1} opacity={0.95} />
+          <text x={pin.x} y={tooltipY + 14} textAnchor="middle"
+            fill="#00F2FF" fontSize={8} fontFamily="monospace" fontWeight="700">
+            {pin.label}
+          </text>
+        </g>
+      )}
     </g>
   );
 }
@@ -375,9 +431,9 @@ export default function ArduinoUnoBoard({ registers, toggleInput }) {
         <text x={425} y={448} textAnchor="middle"
           fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">DIGITAL</text>
 
-        {/* ── Pin pads — static ── */}
-        {TOP_POWER.map(p => <StaticPad key={p.id} pin={p} />)}
-        {TOP_DIGITAL.filter(p => !("pinId" in p)).map(p => <StaticPad key={p.id} pin={p} />)}
+        {/* ── Pin pads — power/special (wirable) ── */}
+        {TOP_POWER.map(p => <WirablePad key={p.id} pin={p} />)}
+        {TOP_DIGITAL.filter(p => !("pinId" in p)).map(p => <WirablePad key={p.id} pin={p} />)}
 
         {/* ── Pin pads — interactive ── */}
         {ALL_INTERACTIVE.map(p => (

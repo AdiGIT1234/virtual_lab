@@ -779,7 +779,31 @@ void loop() {
       const otherEnd = wire.source === key ? wire.target : wire.source;
       if (!otherEnd) continue;
       if (otherEnd.startsWith("mcu::")) {
-        return { pin: parseInt(otherEnd.split("::")[1], 10), resistance: currentResistance };
+        const pinStr = otherEnd.split("::")[1];
+        const pinNum = parseInt(pinStr, 10);
+        if (!isNaN(pinNum)) {
+          return { pin: pinNum, resistance: currentResistance };
+        }
+        // Named power / special header pins
+        const NAMED_PIN_MAP = {
+          "5V":    { logicValue: true  },
+          "IOREF": { logicValue: true  },
+          "3V3":   { logicValue: true  },
+          "VIN":   { logicValue: true  },
+          "GND1":  { logicValue: false },
+          "GND2":  { logicValue: false },
+          "GND3":  { logicValue: false },
+          "RST":   { logicValue: false },
+          "SCL":   { pin: 19 },   // A5 = hardware I2C SCL on ATmega
+          "SDA":   { pin: 18 },   // A4 = hardware I2C SDA on ATmega
+          "AREF":  { logicValue: null  },
+        };
+        const mapped = NAMED_PIN_MAP[pinStr];
+        if (mapped) {
+          if (mapped.pin !== undefined) return { pin: mapped.pin, resistance: currentResistance };
+          return { pin: null, resistance: currentResistance, logicValue: mapped.logicValue ?? undefined };
+        }
+        return { pin: null, resistance: currentResistance };
       }
       const [oComp, oTerm] = otherEnd.split("::");
       const result = resolveConnection(oComp, oTerm, visited, currentResistance);
