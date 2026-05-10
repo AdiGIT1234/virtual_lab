@@ -35,7 +35,7 @@ class RAGEngine:
             )
 
         self.client = Groq(api_key=api_key)
-        self.model_name = "llama-3.3-70b-versatile"
+        self.model_name = "llama-3.1-8b-instant"
 
         # Connect to ChromaDB (uses built-in all-MiniLM-L6-v2 embeddings)
         self.chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)

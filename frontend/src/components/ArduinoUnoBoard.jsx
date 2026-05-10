@@ -162,7 +162,9 @@ function InteractivePad({ pin, state, onToggle }) {
             fill="#0a0a0a" stroke="#333" strokeWidth={1} opacity={0.95} />
           <text x={pin.x} y={tooltipY + 11} textAnchor="middle"
             fill="#00F2FF" fontSize={8} fontFamily="monospace" fontWeight="700">
-            {pin.pwm ? "~" : ""}D{pin.label}
+            {pin.label.startsWith("A")
+              ? pin.label
+              : `${pin.pwm ? "~" : ""}D${pin.label.replace(/^~/, "")}`}
           </text>
           <text x={pin.x} y={tooltipY + 21} textAnchor="middle"
             fill="#888" fontSize={7} fontFamily="monospace">

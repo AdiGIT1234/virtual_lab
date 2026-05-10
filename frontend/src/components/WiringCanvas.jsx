@@ -97,8 +97,10 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
   function resolveSide(x, y, given) {
     if (given) return given;
     if (chip) {
-      if (Math.abs(x - chip.left)  < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'left';
-      if (Math.abs(x - chip.right) < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'right';
+      if (Math.abs(x - chip.left)   < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'left';
+      if (Math.abs(x - chip.right)  < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'right';
+      if (Math.abs(y - chip.top)    < 50 && x >= chip.left - 10 && x <= chip.right + 10) return 'top';
+      if (Math.abs(y - chip.bottom) < 50 && x >= chip.left - 10 && x <= chip.right + 10) return 'bottom';
     }
     return 'bottom';
   }
@@ -172,7 +174,9 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
   };
 
   if (chip && checkOverlap(pts)) {
-    const bypassY = chip.bottom + PAD + 10;
+    const bypassY = rSrc === 'top'
+      ? chip.top - PAD - 10
+      : chip.bottom + PAD + 10;
     pts = [
       { x: sx,     y: sy },
       sExt,

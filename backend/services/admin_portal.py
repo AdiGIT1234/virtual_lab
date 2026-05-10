@@ -323,18 +323,37 @@ async def fetch_user_activity() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(
-            f"{supabase_url}/rest/v1/saved_experiments",
-            headers=headers,
-            params={
-                "select": "user_id,experiment_id,title,completed,pretest_score,posttest_score,time_spent_ms,updated_at,profile:profiles(name,institute)",
-                "order": "updated_at.desc",
-                "limit": "1000",
-            },
+        activity_resp, profiles_resp = await asyncio.gather(
+            client.get(
+                f"{supabase_url}/rest/v1/saved_experiments",
+                headers=headers,
+                params={
+                    "select": "user_id,experiment_id,title,completed,pretest_score,posttest_score,time_spent_ms,updated_at",
+                    "order": "updated_at.desc",
+                    "limit": "1000",
+                },
+            ),
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={"select": "id,name,institute"},
+            ),
         )
-    if resp.status_code != status.HTTP_200_OK:
+    if activity_resp.status_code != status.HTTP_200_OK:
         return []
-    return resp.json()
+
+    rows = activity_resp.json()
+
+    # Build profile lookup by user_id and merge
+    profile_map: dict[str, dict] = {}
+    if profiles_resp.status_code == status.HTTP_200_OK:
+        for p in profiles_resp.json():
+            profile_map[p["id"]] = {"name": p.get("name"), "institute": p.get("institute")}
+
+    for row in rows:
+        row["profile"] = profile_map.get(row.get("user_id"), {})
+
+    return rows
 
 
 async def fetch_feedback() -> List[Dict[str, Any]]:
@@ -346,19 +365,38 @@ async def fetch_feedback() -> List[Dict[str, Any]]:
         "apikey": service_key,
     }
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(
-            f"{supabase_url}/rest/v1/feedback",
-            headers=headers,
-            params={
-                "select": "id,user_id,experiment_id,rating,message,created_at,profile:profiles(name,institute)",
-                "order": "created_at.desc",
-                "limit": "500",
-            },
+        feedback_resp, profiles_resp = await asyncio.gather(
+            client.get(
+                f"{supabase_url}/rest/v1/feedback",
+                headers=headers,
+                params={
+                    "select": "id,user_id,experiment_id,rating,message,created_at",
+                    "order": "created_at.desc",
+                    "limit": "500",
+                },
+            ),
+            client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={"select": "id,name,institute"},
+            ),
         )
-    if resp.status_code != status.HTTP_200_OK:
+    if feedback_resp.status_code != status.HTTP_200_OK:
         return []
     try:
-        return resp.json() if isinstance(resp.json(), list) else []
+        rows = feedback_resp.json()
+        if not isinstance(rows, list):
+            return []
+
+        profile_map: dict[str, dict] = {}
+        if profiles_resp.status_code == status.HTTP_200_OK:
+            for p in profiles_resp.json():
+                profile_map[p["id"]] = {"name": p.get("name"), "institute": p.get("institute")}
+
+        for row in rows:
+            row["profile"] = profile_map.get(row.get("user_id"), {})
+
+        return rows
     except Exception:
         return []
 
