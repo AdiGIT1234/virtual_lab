@@ -10,7 +10,7 @@
 export const EXPERIMENT_PRESETS = {
   exp01_led_blinking: {
     name: "LED Blinking",
-    code: `// LED Blinking Experiment
+    solutionCode: `// LED Blinking Experiment
 // Toggle LED on pin 13 using GPIO
 
 #include <avr/io.h>
@@ -35,7 +35,7 @@ int main(void) {
 
   exp02_push_button: {
     name: "Push Button & Debouncing",
-    code: `// Push Button with Debouncing
+    solutionCode: `// Push Button with Debouncing
 // Read button on pin 2, control LED on pin 13
 
 #include <avr/io.h>
@@ -67,7 +67,7 @@ int main(void) {
 
   exp03_seven_segment: {
     name: "7-Segment Display",
-    code: `// 7-Segment Display Experiment
+    solutionCode: `// 7-Segment Display Experiment
 // Segments: a→D2, b→D3, c→D4, d→D5, e→D6, f→D7, g→B0
 
 #include <avr/io.h>
@@ -106,7 +106,7 @@ int main(void) {
 
   exp04_external_interrupts: {
     name: "External Interrupts",
-    code: `// External Interrupts (INT0/INT1)
+    solutionCode: `// External Interrupts (INT0/INT1)
 // Toggle LED via interrupt on pin 2
 
 #include <avr/io.h>
@@ -137,7 +137,7 @@ int main(void) {
 
   exp05_timer0_normal: {
     name: "Timer0 Normal Mode",
-    code: `// Timer0 Normal Mode
+    solutionCode: `// Timer0 Normal Mode
 // LED blink using Timer0 overflow interrupt
 
 #include <avr/io.h>
@@ -169,7 +169,7 @@ int main(void) {
 
   exp06_timer1_ctc: {
     name: "Timer1 CTC Mode",
-    code: `// Timer1 CTC Mode — 1Hz Signal
+    solutionCode: `// Timer1 CTC Mode — 1Hz Signal
 // Precise 1-second toggle using OCR1A
 
 #include <avr/io.h>
@@ -197,7 +197,7 @@ int main(void) {
 
   exp07_pwm_fast: {
     name: "Fast PWM & LED Fading",
-    code: `// Fast PWM — LED Fading
+    solutionCode: `// Fast PWM — LED Fading
 // Fade LED on pin 6 (OC0A) using Timer0 Fast PWM
 
 #include <avr/io.h>
@@ -230,7 +230,7 @@ int main(void) {
 
   exp08_pwm_phase_correct: {
     name: "Phase Correct PWM",
-    code: `// Phase Correct PWM — Servo Control
+    solutionCode: `// Phase Correct PWM — Servo Control
 // Servo on pin 9 using Timer1 Phase Correct PWM
 
 #include <avr/io.h>
@@ -263,7 +263,7 @@ int main(void) {
 
   exp09_adc_polling: {
     name: "ADC (Analog-to-Digital)",
-    code: `// ADC Polling — Potentiometer Read
+    solutionCode: `// ADC Polling — Potentiometer Read
 // Read analog value from A0 and light up LEDs as a bar graph
 
 #include <avr/io.h>
@@ -301,7 +301,7 @@ int main(void) {
 
   exp10_uart_tx: {
     name: "UART Serial Transmit",
-    code: `// UART Transmit
+    solutionCode: `// UART Transmit
 // Send "Hello AVR!" over USART at 9600 baud
 
 #include <avr/io.h>
@@ -340,7 +340,7 @@ int main(void) {
 
   exp11_uart_rx_interrupts: {
     name: "UART Receive Interrupts",
-    code: `// UART Receive with Interrupts
+    solutionCode: `// UART Receive with Interrupts
 // Echo received data back and toggle LED
 
 #include <avr/io.h>
@@ -372,7 +372,7 @@ int main(void) {
 
   exp12_spi_master: {
     name: "SPI Master",
-    code: `// SPI Master Communication
+    solutionCode: `// SPI Master Communication
 // Send data via SPI to a shift register
 
 #include <avr/io.h>
@@ -409,7 +409,7 @@ int main(void) {
 
   exp13_i2c_master: {
     name: "I2C / TWI Master",
-    code: `// I2C Master Communication
+    solutionCode: `// I2C Master Communication
 // Send data to an I2C slave device
 
 #include <avr/io.h>
@@ -459,7 +459,7 @@ int main(void) {
 
   exp14_eeprom_rw: {
     name: "EEPROM Read/Write",
-    code: `// EEPROM Read/Write
+    solutionCode: `// EEPROM Read/Write
 // Store and retrieve a counter value
 
 #include <avr/io.h>
@@ -493,7 +493,7 @@ int main(void) {
 
   exp15_watchdog_timer: {
     name: "Watchdog Timer",
-    code: `// Watchdog Timer
+    solutionCode: `// Watchdog Timer
 // Auto-reset crashed firmware using WDT
 
 #include <avr/io.h>

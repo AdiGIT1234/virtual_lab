@@ -32,8 +32,6 @@ def load_pdfs(data_dir: str) -> List[Dict[str, Any]]:
 
     if not pdf_files:
         print(f"⚠️  No PDF files found in {os.path.abspath(data_dir)}")
-        print(f"   Place ATmega328P datasheet PDFs there and re-run.")
-        return documents
 
     for pdf_path in pdf_files:
         filename = os.path.basename(pdf_path)
@@ -54,6 +52,33 @@ def load_pdfs(data_dir: str) -> List[Dict[str, Any]]:
             print(f"   ❌ Error reading {filename}: {e}")
 
     print(f"✅ Extracted {len(documents)} pages from {len(pdf_files)} PDF(s)")
+    return documents
+
+
+def load_text_files(data_dir: str) -> List[Dict[str, Any]]:
+    """Reads all .txt knowledge files and returns {filename, page, text} entries."""
+    documents: List[Dict[str, Any]] = []
+    txt_files = glob.glob(os.path.join(data_dir, "*.txt"))
+
+    for txt_path in txt_files:
+        filename = os.path.basename(txt_path)
+        print(f"📝 Reading: {filename}")
+        try:
+            with open(txt_path, encoding="utf-8") as f:
+                content = f.read().strip()
+            if len(content) > 50:
+                # Split on "---" section separators so each experiment is a separate page
+                sections = [s.strip() for s in content.split("\n---\n") if len(s.strip()) > 50]
+                for idx, section in enumerate(sections):
+                    documents.append({
+                        "filename": filename,
+                        "page": idx + 1,
+                        "text": section,
+                    })
+        except Exception as e:
+            print(f"   ❌ Error reading {filename}: {e}")
+
+    print(f"✅ Loaded {len(documents)} sections from {len(txt_files)} text file(s)")
     return documents
 
 
@@ -136,9 +161,11 @@ def run_ingestion() -> bool:
     print("  ATmega328P Virtual Lab — RAG Ingestion Pipeline")
     print("=" * 60)
 
-    # Step 1: Load PDFs
+    # Step 1: Load PDFs + text knowledge files
     documents = load_pdfs(DATA_DIR)
+    documents += load_text_files(DATA_DIR)
     if not documents:
+        print("⚠️  No documents found. Add PDFs or .txt files to:", DATA_DIR)
         return False
 
     # Step 2: Chunk

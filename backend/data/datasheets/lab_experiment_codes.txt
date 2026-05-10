@@ -1,0 +1,507 @@
+ATmega328P Virtual Lab — Experiment Solution Codes & Hint Guide
+=================================================================
+This document is used by the Embedex teaching assistant to give
+guided hints to students. Do NOT reproduce full solutions verbatim;
+instead break explanations into small, progressive steps.
+=================================================================
+
+---
+EXPERIMENT 1: LED Blinking (exp01_led_blinking)
+Topic: GPIO output, DDRx, PORTx, blocking delay
+Key registers: DDRB (0x24), PORTB (0x25)
+Pin: PB5 = Arduino pin 13
+
+Hints to give in order:
+1. You need to set pin PB5 as an output using the DDRB register.
+2. Use the bitwise OR-assign: DDRB |= (1 << PB5);
+3. To turn the LED ON, write 1 to PORTB bit 5: PORTB |= (1 << PB5);
+4. To turn it OFF: PORTB &= ~(1 << PB5);
+5. Use _delay_ms(500) between ON and OFF for a visible blink.
+6. Wrap the toggle in while(1) for a continuous loop.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB5);    // Pin 13 as output
+    while (1) {
+        PORTB |= (1 << PB5);  // LED ON
+        _delay_ms(500);
+        PORTB &= ~(1 << PB5); // LED OFF
+        _delay_ms(500);
+    }
+}
+
+---
+EXPERIMENT 2: Push Button & Debouncing (exp02_push_button)
+Topic: GPIO input, pull-up, PIND, debounce
+Key registers: DDRB, DDRD, PORTD (pull-up), PIND
+Pins: PB5 = LED (output), PD2 = Button (input with pull-up)
+
+Hints:
+1. Set PB5 as output (LED) and PD2 as input (button).
+2. Enable PD2 internal pull-up: PORTD |= (1 << PD2);  — with INPUT_PULLUP button reads HIGH when unpressed.
+3. Read the button: if (!(PIND & (1 << PD2))) means button is pressed (LOW because pull-up).
+4. Add 50ms debounce: call _delay_ms(50) then re-read to confirm.
+5. Toggle LED with XOR: PORTB ^= (1 << PB5);
+6. Wait for button release: while (!(PIND & (1 << PD2)));
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB5);      // Pin 13 output (LED)
+    DDRD &= ~(1 << PD2);     // Pin 2 input (Button)
+    PORTD |= (1 << PD2);     // Enable pull-up
+
+    while (1) {
+        if (!(PIND & (1 << PD2))) {
+            _delay_ms(50);   // Debounce
+            if (!(PIND & (1 << PD2))) {
+                PORTB ^= (1 << PB5); // Toggle LED
+                while (!(PIND & (1 << PD2))); // Wait release
+            }
+        }
+    }
+}
+
+---
+EXPERIMENT 3: 7-Segment Display (exp03_seven_segment)
+Topic: Multi-pin output, segment encoding
+Key registers: DDRD, PORTD (segments a-f = D2-D7), DDRB, PORTB (segment g = PB0)
+Segment mapping: a→PD2, b→PD3, c→PD4, d→PD5, e→PD6, f→PD7, g→PB0
+
+Hints:
+1. Set DDRD = 0xFC (bits 2-7 as outputs for segments a-f).
+2. Set DDRB |= (1 << PB0) for segment g.
+3. For digit 0 (a,b,c,d,e,f ON, g OFF): PORTD = 0xFC, PORTB &= ~(1 << PB0).
+4. Build a lookup table: seg_portD[] for PORTD pattern, seg_g[] for g bit.
+5. Loop through digits 0-9 in while(1) with 1-second delay.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+const uint8_t seg_portD[] = {
+    0xFC, 0x18, 0x6C, 0x3C, 0x98,
+    0xB4, 0xF4, 0x1C, 0xFC, 0xBC
+};
+const uint8_t seg_g[] = { 0, 0, 1, 1, 1, 1, 1, 0, 1, 1 };
+
+int main(void) {
+    DDRD  = 0xFC;
+    DDRB |= (1 << PB0);
+
+    while (1) {
+        for (uint8_t i = 0; i < 10; i++) {
+            PORTD = seg_portD[i];
+            if (seg_g[i]) PORTB |= (1 << PB0);
+            else          PORTB &= ~(1 << PB0);
+            _delay_ms(1000);
+        }
+    }
+}
+
+---
+EXPERIMENT 4: External Interrupts (exp04_external_interrupts)
+Topic: INT0/INT1, ISR, EICRA, EIMSK, sei()
+Key registers: EICRA (ISC01 = falling edge), EIMSK (INT0 enable)
+Pin: PD2 = INT0
+
+Hints:
+1. Write an ISR for INT0: ISR(INT0_vect) { PORTB ^= (1 << PB5); }
+2. Configure PD2 as input with pull-up.
+3. Set falling-edge trigger: EICRA |= (1 << ISC01);
+4. Enable INT0: EIMSK |= (1 << INT0);
+5. Enable global interrupts: sei();
+6. Main loop is empty while(1){} — the ISR handles everything.
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+ISR(INT0_vect) {
+    PORTB ^= (1 << PB5); // Toggle pin 13
+}
+
+int main(void) {
+    DDRB |= (1 << PB5);    // Pin 13 output
+    DDRD &= ~(1 << PD2);   // Pin 2 input
+    PORTD |= (1 << PD2);   // Pull-up
+    EICRA |= (1 << ISC01); // Falling edge
+    EIMSK |= (1 << INT0);  // Enable INT0
+    sei();
+    while (1) {}
+}
+
+---
+EXPERIMENT 5: Timer0 Normal Mode (exp05_timer0_normal)
+Topic: Timer0, overflow ISR, prescaler, TCCR0B, TIMSK0
+Calculation: 16MHz / (1024 prescaler × 256 counts) ≈ 61 overflows/second
+
+Hints:
+1. Set prescaler 1024: TCCR0B |= (1 << CS02) | (1 << CS00);
+2. Enable Timer0 overflow interrupt: TIMSK0 |= (1 << TOIE0);
+3. Declare a volatile counter: volatile uint8_t overflow_count = 0;
+4. In ISR(TIMER0_OVF_vect): increment counter, toggle LED at 61 overflows (~1 sec).
+5. Enable global interrupts and spin in while(1){}.
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+volatile uint8_t overflow_count = 0;
+
+ISR(TIMER0_OVF_vect) {
+    overflow_count++;
+    if (overflow_count >= 61) {  // ~1 second
+        PORTB ^= (1 << PB5);
+        overflow_count = 0;
+    }
+}
+
+int main(void) {
+    DDRB |= (1 << PB5);
+    TCCR0B |= (1 << CS02) | (1 << CS00); // prescaler 1024
+    TIMSK0 |= (1 << TOIE0);
+    sei();
+    while (1) {}
+}
+
+---
+EXPERIMENT 6: Timer1 CTC Mode (exp06_timer1_ctc)
+Topic: Timer1, CTC, OCR1A, WGM12, prescaler 1024
+Calculation: OCR1A = (16MHz / (1024 × 1Hz)) - 1 = 15624 for 1Hz toggle
+
+Hints:
+1. ISR fires at the CTC match: ISR(TIMER1_COMPA_vect) { toggle PB5 }
+2. Set OCR1A = 15624 for 1-second interval at 1024 prescaler.
+3. Enable CTC mode: TCCR1B |= (1 << WGM12);
+4. Set prescaler 1024: TCCR1B |= (1 << CS12) | (1 << CS10);
+5. Enable output compare interrupt: TIMSK1 |= (1 << OCIE1A);
+6. sei() and while(1){}.
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+ISR(TIMER1_COMPA_vect) {
+    PORTB ^= (1 << PB5);
+}
+
+int main(void) {
+    DDRB |= (1 << PB5);
+    OCR1A = 15624;           // 1 second at 16 MHz / 1024
+    TCCR1B |= (1 << WGM12); // CTC mode
+    TCCR1B |= (1 << CS12) | (1 << CS10); // prescaler 1024
+    TIMSK1 |= (1 << OCIE1A);
+    sei();
+    while (1) {}
+}
+
+---
+EXPERIMENT 7: Fast PWM — LED Fading (exp07_pwm_fast)
+Topic: Timer0 Fast PWM, OC0A (PD6/pin6), OCR0A
+Registers: TCCR0A (WGM00+WGM01+COM0A1), TCCR0B (CS01+CS00 = prescaler 64)
+
+Hints:
+1. Set PD6 (pin 6, OC0A) as output.
+2. Configure Fast PWM: TCCR0A = (1<<COM0A1)|(1<<WGM01)|(1<<WGM00);
+3. Set prescaler 64: TCCR0B = (1<<CS01)|(1<<CS00);
+4. Change OCR0A (0-255) to control duty cycle.
+5. Loop OCR0A from 0→255 (fade in) then 255→0 (fade out) with 8ms delay.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRD |= (1 << PD6);  // Pin 6 (OC0A)
+    TCCR0A = (1 << COM0A1) | (1 << WGM01) | (1 << WGM00);
+    TCCR0B = (1 << CS01) | (1 << CS00);
+
+    while (1) {
+        for (uint8_t i = 0; i < 255; i++) { OCR0A = i; _delay_ms(8); }
+        for (uint8_t i = 255; i > 0; i--) { OCR0A = i; _delay_ms(8); }
+    }
+}
+
+---
+EXPERIMENT 8: Phase Correct PWM — Servo Control (exp08_pwm_phase_correct)
+Topic: Timer1 Phase Correct PWM, ICR1, OC1A (PB1/pin9), servo timing
+Calculation: f = 16MHz / (2 × 8 × 20000) = 50Hz; tick = 0.5µs
+Pulse widths: 0° = 2000 ticks (1ms), 90° = 3000 (1.5ms), 180° = 4000 (2ms)
+
+Hints:
+1. Set PB1 (pin 9, OC1A) as output.
+2. Set ICR1 = 19999 for 50Hz: TCCR1B = (1<<WGM13)|(1<<CS11);
+3. TCCR1A = (1<<COM1A1)|(1<<WGM11); — Phase Correct PWM, non-inverting.
+4. OCR1A = 2000 → 1ms pulse → 0°.
+5. OCR1A = 3000 → 1.5ms → 90°.
+6. OCR1A = 4000 → 2ms → 180°.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB1);  // Pin 9 (OC1A)
+    ICR1 = 19999;         // 50Hz
+    TCCR1A = (1 << COM1A1) | (1 << WGM11);
+    TCCR1B = (1 << WGM13) | (1 << CS11); // prescaler 8
+
+    while (1) {
+        OCR1A = 2000;  _delay_ms(1000);  // 0°
+        OCR1A = 3000;  _delay_ms(1000);  // 90°
+        OCR1A = 4000;  _delay_ms(1000);  // 180°
+    }
+}
+
+---
+EXPERIMENT 9: ADC Polling (exp09_adc_polling)
+Topic: ADC, ADMUX, ADCSRA, ADEN, ADSC, 10-bit result
+Key registers: ADMUX (channel + REFS0 for AVcc reference), ADCSRA (enable + prescaler + start)
+
+Hints:
+1. Enable ADC and set prescaler 64: ADCSRA = (1<<ADEN)|(1<<ADPS2)|(1<<ADPS1);
+2. Select channel 0, AVCC reference: ADMUX = (1<<REFS0) | (channel & 0x07);
+3. Start conversion: ADCSRA |= (1<<ADSC);
+4. Wait: while (ADCSRA & (1<<ADSC));
+5. Read result: return ADC; (10-bit 0-1023)
+6. Map to LEDs: divide by 171 for 0-5 range, use (1<<n)-1 bitmask.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+uint16_t readADC(uint8_t channel) {
+    ADMUX = (1 << REFS0) | (channel & 0x07);
+    ADCSRA |= (1 << ADSC);
+    while (ADCSRA & (1 << ADSC));
+    return ADC;
+}
+
+int main(void) {
+    ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);
+    DDRB = 0x3F;  // Pins 8-13 as output
+
+    while (1) {
+        uint16_t val = readADC(0);
+        uint8_t leds = val / 171;
+        if (leds > 6) leds = 6;
+        PORTB = ((1 << leds) - 1) & 0x3F;
+        _delay_ms(100);
+    }
+}
+
+---
+EXPERIMENT 10: UART Serial Transmit (exp10_uart_tx)
+Topic: USART0, baud rate, UBRR0, UCSR0B, UCSR0C, UDR0
+Calculation: UBRR = F_CPU / (16 × baud) - 1 = 16000000/16/9600 - 1 = 103
+
+Hints:
+1. Compute UBRR: uint16_t ubrr = F_CPU / 16 / baud - 1;
+2. Set baud: UBRR0H = ubrr >> 8; UBRR0L = ubrr;
+3. Enable TX only: UCSR0B = (1<<TXEN0);
+4. 8-bit, 1 stop, no parity: UCSR0C = (1<<UCSZ01)|(1<<UCSZ00);
+5. Transmit byte: wait UDRE0 flag, then write UDR0.
+6. Loop: send "Hello AVR!\r\n" every 1 second.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+void UART_init(uint16_t baud) {
+    uint16_t ubrr = F_CPU / 16 / baud - 1;
+    UBRR0H = (ubrr >> 8);
+    UBRR0L = ubrr;
+    UCSR0B = (1 << TXEN0);
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+}
+
+void UART_putchar(char c) {
+    while (!(UCSR0A & (1 << UDRE0)));
+    UDR0 = c;
+}
+
+void UART_print(const char *str) {
+    while (*str) UART_putchar(*str++);
+}
+
+int main(void) {
+    UART_init(9600);
+    while (1) {
+        UART_print("Hello AVR!\r\n");
+        _delay_ms(1000);
+    }
+}
+
+---
+EXPERIMENT 11: UART Receive Interrupts (exp11_uart_rx_interrupts)
+Topic: USART RX interrupt, RXCIE0, RXEN0, echo pattern
+ISR: USART_RX_vect fires on received byte
+
+Hints:
+1. Enable TX+RX+RX interrupt: UCSR0B = (1<<RXEN0)|(1<<TXEN0)|(1<<RXCIE0);
+2. ISR: read UDR0, echo it back, toggle LED.
+3. In ISR(USART_RX_vect): char c = UDR0; then wait for UDRE0, write UDR0 = c.
+4. Main: just sei() and while(1){}.
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+ISR(USART_RX_vect) {
+    char c = UDR0;
+    while (!(UCSR0A & (1 << UDRE0)));
+    UDR0 = c;  // Echo
+    PORTB ^= (1 << PB5); // Toggle LED
+}
+
+int main(void) {
+    uint16_t ubrr = F_CPU / 16 / 9600 - 1;
+    UBRR0H = (ubrr >> 8);
+    UBRR0L = ubrr;
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+    DDRB |= (1 << PB5);
+    sei();
+    while (1) {}
+}
+
+---
+EXPERIMENT 12: SPI Master (exp12_spi_master)
+Topic: SPI, SPCR, SPDR, SPSR, SPIF, SS/MOSI/SCK pins
+Pins: PB2=SS, PB3=MOSI, PB5=SCK (all outputs for master)
+
+Hints:
+1. Set MOSI(PB3), SCK(PB5), SS(PB2) as outputs.
+2. Enable SPI master, F_CPU/16 clock: SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
+3. To send: SPDR = data; while(!(SPSR & (1<<SPIF)));
+4. Pulse SS low before each byte, high after.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+void SPI_init(void) {
+    DDRB |= (1 << PB3) | (1 << PB5) | (1 << PB2); // MOSI, SCK, SS
+    SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0);
+}
+
+void SPI_send(uint8_t data) {
+    SPDR = data;
+    while (!(SPSR & (1 << SPIF)));
+}
+
+int main(void) {
+    SPI_init();
+    while (1) {
+        for (uint8_t i = 0; i < 8; i++) {
+            PORTB &= ~(1 << PB2);  // SS low
+            SPI_send(1 << i);
+            PORTB |= (1 << PB2);   // SS high
+            _delay_ms(200);
+        }
+    }
+}
+
+---
+EXPERIMENT 13: I2C / TWI Master (exp13_i2c_master)
+Topic: TWI, TWBR, TWCR, TWDR, TWSR, start/write/stop
+SCL frequency: F_CPU / (16 + 2 × TWBR × prescaler) ≈ 100kHz with TWBR=0x47
+
+Hints:
+1. Set TWBR = 0x47 for 100kHz; enable TWI: TWCR = (1<<TWEN);
+2. START: TWCR = (1<<TWINT)|(1<<TWSTA)|(1<<TWEN); wait TWINT.
+3. WRITE byte: TWDR = data; TWCR = (1<<TWINT)|(1<<TWEN); wait TWINT.
+4. STOP: TWCR = (1<<TWINT)|(1<<TWSTO)|(1<<TWEN);
+5. Send address byte as (addr<<1)|0 for write, (addr<<1)|1 for read.
+
+Complete solution:
+#include <avr/io.h>
+#include <util/delay.h>
+
+void TWI_init(void) { TWSR = 0x00; TWBR = 0x47; TWCR = (1 << TWEN); }
+void TWI_start(void) { TWCR=(1<<TWINT)|(1<<TWSTA)|(1<<TWEN); while(!(TWCR&(1<<TWINT))); }
+void TWI_write(uint8_t d) { TWDR=d; TWCR=(1<<TWINT)|(1<<TWEN); while(!(TWCR&(1<<TWINT))); }
+void TWI_stop(void) { TWCR = (1<<TWINT)|(1<<TWSTO)|(1<<TWEN); }
+
+int main(void) {
+    TWI_init();
+    DDRB |= (1 << PB5);
+    while (1) {
+        TWI_start();
+        TWI_write(0x50);  // Address
+        TWI_write(0xAA);  // Data
+        TWI_stop();
+        PORTB ^= (1 << PB5);
+        _delay_ms(500);
+    }
+}
+
+---
+EXPERIMENT 14: EEPROM Read/Write (exp14_eeprom_rw)
+Topic: avr/eeprom.h, eeprom_read_byte, eeprom_write_byte, non-volatile storage
+Address space: 1KB (0x000–0x3FF)
+
+Hints:
+1. Include <avr/eeprom.h>.
+2. Read: uint8_t val = eeprom_read_byte((uint8_t*)0x00);
+3. Increment and write back: eeprom_write_byte((uint8_t*)0x00, val+1);
+4. Use the value to blink LED that many times (mask with & 0x07 to keep 0-7).
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/eeprom.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB5);  // Pin 13
+
+    uint8_t count = eeprom_read_byte((uint8_t*)0x00);
+    count++;
+    eeprom_write_byte((uint8_t*)0x00, count);
+
+    for (uint8_t i = 0; i < (count & 0x07); i++) {
+        PORTB |= (1 << PB5);   _delay_ms(200);
+        PORTB &= ~(1 << PB5);  _delay_ms(200);
+    }
+    _delay_ms(2000);
+    while (1) {}
+}
+
+---
+EXPERIMENT 15: Watchdog Timer (exp15_watchdog_timer)
+Topic: WDT, wdt_enable, WDTO_2S, system reset on hang
+Include: <avr/wdt.h>
+
+Hints:
+1. Include <avr/wdt.h>.
+2. Enable WDT with 2-second timeout: wdt_enable(WDTO_2S);
+3. If wdt_reset() is NOT called within 2 seconds, the MCU resets.
+4. Demonstrate a "hang": enter while(1){} WITHOUT calling wdt_reset().
+5. The LED will blink 3 times fast on boot (each reset cycle).
+
+Complete solution:
+#include <avr/io.h>
+#include <avr/wdt.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB5);  // Pin 13
+
+    for (uint8_t i = 0; i < 3; i++) {
+        PORTB |= (1 << PB5);   _delay_ms(100);
+        PORTB &= ~(1 << PB5);  _delay_ms(100);
+    }
+
+    wdt_enable(WDTO_2S);
+
+    PORTB |= (1 << PB5);  // LED stays on — hangs here
+    while (1) {
+        // NOT calling wdt_reset() — WDT will fire!
+    }
+}

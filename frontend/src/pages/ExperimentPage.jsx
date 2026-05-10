@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget";
 import allExperiments from "../data/all_experiments.json";
+import { EXPERIMENT_PRESETS } from "../constants/experimentPresets";
 import { API_BASE_URL } from "../lib/api";
 import { useAuth } from "../context/useAuth";
 import { supabase } from "../lib/supabase";
@@ -24,6 +25,7 @@ export default function ExperimentPage() {
   const [fbSubmitting, setFbSubmitting] = useState(false);
   const [fbSubmitted,  setFbSubmitted]  = useState(false);
   const [fbError,     setFbError]     = useState("");
+  const [codeCopied,  setCodeCopied]  = useState(false);
 
   const startTimeRef = useRef(Date.now());
 
@@ -69,11 +71,16 @@ export default function ExperimentPage() {
       });
   }, [experimentId]);
 
+  const solutionCode = EXPERIMENT_PRESETS[experimentId]?.solutionCode || null;
+  const pretestTotal = data?.pretest?.length ?? 10;
+  const codeUnlocked = preTestScore !== null && preTestScore >= pretestTotal;
+
   const tabs = [
     { id: "aim", label: "Aim", icon: "🎯" },
     { id: "theory", label: "Theory", icon: "📘" },
     { id: "pretest", label: "Pre-Test", icon: "📝" },
     { id: "procedure", label: "Procedure", icon: "🔧" },
+    { id: "code", label: "Code", icon: codeUnlocked ? "🔓" : "🔒" },
     { id: "simulation", label: "Simulation", icon: "▶️" },
     { id: "posttest", label: "Post-Test", icon: "✅" },
     { id: "feedback", label: "Feedback", icon: "🏆" },
@@ -257,6 +264,86 @@ export default function ExperimentPage() {
                 </li>
               ))}
             </ol>
+            <button style={styles.nextBtn} onClick={() => setActiveTab("code")}>
+              Continue to Code →
+            </button>
+          </div>
+        )}
+
+        {/* CODE — locked until perfect pre-test */}
+        {activeTab === "code" && (
+          <div style={styles.contentCard}>
+            <h2 style={styles.contentTitle}>
+              {codeUnlocked ? "🔓 Solution Code" : "🔒 Solution Code"}
+            </h2>
+
+            {!codeUnlocked ? (
+              /* ── LOCKED STATE ── */
+              <div style={styles.codeLockBox}>
+                <div style={{ fontSize: 64, marginBottom: 16 }}>🔒</div>
+                <h3 style={{ color: "#00F2FF", marginBottom: 8, fontSize: 18 }}>
+                  Code is Locked
+                </h3>
+                <p style={{ color: "#94a3b8", lineHeight: 1.7, maxWidth: 440, textAlign: "center" }}>
+                  {preTestScore === null
+                    ? "Complete the Pre-Test first to attempt unlocking."
+                    : `You scored ${preTestScore}/${pretestTotal}. Score ${pretestTotal}/${pretestTotal} on the Pre-Test to unlock the full solution.`}
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24, alignItems: "center" }}>
+                  <div style={styles.hintCallout}>
+                    <span style={{ fontSize: 20 }}>💬</span>
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#00F2FF", marginBottom: 4 }}>
+                        Ask Embedex for hints
+                      </div>
+                      <div style={{ color: "#94a3b8", fontSize: 13 }}>
+                        The chatbot knows this experiment's code and will guide you step by step — try asking
+                        <em style={{ color: "#e2e8f0" }}> "What register do I set first?"</em>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    style={styles.heroBtn}
+                    onClick={() => setActiveTab("pretest")}
+                  >
+                    {preTestScore === null ? "Take Pre-Test →" : "Retake Pre-Test →"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── UNLOCKED STATE ── */
+              <div>
+                <div style={styles.unlockBanner}>
+                  🎉 Perfect score! You've unlocked the solution code.
+                </div>
+                <div style={styles.codeToolbar}>
+                  <span style={{ color: "#64748b", fontSize: 12, fontFamily: "monospace" }}>
+                    {experimentId}.c
+                  </span>
+                  <button
+                    style={{ ...styles.copyBtn, color: codeCopied ? "#22c55e" : "#00F2FF" }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(solutionCode || "");
+                      setCodeCopied(true);
+                      setTimeout(() => setCodeCopied(false), 2000);
+                    }}
+                  >
+                    {codeCopied ? "✓ Copied!" : "Copy"}
+                  </button>
+                </div>
+                <pre style={styles.codeBlock}><code>{solutionCode}</code></pre>
+
+                <button
+                  style={{ ...styles.heroBtn, marginTop: 16 }}
+                  onClick={() => navigate(`/sandbox?experiment=${experimentId}&unlock=1`)}
+                >
+                  Load into Sandbox →
+                </button>
+              </div>
+            )}
+
             <button style={styles.nextBtn} onClick={() => setActiveTab("simulation")}>
               Continue to Simulation →
             </button>
@@ -781,5 +868,72 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
+  },
+
+  /* CODE TAB */
+  codeLockBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "40px 24px",
+    background: "rgba(0,0,0,0.4)",
+    border: "1px solid #1e293b",
+    borderRadius: "16px",
+    marginBottom: "24px",
+  },
+  hintCallout: {
+    display: "flex",
+    gap: 14,
+    alignItems: "flex-start",
+    background: "rgba(0,242,255,0.06)",
+    border: "1px solid rgba(0,242,255,0.2)",
+    borderRadius: "12px",
+    padding: "16px 20px",
+    maxWidth: 440,
+    marginBottom: 4,
+    textAlign: "left",
+  },
+  unlockBanner: {
+    background: "linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,204,170,0.08))",
+    border: "1px solid rgba(0,255,136,0.3)",
+    borderRadius: "10px",
+    padding: "12px 20px",
+    color: "#00ff88",
+    fontWeight: 600,
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  codeToolbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "#0d1117",
+    borderRadius: "8px 8px 0 0",
+    padding: "8px 14px",
+    borderBottom: "1px solid #21262d",
+  },
+  copyBtn: {
+    background: "transparent",
+    border: "1px solid #30363d",
+    borderRadius: 6,
+    padding: "4px 12px",
+    fontSize: 12,
+    cursor: "pointer",
+    fontWeight: 600,
+    transition: "color 0.2s",
+  },
+  codeBlock: {
+    background: "#0d1117",
+    borderRadius: "0 0 8px 8px",
+    padding: "20px",
+    overflowX: "auto",
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    fontSize: 13,
+    lineHeight: 1.7,
+    color: "#e6edf3",
+    margin: 0,
+    whiteSpace: "pre",
+    border: "1px solid #21262d",
+    borderTop: "none",
   },
 };

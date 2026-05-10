@@ -240,11 +240,13 @@ void loop() {
         });
         setWires(autoWires);
       }
-      // Load starter code
-      if (preset.code) {
-        setCode(preset.code);
+      // Load solution code only when student explicitly unlocked it (unlock=1 param)
+      const unlocked = searchParams.get("unlock") === "1";
+      if (unlocked && preset.solutionCode) {
+        setCode(preset.solutionCode);
+      } else {
+        setCode(`// Experiment: ${preset.name || expId}\n// Write your solution here.\n// Need a hint? Ask the Embedex chatbot (bottom-right).\n`);
       }
-      // Open the code editor so they can see the pre-loaded code
       setIsEditorOpen(true);
     }
   }, [searchParams, experimentLoaded, setWorkspaceItems]);
