@@ -1610,13 +1610,13 @@ void loop() {
               let renderedContent = null;
               if (item.type === "LED_RED") {
                 usesEmbeddedTerminals = false;
-                renderedContent = <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+                renderedContent = <ExternalLED color="red" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={analogState / 255} />;
               } else if (item.type === "LED_GREEN") {
                 usesEmbeddedTerminals = false;
-                renderedContent = <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+                renderedContent = <ExternalLED color="green" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={analogState / 255} />;
               } else if (item.type === "LED_YELLOW") {
                 usesEmbeddedTerminals = false;
-                renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={resistorFactor} />;
+                renderedContent = <ExternalLED color="yellow" state={configState} label={resolvedMain.pin != null ? `Pin ${resolvedMain.pin}` : "Unwired"} intensity={analogState / 255} />;
               } else if (item.type === "RESISTOR") {
                 usesEmbeddedTerminals = false;
                 renderedContent = <Resistor resistance={(item.resistance || 330) * (item.resMultiplier || 1)} />;
@@ -1659,6 +1659,10 @@ void loop() {
                       updateComponentSettings(item.id, { value: val });
                       if (wiperConnection.pin != null) {
                         setAnalogInput(wiperConnection.pin, val);
+                        if (typeof window !== 'undefined' && window.__avrAnalogInputs) {
+                          window.__avrAnalogInputs[wiperConnection.pin] = val / 10000;
+                        }
+                        PeripheralSimulator.setAnalogValue(wiperConnection.pin, val / 10000);
                       }
                     }}
                     label={wiperConnection.pin != null ? `Pin ${wiperConnection.pin}` : "Unwired"}

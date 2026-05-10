@@ -235,7 +235,7 @@ def run_experiment(payload: CodeInput, request:Request):
     inputs = payload.inputs
     if inputs is not None:
         for pin, value in inputs.items():
-            gpio.set_input(pin, value)
+            gpio.set_input(int(pin), value)
 
     # Parse & execute code on virtual hardware
     parse_code(payload.code, gpio)
@@ -259,6 +259,8 @@ def run_experiment(payload: CodeInput, request:Request):
         "PINB": list(gpio.PINB),
         "PINC": list(gpio.PINC),
         "PIND": list(gpio.PIND),
+        "PWM": list(gpio.PWM_VALUES),
+        "ADC": list(gpio.ADC_VALUES),
     }
 
     # Capture timeline

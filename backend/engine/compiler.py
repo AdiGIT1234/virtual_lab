@@ -508,17 +508,35 @@ int main(void) {
 }
 """
 
-    # Strip any #include lines the user wrote that reference headers we mock here.
-    # This avoids "file not found" errors for Wire.h, Arduino.h, SPI.h, etc.
     import re
-    stripped = re.sub(
-        r'^\s*#include\s*[<"][^>"]*(?:Wire|Arduino|SPI|Serial|Servo|avr/io|avr/interrupt|util/delay)[^>"]*[>"]\s*$',
-        '',
-        source_code,
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
 
-    full_source = minimal_core + stripped + main_wrapper
+    has_main = bool(re.search(r'\bint\s+main\s*\(', source_code))
+
+    if has_main:
+        # ── Bare-metal mode ──────────────────────────────────────────────────
+        # User code is self-contained C/C++ using AVR-libc headers directly.
+        # Only strip Arduino-specific library headers that avr-gcc cannot find;
+        # leave <avr/io.h>, <util/delay.h>, <avr/interrupt.h>, etc. intact.
+        stripped = re.sub(
+            r'^\s*#include\s*[<"][^>"]*(?:Wire|Arduino|SPI|Serial|Servo)[^>"]*[>"]\s*$',
+            '',
+            source_code,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        # Ensure F_CPU is defined (avr-libc delay functions need it)
+        f_cpu_guard = "#ifndef F_CPU\n#define F_CPU 16000000L\n#endif\n"
+        full_source = f_cpu_guard + stripped
+    else:
+        # ── Arduino mode ─────────────────────────────────────────────────────
+        # Strip all headers that minimal_core already provides so there are no
+        # duplicate-include conflicts with Wire.h, Servo.h, avr/io.h, etc.
+        stripped = re.sub(
+            r'^\s*#include\s*[<"][^>"]*(?:Wire|Arduino|SPI|Serial|Servo|avr/io|avr/interrupt|util/delay|avr/eeprom|avr/wdt)[^>"]*[>"]\s*$',
+            '',
+            source_code,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        full_source = minimal_core + stripped + main_wrapper
 
     with tempfile.TemporaryDirectory() as temp_dir:
         source_file = os.path.join(temp_dir, "sketch.cpp")

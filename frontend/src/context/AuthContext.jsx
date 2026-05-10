@@ -78,8 +78,8 @@ export function AuthProvider({ children }) {
 
     // If signup is successful and user is confirmed (no email verification),
     // create their profile row
-    if (data.user && !data.user.identities?.length === 0) {
-      // User already exists
+    if (data.user && data.user.identities?.length === 0) {
+      // User already exists (Supabase returns empty identities array for duplicate signups)
       throw new Error("An account with this email already exists");
     }
 

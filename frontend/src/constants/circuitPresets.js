@@ -110,8 +110,7 @@ void loop() {
       { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 180, y: 300 },
     ],
     wires: [
-      { id: "servo-w1", source: "mcu::9",    target: "srv-1::main",  bends: [], color: "#ff6600" },
-      { id: "servo-w2", source: "vcc-1::main", target: "srv-1::main", bends: [], color: "#dc2626" },
+      { id: "servo-w1", source: "mcu::9", target: "srv-1::main", bends: [], color: "#ff6600" },
     ],
     outputs: { 9: 0.5 },
     circuitCheck: [
@@ -237,8 +236,8 @@ void loop() {
     wires: [
       { id: "buzz-w1", source: "mcu::4",       target: "btn-alarm::main", bends: [], color: "#4dabf7" },
       { id: "buzz-w2", source: "mcu::11",      target: "res-buzz::t1",    bends: [], color: "#fbbf24" },
-      { id: "buzz-w3", source: "res-buzz::t2", target: "buzz-1::sig",     bends: [], color: "#fbbf24" },
-      { id: "buzz-w4", source: "buzz-1::gnd",  target: "gnd-buzz::main",  bends: [], color: "#333"    },
+      { id: "buzz-w3", source: "res-buzz::t2", target: "buzz-1::SIG",     bends: [], color: "#fbbf24" },
+      { id: "buzz-w4", source: "buzz-1::GND",  target: "gnd-buzz::main",  bends: [], color: "#333"    },
     ],
     outputs: { 11: 0 },
     inputs:  { 4: 0 },
@@ -383,8 +382,8 @@ void loop() {
       { id: "piano-w5",  source: "mcu::7",    target: "btn-5::main", bends: [], color: "#4dabf7" },
       { id: "piano-w6",  source: "mcu::8",    target: "btn-6::main", bends: [], color: "#4dabf7" },
       { id: "piano-w7",  source: "mcu::9",    target: "btn-7::main", bends: [], color: "#4dabf7" },
-      { id: "piano-w8",  source: "mcu::11",   target: "buz-1::sig",  bends: [], color: "#fbbf24" },
-      { id: "piano-w9",  source: "buz-1::gnd", target: "gnd-1::main", bends: [], color: "#333"   },
+      { id: "piano-w8",  source: "mcu::11",   target: "buz-1::SIG",  bends: [], color: "#fbbf24" },
+      { id: "piano-w9",  source: "buz-1::GND", target: "gnd-1::main", bends: [], color: "#333"   },
     ],
     outputs: { 11: 0 },
     inputs:  { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 },

@@ -31,15 +31,15 @@ _AVR_REGISTER_MAP = {
 # AVR direct register bit-op pattern: REG op= (1<<BIT) or REG op= (1<<PXN)
 # Supports |=, &= ~, ^=
 _avr_reg_set_pattern = re.compile(
-    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\|=\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\|=\s*\(\s*1\s*<<\s*(?P<bit>P[BCD]\d|[A-Za-z]?\d)\s*\)""",
     re.IGNORECASE | re.VERBOSE,
 )
 _avr_reg_clr_pattern = re.compile(
-    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*&=\s*~\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*&=\s*~\s*\(\s*1\s*<<\s*(?P<bit>P[BCD]\d|[A-Za-z]?\d)\s*\)""",
     re.IGNORECASE | re.VERBOSE,
 )
 _avr_reg_tog_pattern = re.compile(
-    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\^=\s*\(\s*1\s*<<\s*(?P<bit>[PBCDb-d]?\d)\s*\)""",
+    r"""(?P<reg>DDR[BCD]|PORT[BCD])\s*\^=\s*\(\s*1\s*<<\s*(?P<bit>P[BCD]\d|[A-Za-z]?\d)\s*\)""",
     re.IGNORECASE | re.VERBOSE,
 )
 

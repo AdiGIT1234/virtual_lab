@@ -264,7 +264,7 @@ export function useESP32(_activeMcuId = "esp32") {
       __analogRead(pin) {
         pin = parseInt(pin);
         const raw = inputsRef.current[pin];
-        if (typeof raw === 'number') return Math.round(raw * 4095);
+        if (typeof raw === 'number') return Math.round((raw / 10000) * 4095);
         return 2048;
       },
       __ledcAttach(pin, _freq, _resolution) { void pin; },

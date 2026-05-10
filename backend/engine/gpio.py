@@ -121,17 +121,18 @@ class GPIO:
         port_list = typing.cast(list[int], port)
         b = typing.cast(int, bit)
 
-        if ddr_list[b] == 1:
-            port_list[b] = 1 if value == "HIGH" else 0
+        # Arduino digitalWrite() drives the pin regardless of whether pinMode was called first
+        ddr_list[b] = 1
+        port_list[b] = 1 if value == "HIGH" else 0
 
-            if self.clock:
-                self.timeline.append({
-                    "time": self.clock.now(),
-                    "type": "WRITE",
-                    "pin": pin,
-                    "value": value,
-                    "registers": self._snapshot()
-                })
+        if self.clock:
+            self.timeline.append({
+                "time": self.clock.now(),
+                "type": "WRITE",
+                "pin": pin,
+                "value": value,
+                "registers": self._snapshot()
+            })
 
     # -------------------------
     # Input operations
@@ -166,17 +167,18 @@ class GPIO:
         import typing
         ddr_list = typing.cast(list[int], ddr)
         b = typing.cast(int, bit)
-        if ddr_list[b] == 1:
-            self.PWM_VALUES[pin] = max(0, min(255, value))
-            
-            if self.clock:
-                self.timeline.append({
-                    "time": self.clock.now(),
-                    "type": "A_WRITE",
-                    "pin": pin,
-                    "value": self.PWM_VALUES[pin],
-                    "registers": self._snapshot()
-                })
+        # Arduino analogWrite() auto-sets pin as OUTPUT — mirror that behaviour
+        ddr_list[b] = 1
+        self.PWM_VALUES[pin] = max(0, min(255, value))
+
+        if self.clock:
+            self.timeline.append({
+                "time": self.clock.now(),
+                "type": "A_WRITE",
+                "pin": pin,
+                "value": self.PWM_VALUES[pin],
+                "registers": self._snapshot()
+            })
 
     def digital_read(self, pin: int) -> int:
         ddr, port, pin_reg, bit = self._get_registers(pin)

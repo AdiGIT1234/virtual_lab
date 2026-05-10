@@ -237,19 +237,20 @@ int main(void) {
 #include <util/delay.h>
 
 int main(void) {
-    DDRB |= (1 << PB1);  // Pin 9
+    DDRB |= (1 << PB1);  // Pin 9 (OC1A)
 
-    // Phase correct PWM, TOP = ICR1
-    ICR1 = 39999;  // 50Hz for servo
+    // Phase Correct PWM, TOP = ICR1
+    // f = F_CPU / (2 * N * TOP) = 16MHz / (2 * 8 * 20000) = 50 Hz
+    ICR1 = 19999;
     TCCR1A = (1 << COM1A1) | (1 << WGM11);
-    TCCR1B = (1 << WGM13) | (1 << CS11); // prescaler 8
+    TCCR1B = (1 << WGM13) | (1 << CS11); // prescaler 8 → 0.5µs/tick
 
     while (1) {
-        OCR1A = 1000;  // 0°  (1ms pulse)
+        OCR1A = 2000;  // 0°   (2000 × 0.5µs = 1.0 ms pulse)
         _delay_ms(1000);
-        OCR1A = 1500;  // 90° (1.5ms pulse)
+        OCR1A = 3000;  // 90°  (3000 × 0.5µs = 1.5 ms pulse)
         _delay_ms(1000);
-        OCR1A = 2000;  // 180° (2ms pulse)
+        OCR1A = 4000;  // 180° (4000 × 0.5µs = 2.0 ms pulse)
         _delay_ms(1000);
     }
 }`,
@@ -263,7 +264,7 @@ int main(void) {
   exp09_adc_polling: {
     name: "ADC (Analog-to-Digital)",
     code: `// ADC Polling — Potentiometer Read
-// Read analog value from A0 and output to LEDs
+// Read analog value from A0 and light up LEDs as a bar graph
 
 #include <avr/io.h>
 #include <util/delay.h>
@@ -277,12 +278,13 @@ uint16_t readADC(uint8_t channel) {
 
 int main(void) {
     ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);
-    DDRB = 0x3F;  // Pins 8-13 as output
+    DDRB = 0x3F;  // Pins 8-13 as output (PB0-PB5 only; PB6/PB7 = crystal)
 
     while (1) {
-        uint16_t val = readADC(0);
-        uint8_t leds = val >> 7; // Map to 0-7
-        PORTB = (1 << leds) - 1;
+        uint16_t val = readADC(0);         // 0-1023
+        uint8_t leds = val / 171;          // 0-5 (1023/171 ≈ 5.98)
+        if (leds > 6) leds = 6;
+        PORTB = ((1 << leds) - 1) & 0x3F; // safe mask keeps PB6/PB7 clear
         _delay_ms(100);
     }
 }`,
