@@ -54,6 +54,12 @@ export function AuthProvider({ children }) {
       }
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         setNeedsPasswordReset(false);
+        // Clear any stale token storage so the next sign-in starts clean
+        setUser(null);
+        setProfile(null);
+      }
+      if (event === "TOKEN_REFRESHED") {
+        // Token rotated successfully — session is fresh, nothing extra needed
       }
       setLoading(false);
     });
