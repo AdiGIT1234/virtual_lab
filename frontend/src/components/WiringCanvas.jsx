@@ -173,7 +173,16 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
     return false;
   };
 
-  if (chip && checkOverlap(pts)) {
+  // For left/right exits the pin→stub segment always clips the chip edge — that is
+  // expected. Only bypass if the PATH BODY (everything after the stub) still passes
+  // through the chip, which happens when the target is on the opposite side.
+  const needsBypass = chip && (
+    (rSrc === 'left' || rSrc === 'right')
+      ? checkOverlap(pts.slice(1))   // ignore the stub clip, check body only
+      : checkOverlap(pts)            // top/bottom/default: check full path
+  );
+
+  if (needsBypass) {
     const bypassY = rSrc === 'top'
       ? chip.top - PAD - 10
       : chip.bottom + PAD + 10;
