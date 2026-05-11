@@ -28,8 +28,16 @@ const DraggableWrapper = ({
   const termList = terminals || [{ id: "main" }];
 
   const handleMouseDown = (e) => {
-    // Avoid dragging if clicking terminal or delete button
-    if (e.target.dataset.type === 'terminal' || e.target.tagName.toLowerCase() === 'button') {
+    // Don't drag when the user interacts with a child control
+    const tag = e.target.tagName.toLowerCase();
+    if (
+      e.target.dataset.type === 'terminal' ||
+      tag === 'button' ||
+      tag === 'input' ||
+      tag === 'select' ||
+      tag === 'textarea' ||
+      tag === 'a'
+    ) {
       return;
     }
     setIsDragging(true);

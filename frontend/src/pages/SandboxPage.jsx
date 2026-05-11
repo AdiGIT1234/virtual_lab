@@ -261,6 +261,8 @@ void loop() {
 
   const [saveStatus, setSaveStatus] = useState(null); // 'local' | 'cloud' | 'error'
   const [activePresetKey, setActivePresetKey] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [wiringCheckResults, setWiringCheckResults] = useState(null);
   const [inputs, setInputsState] = useState(storeInputs || {});
   const setInputs = useCallback((updater, source = "sandbox") => {
@@ -1134,6 +1136,30 @@ void loop() {
     };
   }, [isChipDragging, viewScale]);
 
+  // Sync potentiometer / dial position → pin input state.
+  // Must live in a useEffect (not in the render loop) to avoid the
+  // "Cannot update a component while rendering a different component" crash.
+  useEffect(() => {
+    const updates = {};
+    workspaceItems.forEach(item => {
+      if (item.type !== "SLIDE_POT" && item.type !== "DIAL") return;
+      const termId = item.type === "SLIDE_POT" ? "WIPER" : "main";
+      const wire = wires.find(w =>
+        w.source === `${item.id}::${termId}` || w.target === `${item.id}::${termId}`
+      );
+      if (!wire) return;
+      const otherEnd = wire.source.startsWith(`${item.id}::`) ? wire.target : wire.source;
+      if (!otherEnd.startsWith("mcu::")) return;
+      const pin = parseInt(otherEnd.split("::")[1], 10);
+      if (isNaN(pin)) return;
+      const effectiveVal = Math.floor((item.value / (item.type === "SLIDE_POT" ? 1023 : 100)) * 255);
+      if (inputs[pin] !== effectiveVal) updates[pin] = effectiveVal;
+    });
+    if (Object.keys(updates).length > 0) {
+      setInputs(prev => ({ ...prev, ...updates }));
+    }
+  }, [workspaceItems, wires, inputs]);
+
   const handleAddBreakpoint = (address) => {
     setBreakpoints((prev) => (prev.includes(address) ? prev : [...prev, address]));
   };
@@ -1249,6 +1275,7 @@ void loop() {
               loadPreset(key);
               setActivePresetKey(key);
               setWiringCheckResults(null);
+              setShowInstructions(true);
 
               // Wires
               setWires(preset.wires || []);
@@ -1280,8 +1307,103 @@ void loop() {
           >
             {panMode ? "Panning" : "Pan Mode"}
           </button>
+          <button
+            style={{ ...styles.actionBtn, marginLeft: 8, color: "#00F2FF", borderColor: "rgba(0,242,255,0.3)", fontWeight: 700 }}
+            onClick={() => setShowHelpModal(true)}
+            title="How to use the Sandbox"
+          >
+            ? Help
+          </button>
         </div>
       </div>
+
+      {/* ── Preset instruction banner ── */}
+      {showInstructions && activePresetKey && CIRCUIT_PRESETS[activePresetKey] && (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(0,242,255,0.07), rgba(112,0,255,0.05))",
+          border: "1px solid rgba(0,242,255,0.2)",
+          borderLeft: "3px solid #00F2FF",
+          padding: "10px 16px",
+          display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap",
+          fontSize: 12, fontFamily: "monospace", color: "#e2e8f0",
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <span style={{ color: "#00F2FF", fontWeight: 700, fontSize: 13 }}>
+              ✓ Preset loaded: {CIRCUIT_PRESETS[activePresetKey].name}
+            </span>
+            <span style={{ color: "#64748b", marginLeft: 8 }}>
+              {CIRCUIT_PRESETS[activePresetKey].description}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexShrink: 0 }}>
+            <span style={{ color: "#94a3b8" }}>
+              <span style={{ color: "#22c55e" }}>①</span> Circuit wired ✓ &nbsp;
+              <span style={{ color: "#fbbf24" }}>②</span> Click <b style={{ color: "#00F2FF" }}>▶ Run</b> &nbsp;
+              <span style={{ color: "#a78bfa" }}>③</span> Watch components respond
+            </span>
+            <button
+              onClick={() => setShowInstructions(false)}
+              style={{ background: "transparent", border: "none", color: "#475569", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}
+            >✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Help modal ── */}
+      {showHelpModal && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShowHelpModal(false)}>
+          <div style={{
+            background: "#0a0a14", border: "1px solid rgba(0,242,255,0.2)",
+            borderRadius: 16, padding: "32px 36px", maxWidth: 560, width: "90%",
+            fontFamily: "monospace", color: "#e2e8f0",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <span style={{ color: "#00F2FF", fontWeight: 700, fontSize: 16, letterSpacing: "0.05em" }}>
+                HOW TO USE THE SANDBOX
+              </span>
+              <button onClick={() => setShowHelpModal(false)}
+                style={{ background: "transparent", border: "none", color: "#475569", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            {[
+              { n: "1", color: "#00F2FF", title: "Load a Preset or Build from Scratch",
+                body: "Use the Load Preset… dropdown to pick a ready-made circuit, or add individual components from + Add Component / Browse Library." },
+              { n: "2", color: "#fbbf24", title: "Write or Edit Code",
+                body: "The code editor is on the left. For presets, the starter code is already loaded. Click ▶ Run to compile and simulate it." },
+              { n: "3", color: "#22c55e", title: "Wire Components to the MCU",
+                body: "Click any Arduino pin pad → drag to a component terminal to create a wire. Hover pins to see their name. Right-click a wire to change its color or delete it." },
+              { n: "4", color: "#a78bfa", title: "Watch the Simulation Live",
+                body: "Registers, PWM values, and GPIO states update in real time in the GPIO View panel. LEDs glow, servos sweep, the serial monitor prints output." },
+              { n: "5", color: "#f97316", title: "Interact During Simulation",
+                body: "Click buttons to toggle inputs, drag dials/sliders to send analog values, and use the Serial Monitor to see printed output." },
+              { n: "6", color: "#22d3ee", title: "Ask Embedex for Help",
+                body: "The chatbot (bottom-right) gives register-level hints without giving away full solutions. Ask 'which register do I set first?' to get started." },
+            ].map(({ n, color, title, body }) => (
+              <div key={n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", background: `${color}22`,
+                  border: `1px solid ${color}66`, color, fontWeight: 700, fontSize: 12,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>{n}</div>
+                <div>
+                  <div style={{ fontWeight: 700, color, fontSize: 12, marginBottom: 3 }}>{title}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.6 }}>{body}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{
+              marginTop: 20, padding: "10px 14px",
+              background: "rgba(0,242,255,0.05)", border: "1px solid rgba(0,242,255,0.1)",
+              borderRadius: 8, fontSize: 11, color: "#64748b",
+            }}>
+              <b style={{ color: "#00F2FF" }}>Keyboard shortcuts:</b> &nbsp;
+              Esc — cancel active wire &nbsp;·&nbsp; Delete — remove selected wire &nbsp;·&nbsp; Scroll — zoom workplane
+            </div>
+          </div>
+        </div>
+      )}
 
       {wiringCheckResults && (
         <div style={{
@@ -1514,14 +1636,16 @@ void loop() {
                 ];
               } else if (item.type === "L298N_DRIVER") {
                 terminals = [
-                  { id: "ena", label: "ENA", color: "#22c55e" },
-                  { id: "in1", label: "IN1", color: "#94a3b8" },
-                  { id: "in2", label: "IN2", color: "#94a3b8" },
-                  { id: "in3", label: "IN3", color: "#94a3b8" },
-                  { id: "in4", label: "IN4", color: "#94a3b8" },
-                  { id: "enb", label: "ENB", color: "#22c55e" },
-                  { id: "vcc", label: "VCC", color: "#facc15" },
-                  { id: "gnd", label: "GND", color: "#555" },
+                  { id: "ena",  label: "ENA",  color: "#22c55e" },
+                  { id: "in1",  label: "IN1",  color: "#94a3b8" },
+                  { id: "in2",  label: "IN2",  color: "#94a3b8" },
+                  { id: "in3",  label: "IN3",  color: "#94a3b8" },
+                  { id: "in4",  label: "IN4",  color: "#94a3b8" },
+                  { id: "enb",  label: "ENB",  color: "#22c55e" },
+                  { id: "vcc",  label: "VCC",  color: "#facc15" },
+                  { id: "gnd",  label: "GND",  color: "#555"    },
+                  { id: "out1", label: "OUT1", color: "#f97316" },
+                  { id: "out2", label: "OUT2", color: "#fb923c" },
                 ];
               } else if (item.type === "TIMER_555") {
                 terminals = [
@@ -1610,26 +1734,15 @@ void loop() {
                  configPanel = (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '9px', color: '#888' }}>MAXΩ</span>
-                    <input 
-                      type="number" 
-                      value={item.maxValue || 1023} 
+                    <input
+                      type="number"
+                      value={item.maxValue || 1023}
                       onChange={(e) => updateComponentSettings(item.id, { maxValue: Number(e.target.value) })}
                       style={{ width: '50px', background: '#000', border: '1px solid #444', color: '#fff', fontSize: '10px' }}
                     />
                   </div>
                  );
-                 // We defer setInputs to an effect to avoid the React state update during render crash.
-                 const wiperConnection = resolveConnection(item.id, "WIPER");
-                 if (wiperConnection.pin != null) {
-                    const effectiveVal = Math.floor(
-                      (item.value / (item.type === 'SLIDE_POT' ? 1023 : 100)) * 255
-                    );
-                    if (inputs[wiperConnection.pin] !== effectiveVal) {
-                       setTimeout(() => {
-                         setInputs(prev => ({ ...prev, [wiperConnection.pin]: effectiveVal }));
-                       }, 0);
-                    }
-                 }
+                 // Pin sync is handled by useEffect below — no setState during render
               }
 
               let usesEmbeddedTerminals = true;

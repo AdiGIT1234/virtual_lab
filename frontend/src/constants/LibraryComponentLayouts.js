@@ -73,8 +73,8 @@ export const LIBRARY_COMPONENTS_MAP = {
 
 export const LIBRARY_TERMINAL_LAYOUTS = {
   BUZZER: [
-    { id: "sig", x: 20, y: 82 },
-    { id: "gnd", x: 56, y: 82 }
+    { id: "SIG", x: 20, y: 82 },
+    { id: "GND", x: 56, y: 82 }
   ],
   LCD1602: ["vss","vdd","rs","e","d4","d5","d6","d7","led+","led-"].map((id, i) => ({ id, x: 9 + i*12, y: 100 })), // Note: y=100 from component
   LCD2004: ["vss","vdd","rs","e","d4","d5","d6","d7","led+","led-"].map((id, i) => ({ id, x: 9 + i*12, y: 100 })),
@@ -151,14 +151,16 @@ export const LIBRARY_TERMINAL_LAYOUTS = {
     { id: "m-", x: 58, y: 86 },
   ],
   L298N_DRIVER: [
-    { id: "ena", x: 0,   y: 20 },
-    { id: "in1", x: 0,   y: 38 },
-    { id: "in2", x: 0,   y: 56 },
-    { id: "in3", x: 0,   y: 74 },
-    { id: "in4", x: 0,   y: 92 },
-    { id: "enb", x: 0,   y: 110 },
-    { id: "vcc", x: 120, y: 20 },
-    { id: "gnd", x: 120, y: 38 },
+    { id: "ena",  x: 0,   y: 20 },
+    { id: "in1",  x: 0,   y: 38 },
+    { id: "in2",  x: 0,   y: 56 },
+    { id: "in3",  x: 0,   y: 74 },
+    { id: "in4",  x: 0,   y: 92 },
+    { id: "enb",  x: 0,   y: 110 },
+    { id: "vcc",  x: 120, y: 20 },
+    { id: "gnd",  x: 120, y: 38 },
+    { id: "out1", x: 120, y: 74 },
+    { id: "out2", x: 120, y: 92 },
   ],
   NMOSFET: [{ id: "g", x: 15, y: 75 }, { id: "d", x: 30, y: 75 }, { id: "s", x: 45, y: 75 }],
   PMOSFET: [{ id: "g", x: 15, y: 75 }, { id: "d", x: 30, y: 75 }, { id: "s", x: 45, y: 75 }],

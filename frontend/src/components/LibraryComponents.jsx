@@ -42,6 +42,8 @@ const SliderRow = ({ label, value, min, max, step = 1, unit = '', color = '#22d3
     <span style={{ color: '#64748b', fontSize: 8, fontFamily: 'monospace', width: 12, flexShrink: 0 }}>{label}</span>
     <input type="range" min={min} max={max} step={step} value={value}
       onChange={e => onChange(+e.target.value)}
+      onMouseDown={e => e.stopPropagation()}
+      onPointerDown={e => e.stopPropagation()}
       style={{ flex: 1, height: 2, accentColor: color, cursor: 'pointer', minWidth: 0 }}
     />
     <span style={{ color, fontSize: 8, fontFamily: 'monospace', width: 36, textAlign: 'right', flexShrink: 0 }}>
@@ -711,11 +713,12 @@ export const MembraneKeypad = ({ id, wiredPins }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
-// NeoPixel Ring — live WS2812B color rendering
+// NeoPixel Ring — live WS2812B color rendering (Wokwi-quality)
 // ══════════════════════════════════════════════════════════════════════════
 export const NeopixelRing = ({ id, type, wiredPins }) => {
   const ringSize = type === 'NEOPIXEL_RING_24' ? 24 : type === 'NEOPIXEL_RING_16' ? 16 : 12;
-  const [colors, setColors] = useState(new Array(ringSize).fill('#1e293b'));
+  const OFF = '#0d1f0d';
+  const [colors, setColors] = useState(new Array(ringSize).fill(OFF));
 
   useEffect(() => {
     if (!id || !wiredPins?.din) return;
@@ -728,7 +731,7 @@ export const NeopixelRing = ({ id, type, wiredPins }) => {
           const g = buffer[i * 3];
           const r = buffer[i * 3 + 1] ?? 0;
           const b = buffer[i * 3 + 2] ?? 0;
-          c.push(r === 0 && g === 0 && b === 0 ? '#1e293b' : `rgb(${r},${g},${b})`);
+          c.push(r === 0 && g === 0 && b === 0 ? OFF : `rgb(${r},${g},${b})`);
         }
         setColors(c);
       },
@@ -736,39 +739,121 @@ export const NeopixelRing = ({ id, type, wiredPins }) => {
     return () => PeripheralSimulator.unregisterComponent(id);
   }, [id, wiredPins, ringSize]);
 
+  const CX = 60, CY = 60, R = 42;
+  const LED_R = ringSize === 24 ? 4.5 : ringSize === 16 ? 5.5 : 6.5;
+  const TRACE_R = R;
+
   return (
-    <svg width={105} height={110} viewBox="0 0 105 110" style={{ display: 'block', overflow: 'visible' }}>
+    <svg width={120} height={130} viewBox="0 0 120 130" style={{ display: 'block', overflow: 'visible' }}>
       <defs>
-        <radialGradient id={`ring-inner-${id}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#0f172a" />
-          <stop offset="100%" stopColor="#0f172a" />
+        {/* PCB radial gradient — dark green board */}
+        <radialGradient id={`pcb-${id}`} cx="40%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#16391a" />
+          <stop offset="100%" stopColor="#0a1f0c" />
+        </radialGradient>
+        {/* Inner hole gradient */}
+        <radialGradient id={`hole-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#060e07" />
+          <stop offset="100%" stopColor="#0a1a0b" />
+        </radialGradient>
+        {/* LED lens gradient for active LEDs */}
+        <radialGradient id={`lens-active-${id}`} cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+          <stop offset="40%" stopColor="rgba(255,255,255,0.3)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        {/* Inactive LED surface */}
+        <radialGradient id={`led-off-${id}`} cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#2d4a30" />
+          <stop offset="100%" stopColor="#162518" />
         </radialGradient>
       </defs>
-      {/* PCB ring */}
-      <circle cx={52} cy={48} r={44} fill="#1e293b" stroke="#334155" strokeWidth={1.5} />
-      <circle cx={52} cy={48} r={26} fill={`url(#ring-inner-${id})`} />
-      <text x={52} y={49} fill="#475569" fontSize={7} fontWeight="700" textAnchor="middle" fontFamily="monospace">WS2812B</text>
-      <text x={52} y={58} fill="#334155" fontSize={6} textAnchor="middle" fontFamily="monospace">{ringSize} LED</text>
-      {/* LEDs */}
+
+      {/* ── Outer PCB disc ── */}
+      <circle cx={CX} cy={CY} r={R + 8} fill="url(#pcb-${id})" />
+      <circle cx={CX} cy={CY} r={R + 8} fill="none" stroke="#1f4a22" strokeWidth={1} />
+      {/* Edge bevel highlight */}
+      <circle cx={CX} cy={CY} r={R + 7.5} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+
+      {/* ── Copper trace ring ── */}
+      <circle cx={CX} cy={CY} r={TRACE_R} fill="none" stroke="#b8860b" strokeWidth={3} opacity={0.35} />
+      <circle cx={CX} cy={CY} r={TRACE_R} fill="none" stroke="#d4a017" strokeWidth={1} opacity={0.2} />
+
+      {/* ── Inner hole ── */}
+      <circle cx={CX} cy={CY} r={R - 13} fill="url(#hole-${id})" />
+      <circle cx={CX} cy={CY} r={R - 13} fill="none" stroke="#1a3d1c" strokeWidth={1} />
+
+      {/* ── Center labels ── */}
+      <text x={CX} y={CY - 5} fill="#2d6b32" fontSize={7} fontWeight="700"
+        textAnchor="middle" fontFamily="monospace" letterSpacing="1">WS2812B</text>
+      <text x={CX} y={CY + 6} fill="#1f4a22" fontSize={6}
+        textAnchor="middle" fontFamily="monospace">{ringSize} RGB LED</text>
+
+      {/* ── Mounting holes ── */}
+      {[[-1,-1],[1,-1],[1,1],[-1,1]].map(([dx,dy], i) => (
+        <g key={i}>
+          <circle cx={CX + dx * (R+2)} cy={CY + dy * (R+2)} r={3} fill="#060e07" />
+          <circle cx={CX + dx * (R+2)} cy={CY + dy * (R+2)} r={3} fill="none" stroke="#2a5a2e" strokeWidth={0.8} />
+        </g>
+      ))}
+
+      {/* ── LEDs ── */}
       {colors.map((c, i) => {
         const angle = (i / ringSize) * Math.PI * 2 - Math.PI / 2;
-        const x = 52 + 36 * Math.cos(angle);
-        const y = 48 + 36 * Math.sin(angle);
-        const active = c !== '#1e293b';
+        const x = CX + TRACE_R * Math.cos(angle);
+        const y = CY + TRACE_R * Math.sin(angle);
+        const active = c !== OFF;
+
         return (
           <g key={i}>
-            {active && <circle cx={x} cy={y} r={10} fill={c} opacity={0.2} />}
-            <circle cx={x} cy={y} r={5.5} fill={active ? c : '#0f172a'}
-              stroke={active ? c : '#334155'} strokeWidth={active ? 0.5 : 1}
-              style={active ? { filter: `drop-shadow(0 0 3px ${c})` } : {}}
+            {/* Glow bloom — outer soft */}
+            {active && (
+              <circle cx={x} cy={y} r={LED_R * 3.5} fill={c} opacity={0.08}
+                style={{ filter: `blur(3px)` }} />
+            )}
+            {/* Glow bloom — inner */}
+            {active && (
+              <circle cx={x} cy={y} r={LED_R * 2} fill={c} opacity={0.25} />
+            )}
+
+            {/* SMD pad (copper) */}
+            <rect x={x - LED_R - 1} y={y - LED_R - 1}
+              width={(LED_R + 1) * 2} height={(LED_R + 1) * 2}
+              rx={1.5} fill="#b8860b" opacity={active ? 0.6 : 0.3} />
+
+            {/* LED body */}
+            <rect x={x - LED_R} y={y - LED_R}
+              width={LED_R * 2} height={LED_R * 2}
+              rx={1}
+              fill={active ? c : "url(#led-off-${id})"}
+              stroke={active ? c : '#1a3a1d'}
+              strokeWidth={active ? 0.5 : 0.8}
+              style={active ? { filter: `drop-shadow(0 0 ${LED_R * 0.8}px ${c}) drop-shadow(0 0 ${LED_R * 2}px ${c})` } : {}}
             />
+
+            {/* Lens highlight (only when on) */}
+            {active && (
+              <ellipse
+                cx={x - LED_R * 0.2} cy={y - LED_R * 0.25}
+                rx={LED_R * 0.45} ry={LED_R * 0.32}
+                fill="rgba(255,255,255,0.55)"
+              />
+            )}
+
+            {/* Inactive die / dark window */}
+            {!active && (
+              <rect x={x - LED_R * 0.55} y={y - LED_R * 0.55}
+                width={LED_R * 1.1} height={LED_R * 1.1}
+                rx={0.5} fill="#060e07" opacity={0.7} />
+            )}
           </g>
         );
       })}
-      {/* Pins */}
-      <g transform="translate(0, 98)">
+
+      {/* ── Pin header ── */}
+      <g transform="translate(0, 114)">
         {['5V','DIN','GND'].map((l, i) => (
-          <Pin key={i} x={22 + i * 30} y={5} label={l}
+          <Pin key={i} x={28 + i * 32} y={5} label={l}
             color={i === 0 ? '#facc15' : i === 2 ? '#94a3b8' : '#22d3ee'}
           />
         ))}
