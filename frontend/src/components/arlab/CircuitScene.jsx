@@ -71,13 +71,23 @@ function resolveEndpoint(str, posMap) {
     // DC Motor leads (bottom of cylinder body)
     "m+":[-0.05, 0, +0.015],   "m-":[-0.05, 0, -0.015],
     // 7-segment: 8 pin stubs along +Z bottom edge
-    a: [-0.035, 0, 0.044],  b: [-0.025, 0, 0.044],
-    c: [-0.015, 0, 0.044],  d: [-0.005, 0, 0.044],
-    e: [+0.005, 0, 0.044],  f: [+0.015, 0, 0.044],
-    g: [+0.025, 0, 0.044],  dp:[+0.035, 0, 0.044],
-    // NPN/PNP transistor leads (b/c/e at base-collector-emitter)
+    a:  [-0.035, 0, 0.044],  seg_b: [-0.025, 0, 0.044],
+    seg_c: [-0.015, 0, 0.044],  d: [-0.005, 0, 0.044],
+    seg_e: [+0.005, 0, 0.044],  f: [+0.015, 0, 0.044],
+    g:  [+0.025, 0, 0.044],  dp: [+0.035, 0, 0.044],
+    // NPN/PNP transistor leads (base/collector/emitter) — no collision with seg b/c/e
     b: [-0.015, 0, +0.030],  c: [0, 0, -0.030],  e: [+0.015, 0, +0.030],
   };
+
+  // 7-segment b/c/e segments use their own offsets — check component type
+  const typeHint = posMap[id]?.[3]; // 4th element is optional type hint
+  if (typeHint === "SEVEN_SEG") {
+    const segMap = { b: OFF.seg_b, c: OFF.seg_c, e: OFF.seg_e };
+    if (segMap[terminal]) {
+      const o = segMap[terminal];
+      return [bx + o[0], by + o[1], bz + o[2]];
+    }
+  }
 
   const o = OFF[terminal];
   if (o) return [bx + o[0], by + o[1], bz + o[2]];
@@ -126,8 +136,14 @@ export default function CircuitScene({
   // Seed ALL arlabPositions first (covers VCC_NODE / GROUND_NODE which are non-renderable)
   const posMap = useMemo(() => {
     const map = {};
+    // Build a quick id→type lookup from components
+    const typeById = {};
+    components.forEach(c => { typeById[c.id] = c.type; });
+
     Object.entries(arlabPositions).forEach(([id, layout]) => {
-      map[id] = layout.pos;
+      // Store [x, y, z, componentType] so resolveEndpoint can disambiguate
+      // terminals that exist on multiple component types (e.g. b/c/e)
+      map[id] = [...layout.pos, typeById[id] || null];
     });
     components.forEach((c) => {
       if (!map[c.id]) {
@@ -135,6 +151,7 @@ export default function CircuitScene({
           (c.x - 450) * 0.005,
           0.085,
           (c.y - 300) * 0.005,
+          c.type,
         ];
       }
     });
