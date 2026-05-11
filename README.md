@@ -353,25 +353,16 @@ All backend endpoints — test at `http://localhost:8000/docs` in development.
 
 ---
 
-## Contributing
+## License & IP Notice
 
-```bash
-# 1. Fork and clone
-git clone https://github.com/your-username/virtual_lab.git
+This repository is **source-available for reference only**.
 
-# 2. Create a feature branch
-git checkout -b feat/your-feature
+- ❌ No forks, copies, or derivative works
+- ❌ No pull requests — external contributions are not accepted at this time
+- ❌ No commercial use
+- ✅ You may read the code and run it locally for personal/educational use
 
-# 3. Make changes, then build-check
-cd frontend && npm run build   # must be clean
-
-# 4. Push and open a PR against main
-```
-
-**Good first issues:**
-- Add a new sensor component to `LibraryComponents.jsx`
-- Add an experiment JSON to `backend/data/experiments/`
-- Improve the ESP32 peripheral simulator in `useESP32.js`
+All original source code, simulation logic, experiment content, and design is the intellectual property of the author. Patent pending.
 
 ---
 
