@@ -35,9 +35,10 @@ const CAMERA_PRESETS = {
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
-export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent, onComponentMove }) {
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
+  const [isDragging, setIsDragging] = useState(false);
 
   // Keyboard shortcuts: 1-4 to switch camera views
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
   }, []);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }} onContextMenu={(e) => e.preventDefault()}>
     <CanvasErrorBoundary>
       <Canvas
         shadows
@@ -79,6 +80,9 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
             drawnWires={drawnWires}
             selectedWireIdx={selectedWireIdx}
             onWireSelect={onWireSelect}
+            onDragStart={() => setIsDragging(true)}
+            onDragEnd={() => setIsDragging(false)}
+            onComponentMove={onComponentMove}
           />
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
@@ -93,6 +97,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         </Suspense>
 
         <OrbitControls
+          enabled={!isDragging}
           enableDamping
           dampingFactor={0.1}
           enablePan

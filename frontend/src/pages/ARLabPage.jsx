@@ -145,20 +145,42 @@ const PartIcon = ({ type }) => {
   }
 };
 
-const INSERT_PARTS = [
-  { id: "arduino",  label: "Arduino Uno",      type: "BOARD" },
-  { id: "resistor", label: "Resistor",          type: "RESISTOR" },
-  { id: "led",      label: "LED",               type: "LED" },
-  { id: "button",   label: "Tactile Switch",    type: "BUTTON" },
-  { id: "capacitor",label: "Capacitor",         type: "CAPACITOR" },
-  { id: "npn",      label: "NPN Transistor",    type: "NPN_TRANSISTOR" },
-  { id: "pnp",      label: "PNP Transistor",    type: "PNP_TRANSISTOR" },
-  { id: "timer555", label: "555 Timer",         type: "TIMER_555" },
-  { id: "chip8",    label: "8-Pin IC",          type: "CUSTOM_DIGITAL_IC" },
-  { id: "buzzer",   label: "Buzzer",            type: "BUZZER" },
-  { id: "sevenseg", label: "7-Segment",         type: "SEVEN_SEG" },
-  { id: "motor",    label: "Motor",             type: "SERVO" },
-  { id: "servo",    label: "Servo Motor",       type: "SERVO" },
+const PART_CATEGORIES = [
+  { label: "Basic", parts: [
+    { id: "resistor",  label: "Resistor",        type: "RESISTOR" },
+    { id: "led-red",   label: "LED (Red)",        type: "LED_RED" },
+    { id: "led-green", label: "LED (Green)",      type: "LED_GREEN" },
+    { id: "led-yellow",label: "LED (Yellow)",     type: "LED_YELLOW" },
+    { id: "button",    label: "Button",           type: "BUTTON" },
+    { id: "capacitor", label: "Capacitor",        type: "CAPACITOR" },
+    { id: "buzzer",    label: "Buzzer",           type: "BUZZER" },
+    { id: "vcc",       label: "VCC Node",         type: "VCC_NODE" },
+    { id: "gnd",       label: "GND Node",         type: "GROUND_NODE" },
+  ]},
+  { label: "Active", parts: [
+    { id: "npn",       label: "NPN Transistor",   type: "NPN_TRANSISTOR" },
+    { id: "pnp",       label: "PNP Transistor",   type: "PNP_TRANSISTOR" },
+    { id: "timer555",  label: "555 Timer",        type: "TIMER_555" },
+    { id: "shiftreg",  label: "Shift Register",   type: "SHIFT_REGISTER" },
+  ]},
+  { label: "Output", parts: [
+    { id: "servo",     label: "Servo Motor",      type: "SERVO" },
+    { id: "sevenseg",  label: "7-Segment",        type: "SEVEN_SEG" },
+    { id: "dcmotor",   label: "DC Motor",         type: "DC_MOTOR" },
+    { id: "l298n",     label: "L298N Driver",     type: "L298N_DRIVER" },
+    { id: "oled",      label: "OLED Display",     type: "OLED_SSD1306" },
+    { id: "tft",       label: "TFT Display",      type: "ILI9341_TFT" },
+  ]},
+  { label: "Sensors", parts: [
+    { id: "dht22",     label: "DHT22 Temp/Hum",  type: "DHT22" },
+    { id: "pot",       label: "Potentiometer",    type: "DIAL" },
+    { id: "max30102",  label: "Pulse Oximeter",   type: "MAX30102_PULSE" },
+    { id: "tcs34725",  label: "Color Sensor",     type: "TCS34725_COLOR" },
+  ]},
+  { label: "Comms", parts: [
+    { id: "hc05",      label: "HC-05 Bluetooth",  type: "HC05_BLUETOOTH" },
+    { id: "rc522",     label: "RC522 RFID",       type: "RC522_RFID" },
+  ]},
 ];
 
 export default function ARLabPage() {
@@ -414,6 +436,13 @@ export default function ARLabPage() {
     manuallyPlacedIds.current.delete(id);
   }, [removeComponent]);
 
+  const handleComponentMove = useCallback((id, [sceneX, sceneZ]) => {
+    updateComponent(id, {
+      x: sceneX / 0.005 + 450,
+      y: sceneZ / 0.005 + 300,
+    });
+  }, [updateComponent]);
+
   return (
     <div style={styles.page}>
       {/* Header Bar */}
@@ -499,7 +528,7 @@ export default function ARLabPage() {
         <aside
           style={{
             ...styles.sidebar,
-            width: sidebarOpen ? 200 : 0,
+            width: sidebarOpen ? 220 : 0,
             padding: sidebarOpen ? "12px 0" : 0,
             opacity: sidebarOpen ? 1 : 0,
             overflow: sidebarOpen ? "auto" : "hidden",
@@ -512,48 +541,49 @@ export default function ARLabPage() {
             <span style={styles.sidebarDate}>
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
+            <span style={{ fontSize: 10, color: "#4ac26b", fontFamily: "monospace", display: "block", marginTop: 4 }}>
+              Click part → click hole to place. Drag placed parts to move.
+            </span>
           </div>
 
           <div style={styles.sidebarSection}>
             <h2 style={styles.sidebarTitle}>Insert Part</h2>
           </div>
 
-          <ul style={styles.partsList} role="list">
-            {INSERT_PARTS.map((part) => (
-              <li key={part.id} role="listitem">
-                <button
-                  style={{
-                    ...styles.partItem,
-                    background: pendingPart?.type === part.type
-                      ? "rgba(251,191,36,0.12)"
-                      : hoveredPart === part.id ? "rgba(0,229,255,0.08)" : "transparent",
-                    borderLeft: pendingPart?.type === part.type
-                      ? "2px solid rgba(251,191,36,0.7)"
-                      : hoveredPart === part.id ? "2px solid rgba(0,229,255,0.5)" : "2px solid transparent",
-                  }}
-                  onMouseEnter={() => setHoveredPart(part.id)}
-                  onMouseLeave={() => setHoveredPart(null)}
-                  onClick={() => handleInsertPart(part)}
-                  aria-label={`Insert ${part.label}`}
-                >
-                  <span style={{
-                    ...styles.partIcon,
-                    color: hoveredPart === part.id ? "#00e5ff" : "#8b949e",
-                  }} aria-hidden="true">
-                    <PartIcon type={part.type} />
-                  </span>
-                  <span style={styles.partLabel}>{part.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {PART_CATEGORIES.map((cat) => (
+            <div key={cat.label}>
+              <div style={styles.categoryLabel}>{cat.label}</div>
+              <ul style={styles.partsList} role="list">
+                {cat.parts.map((part) => (
+                  <li key={part.id} role="listitem">
+                    <button
+                      style={{
+                        ...styles.partItem,
+                        background: pendingPart?.type === part.type ? "rgba(251,191,36,0.12)" : hoveredPart === part.id ? "rgba(0,229,255,0.08)" : "transparent",
+                        borderLeft: pendingPart?.type === part.type ? "2px solid rgba(251,191,36,0.7)" : hoveredPart === part.id ? "2px solid rgba(0,229,255,0.5)" : "2px solid transparent",
+                      }}
+                      onMouseEnter={() => setHoveredPart(part.id)}
+                      onMouseLeave={() => setHoveredPart(null)}
+                      onClick={() => handleInsertPart(part)}
+                      aria-label={`Insert ${part.label}`}
+                    >
+                      <span style={{ ...styles.partIcon, color: hoveredPart === part.id ? "#00e5ff" : "#8b949e" }} aria-hidden="true">
+                        <PartIcon type={part.type} />
+                      </span>
+                      <span style={styles.partLabel}>{part.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </aside>
 
         {/* Toggle sidebar — moves with sidebar */}
         <button
           style={{
             ...styles.sidebarToggle,
-            left: sidebarOpen ? 200 : 0,
+            left: sidebarOpen ? 220 : 0,
           }}
           onClick={() => setSidebarOpen(!sidebarOpen)}
           aria-label={sidebarOpen ? "Hide component panel" : "Show component panel"}
@@ -656,6 +686,7 @@ export default function ARLabPage() {
             selectedWireIdx={selectedWireIdx}
             onWireSelect={setSelectedWireIdx}
             onRemoveComponent={handleRemoveComponent}
+            onComponentMove={handleComponentMove}
           />
 
           {/* Floating wire toolbar — glassmorphic pill anchored at bottom-center */}
@@ -1107,6 +1138,14 @@ const styles = {
     padding: 0,
     display: "flex",
     flexDirection: "column",
+  },
+  categoryLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#6e7681",
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    padding: "8px 14px 4px",
   },
   partItem: {
     display: "flex",

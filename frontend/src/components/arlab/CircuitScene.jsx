@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useCircuitStore } from "../../state/useCircuitStore";
 import { getPinCoord } from "../../constants/unoPinCoords";
 import { CIRCUIT_PRESETS } from "../../constants/circuitPresets";
@@ -121,7 +121,11 @@ export default function CircuitScene({
   drawnWires = [],
   selectedWireIdx = null,
   onWireSelect,
+  onComponentMove,
+  onDragStart,
+  onDragEnd,
 }) {
+  const [draggingId, setDraggingId] = useState(null);
   const components  = useCircuitStore((s) => s.components);
   const outputs     = useCircuitStore((s) => s.outputs);
   const inputs      = useCircuitStore((s) => s.inputs);
@@ -149,7 +153,7 @@ export default function CircuitScene({
       if (!map[c.id]) {
         map[c.id] = [
           (c.x - 450) * 0.005,
-          0.085,
+          0.145,
           (c.y - 300) * 0.005,
           c.type,
         ];
@@ -177,7 +181,7 @@ export default function CircuitScene({
   const sceneComponents = useMemo(() => {
     return components.map((component) => {
       const layout = arlabPositions[component.id];
-      const position = layout ? layout.pos : posMap[component.id] || [0, 0.085, 0];
+      const position = layout ? layout.pos : posMap[component.id] || [0, 0.145, 0];
       const rotation = layout ? (layout.rot || [0, 0, 0]) : [0, 0, 0];
       return { ...component, position, rotation };
     });
@@ -185,6 +189,33 @@ export default function CircuitScene({
 
   return (
     <group position={[-0.8, 0, 0]}>
+      {/* Drag plane — invisible, covers scene during drag for accurate pointer tracking */}
+      {draggingId !== null && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0.5, 0.145, 0]}
+          renderOrder={999}
+          onPointerMove={(e) => {
+            e.stopPropagation();
+            // e.point is world space; scene group is at x=-0.8, so add 0.8 for scene-group x
+            const sceneX = e.point.x + 0.8;
+            const sceneZ = e.point.z;
+            onComponentMove?.(draggingId, [sceneX, sceneZ]);
+          }}
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            setDraggingId(null);
+            onDragEnd?.();
+          }}
+          onPointerLeave={() => {
+            setDraggingId(null);
+            onDragEnd?.();
+          }}
+        >
+          <planeGeometry args={[30, 30]} />
+          <meshBasicMaterial colorWrite={false} depthWrite={false} />
+        </mesh>
+      )}
       <SceneLighting />
       <Environment preset="warehouse" intensity={0.22} />
 
@@ -408,7 +439,17 @@ export default function CircuitScene({
 
         if (element) {
           return (
-            <group key={component.id} onClick={(e) => { e.stopPropagation(); onSelect?.(component.id); }}>
+            <group
+              key={component.id}
+              onClick={(e) => { e.stopPropagation(); if (draggingId === null) onSelect?.(component.id); }}
+              onPointerDown={(e) => {
+                if (!component.manuallyPlaced) return;
+                e.stopPropagation();
+                setDraggingId(component.id);
+                onDragStart?.();
+              }}
+              style={{ cursor: draggingId === component.id ? 'grabbing' : component.manuallyPlaced ? 'grab' : 'default' }}
+            >
               {element}
             </group>
           );
