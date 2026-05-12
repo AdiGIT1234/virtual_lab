@@ -1364,15 +1364,20 @@ void loop() {
         }} onClick={() => setShowHelpModal(false)}>
           <div style={{
             background: "#0a0a14", border: "1px solid rgba(0,242,255,0.2)",
-            borderRadius: 16, padding: "32px 36px", maxWidth: 560, width: "90%",
-            fontFamily: "monospace", color: "#e2e8f0",
+            borderRadius: 16, padding: "28px 32px", maxWidth: 620, width: "95%",
+            maxHeight: "88vh", overflowY: "auto", fontFamily: "monospace", color: "#e2e8f0",
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <span style={{ color: "#00F2FF", fontWeight: 700, fontSize: 16, letterSpacing: "0.05em" }}>
-                HOW TO USE THE SANDBOX
+                HOW TO USE VIRTUAL LAB
               </span>
               <button onClick={() => setShowHelpModal(false)}
                 style={{ background: "transparent", border: "none", color: "#475569", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+
+            {/* 2D Sandbox section */}
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
+              2D Workbench
             </div>
             {[
               { n: "1", color: "#00F2FF", title: "Load a Preset or Build from Scratch",
@@ -1388,7 +1393,7 @@ void loop() {
               { n: "6", color: "#22d3ee", title: "Ask Embedex for Help",
                 body: "The chatbot (bottom-right) gives register-level hints without giving away full solutions. Ask 'which register do I set first?' to get started." },
             ].map(({ n, color, title, body }) => (
-              <div key={n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+              <div key={n} style={{ display: "flex", gap: 14, marginBottom: 14 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: "50%", background: `${color}22`,
                   border: `1px solid ${color}66`, color, fontWeight: 700, fontSize: 12,
@@ -1401,12 +1406,52 @@ void loop() {
               </div>
             ))}
             <div style={{
-              marginTop: 20, padding: "10px 14px",
-              background: "rgba(0,242,255,0.05)", border: "1px solid rgba(0,242,255,0.1)",
+              padding: "9px 13px", background: "rgba(0,242,255,0.05)", border: "1px solid rgba(0,242,255,0.1)",
+              borderRadius: 8, fontSize: 11, color: "#64748b", marginBottom: 24,
+            }}>
+              <b style={{ color: "#00F2FF" }}>Shortcuts:</b> &nbsp;
+              Esc — cancel wire &nbsp;·&nbsp; Delete — remove wire &nbsp;·&nbsp; Scroll — zoom
+            </div>
+
+            {/* 3D Lab section */}
+            <div style={{ height: 1, background: "rgba(0,242,255,0.08)", marginBottom: 20 }} />
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
+              3D Circuit Lab
+            </div>
+            {[
+              { n: "1", color: "#00F2FF", title: "Navigate the Scene",
+                body: "Left-drag to orbit · Scroll to zoom · Right-drag to pan the camera. Press 1–4 (or use the view buttons top-right) to jump to Orbit / Front / Top / Side views." },
+              { n: "2", color: "#fbbf24", title: "Place a Component",
+                body: "Open the left sidebar (click ◀ to expand). Pick any part — LED, resistor, sensor, display, etc. The banner says 'Click a hole to place'. Click any breadboard hole to insert the component there." },
+              { n: "3", color: "#22c55e", title: "Move a Placed Component",
+                body: "Click and drag any component you placed (cursor turns to a grab hand). It slides across the breadboard surface. Release to drop it. Preset circuit components are locked in place." },
+              { n: "4", color: "#a78bfa", title: "Draw Wires",
+                body: "Click Wire Mode in the bottom toolbar. Click a breadboard hole or an Arduino pin to start a wire — the info banner shows your anchor. Click the destination to complete it. Pick a wire color from the swatches." },
+              { n: "5", color: "#f97316", title: "Edit and Run Code",
+                body: "Click Edit Code (top-right) to open the sketch editor. Modify the starter code, then click ▶ Run. Components react live — LEDs light up, servos move, the OLED renders output." },
+              { n: "6", color: "#ec4899", title: "Inspect and Remove Components",
+                body: "Click any component in the scene to open its property inspector (type, pin, current state). Manually placed components show a Remove button to delete them." },
+              { n: "7", color: "#22d3ee", title: "Manage Wires",
+                body: "In Wire Mode: Undo removes the last wire (Ctrl+Z). Click a wire to select it, then Delete to remove it. Clear removes all drawn wires at once." },
+            ].map(({ n, color, title, body }) => (
+              <div key={n} style={{ display: "flex", gap: 14, marginBottom: 14 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", background: `${color}22`,
+                  border: `1px solid ${color}66`, color, fontWeight: 700, fontSize: 12,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>{n}</div>
+                <div>
+                  <div style={{ fontWeight: 700, color, fontSize: 12, marginBottom: 3 }}>{title}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.6 }}>{body}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{
+              padding: "9px 13px", background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.15)",
               borderRadius: 8, fontSize: 11, color: "#64748b",
             }}>
-              <b style={{ color: "#00F2FF" }}>Keyboard shortcuts:</b> &nbsp;
-              Esc — cancel active wire &nbsp;·&nbsp; Delete — remove selected wire &nbsp;·&nbsp; Scroll — zoom workplane
+              <b style={{ color: "#a78bfa" }}>3D Shortcuts:</b> &nbsp;
+              1–4 — camera views &nbsp;·&nbsp; Ctrl+Z — undo wire &nbsp;·&nbsp; Delete — remove selected wire &nbsp;·&nbsp; Esc — cancel mode
             </div>
           </div>
         </div>

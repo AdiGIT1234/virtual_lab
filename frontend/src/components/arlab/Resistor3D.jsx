@@ -84,6 +84,17 @@ export default function Resistor3D({ id, resistance = 330, position = [0, 0, 0],
         </mesh>
       </group>
 
+      {/* Bent leads — vertical portion that inserts into breadboard holes.
+          Positioned in the outer (unrotated) group so they go straight down.
+          After inner group rotation, the body ends are at x ≈ ±0.085 in outer space.
+          These drop from the outer group's y=0 down to y=-0.022 (reaching board surface). */}
+      {[0.085, -0.085].map((lx) => (
+        <mesh key={lx} position={[lx, -0.011, 0]}>
+          <cylinderGeometry args={[0.005, 0.005, 0.022, 8]} />
+          <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
+        </mesh>
+      ))}
+
       {editing && (
         <Html position={[0, 0.22, 0]} center>
           <div style={{

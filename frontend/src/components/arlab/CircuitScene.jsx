@@ -94,7 +94,44 @@ function resolveEndpoint(str, posMap) {
   return [bx, by, bz];
 }
 
-const PERP_EXIT = 0.10; // how far the wire rises perpendicular from the pin before routing
+const PERP_EXIT = 0.04; // how far the wire rises above the highest pin before routing
+
+// Board surface y in scene-group space (breadboard group y=0.01 + holes group y=0.025)
+const BOARD_Y = 0.035;
+
+// Per-type y-lift: distance from BOARD_Y to model origin so body bottom sits at BOARD_Y.
+// Derived from each model's geometry (body-center to body-bottom distance).
+const COMP_Y = {
+  LED: BOARD_Y + 0.080,          // cylinder h=0.16, half=0.08
+  LED_RED: BOARD_Y + 0.080,
+  LED_GREEN: BOARD_Y + 0.080,
+  LED_YELLOW: BOARD_Y + 0.080,
+  LED_BLUE: BOARD_Y + 0.080,
+  RESISTOR: BOARD_Y + 0.022,     // horizontal cylinder radius 0.022
+  BUTTON: BOARD_Y + 0.000,       // body bottom already at y=0 in group
+  BUZZER: BOARD_Y + 0.015,       // disk bottom at y=-0.015
+  CAPACITOR: BOARD_Y + 0.013,    // disk bottom at y=-0.013
+  NPN_TRANSISTOR: BOARD_Y + 0.060, // TO-92 body h=0.12, half=0.06
+  PNP_TRANSISTOR: BOARD_Y + 0.060,
+  TIMER_555: BOARD_Y + 0.018,    // DIP body h=0.035, half=0.018
+  SHIFT_REGISTER: BOARD_Y + 0.018,
+  CUSTOM_DIGITAL_IC: BOARD_Y + 0.018,
+  WASM_IC: BOARD_Y + 0.018,
+  SERVO: BOARD_Y + 0.000,        // body bottom at group y=0
+  SEVEN_SEG: BOARD_Y + 0.085,    // display body h=0.17, half=0.085
+  OLED_SSD1306: BOARD_Y + 0.025,
+  DHT22: BOARD_Y + 0.025,
+  ILI9341_TFT: BOARD_Y + 0.025,
+  DIAL: BOARD_Y + 0.025,
+  DC_MOTOR: BOARD_Y + 0.050,
+  L298N_DRIVER: BOARD_Y + 0.025,
+  HC05_BLUETOOTH: BOARD_Y + 0.025,
+  RC522_RFID: BOARD_Y + 0.025,
+  MAX30102_PULSE: BOARD_Y + 0.025,
+  TCS34725_COLOR: BOARD_Y + 0.025,
+  VCC_NODE: 0.010,   // stakes placed near workbench
+  GROUND_NODE: 0.010,
+};
 
 function buildWirePoints(p1, p2) {
   if (!p1 || !p2) return null;
@@ -145,15 +182,16 @@ export default function CircuitScene({
     components.forEach(c => { typeById[c.id] = c.type; });
 
     Object.entries(arlabPositions).forEach(([id, layout]) => {
-      // Store [x, y, z, componentType] so resolveEndpoint can disambiguate
-      // terminals that exist on multiple component types (e.g. b/c/e)
-      map[id] = [...layout.pos, typeById[id] || null];
+      const type = typeById[id] || null;
+      const y = COMP_Y[type] ?? (BOARD_Y + 0.025);
+      map[id] = [layout.pos[0], y, layout.pos[2], type];
     });
     components.forEach((c) => {
       if (!map[c.id]) {
+        const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
         map[c.id] = [
           (c.x - 450) * 0.005,
-          0.145,
+          y,
           (c.y - 300) * 0.005,
           c.type,
         ];
@@ -177,11 +215,15 @@ export default function CircuitScene({
     });
   }, [sandboxWires, preset.wires, posMap]);
 
-  // Build sceneComponents with final positions/rotations
+  // Build sceneComponents with final positions/rotations.
+  // y is always derived from COMP_Y[type] so every component sits at the correct height
+  // above the breadboard surface regardless of what arlabPositions.pos[1] says.
   const sceneComponents = useMemo(() => {
     return components.map((component) => {
       const layout = arlabPositions[component.id];
-      const position = layout ? layout.pos : posMap[component.id] || [0, 0.145, 0];
+      const base = layout ? layout.pos : (posMap[component.id] || [0, BOARD_Y, 0]);
+      const y = COMP_Y[component.type] ?? (BOARD_Y + 0.025);
+      const position = [base[0], y, base[2]];
       const rotation = layout ? (layout.rot || [0, 0, 0]) : [0, 0, 0];
       return { ...component, position, rotation };
     });
@@ -189,11 +231,11 @@ export default function CircuitScene({
 
   return (
     <group position={[-0.8, 0, 0]}>
-      {/* Drag plane — invisible, covers scene during drag for accurate pointer tracking */}
+      {/* Drag plane — sits at LED height (tallest common component) for accurate drag tracking */}
       {draggingId !== null && (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0.5, 0.145, 0]}
+          position={[0.5, 0.12, 0]}
           renderOrder={999}
           onPointerMove={(e) => {
             e.stopPropagation();

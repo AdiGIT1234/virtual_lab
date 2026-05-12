@@ -21,16 +21,15 @@ export default function Wire3D({ points = [], color = "#cc2200", glow = false, o
       const top2 = vecs[2];
       const mid = new THREE.Vector3(
         (top1.x + top2.x) / 2,
-        Math.min(top1.y, top2.y) - 0.018, // sag below the exit height
+        Math.min(top1.y, top2.y) - 0.006, // small sag for natural droop
         (top1.z + top2.z) / 2,
       );
       enriched = [vecs[0], top1, mid, top2, vecs[3]];
     }
 
-    // CatmullRom gives smooth curves through all waypoints — no sharp corners
-    const curve = new THREE.CatmullRomCurve3(enriched, false, "catmullrom", 0.5);
-    const segments = Math.max(24, enriched.length * 8);
-    return new THREE.TubeGeometry(curve, segments, 0.0145, 10, false);
+    const curve = new THREE.CatmullRomCurve3(enriched, false, "catmullrom", 0.3);
+    const segments = Math.max(20, enriched.length * 6);
+    return new THREE.TubeGeometry(curve, segments, 0.009, 8, false);
   }, [points]);
 
   useEffect(() => () => geometry?.dispose(), [geometry]);

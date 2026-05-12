@@ -271,6 +271,8 @@ export default function ARLabPage() {
     }
   }, [isRunning, isESP32, editorCode, preset, startSimulation, stopSimulation]);
 
+  const [showHelp, setShowHelp] = useState(false);
+
   // Live analog inputs (pin → 0.0–1.0) — lets users move sliders while simulating
   const [liveInputs, setLiveInputs] = useState(() => ({ ...(preset?.inputs || {}) }));
   useEffect(() => {
@@ -510,6 +512,19 @@ export default function ARLabPage() {
             title="Edit sketch (Tab)"
           >
             {codeOpen ? "Hide Code" : "Edit Code"}
+          </button>
+          <button
+            style={{
+              ...styles.headerBtn,
+              width: 32, height: 32, padding: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              borderRadius: "50%", fontWeight: 700, fontSize: 14,
+            }}
+            onClick={() => setShowHelp(true)}
+            aria-label="Open help"
+            title="Help"
+          >
+            ?
           </button>
           <button
             style={{ ...styles.simulateBtn, background: isRunning ? "#b91c1c" : "#1a7f37" }}
@@ -828,6 +843,117 @@ export default function ARLabPage() {
           </div>
           <div style={{ flex: 1, overflow: "hidden" }}>
             <CodeEditor value={editorCode} onChange={setEditorCode} />
+          </div>
+        </div>
+      )}
+
+      {/* 3D Lab Help Modal */}
+      {showHelp && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => setShowHelp(false)}
+        >
+          <div
+            style={{
+              background: "#0d1117", border: "1px solid rgba(0,229,255,0.2)",
+              borderRadius: 16, padding: "28px 32px", maxWidth: 600, width: "94%",
+              maxHeight: "88vh", overflowY: "auto",
+              fontFamily: "'Inter', sans-serif", color: "#e6edf3",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinecap="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                </svg>
+                <span style={{ color: "#00e5ff", fontWeight: 700, fontSize: 15, letterSpacing: "0.04em" }}>
+                  3D Circuit Lab — How to Use
+                </span>
+              </div>
+              <button onClick={() => setShowHelp(false)}
+                style={{ background: "transparent", border: "none", color: "#6e7681", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Steps */}
+            {[
+              {
+                n: "1", color: "#00e5ff", title: "Navigate the Scene",
+                body: "Left-drag to orbit the camera. Scroll to zoom in/out. Right-drag to pan. Use the view buttons (top-right of the 3D canvas) or press keys 1–4 to jump between Orbit, Front, Top, and Side views.",
+              },
+              {
+                n: "2", color: "#fbbf24", title: "Place a Component",
+                body: "Open the left sidebar (click the ◀ toggle). Browse categories — Basic, Active, Output, Sensors, Comms. Click a part name. A yellow banner appears: \"Click a hole to place\". Click any breadboard hole and the component is inserted there.",
+              },
+              {
+                n: "3", color: "#22c55e", title: "Move a Placed Component",
+                body: "Click and hold any component you placed — the cursor becomes a grab hand. Drag it across the breadboard and release to reposition it. Components from the preset circuit are locked in place.",
+              },
+              {
+                n: "4", color: "#a78bfa", title: "Draw Wires Between Holes and Pins",
+                body: "Click Wire Mode in the bottom toolbar. The toolbar expands showing color swatches. Click a breadboard hole or an Arduino pin to anchor the start. The banner shows your anchor point. Click the destination hole or pin to complete the wire.",
+              },
+              {
+                n: "5", color: "#f97316", title: "Choose Wire Colors",
+                body: "Color swatches appear in the Wire Mode toolbar. Click a swatch before or after drawing a wire to set the color for new wires. Convention: red = power, black/dark = GND, other colors = signals.",
+              },
+              {
+                n: "6", color: "#ec4899", title: "Manage Wires",
+                body: "Undo (⟲ button or Ctrl+Z) removes the last wire. Click a wire to select it (it glows), then click Delete to remove just that wire. Clear removes all drawn wires. Esc cancels the current mode.",
+              },
+              {
+                n: "7", color: "#34d399", title: "Run the Simulation",
+                body: "Click Simulate (top-right header). Components react live — LEDs glow, servos sweep, OLED displays render. Stop resets outputs. Click Edit Code to open the sketch editor and modify the program.",
+              },
+              {
+                n: "8", color: "#60a5fa", title: "Inspect and Remove Components",
+                body: "Click any component in the 3D view to open its inspector (right side): type, connected pin, and current state. Components you placed show a Remove button to delete them from the circuit.",
+              },
+            ].map(({ n, color, title, body }) => (
+              <div key={n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: "50%",
+                  background: `${color}18`, border: `1px solid ${color}55`,
+                  color, fontWeight: 700, fontSize: 12,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1,
+                }}>{n}</div>
+                <div>
+                  <div style={{ fontWeight: 600, color, fontSize: 12, marginBottom: 4 }}>{title}</div>
+                  <div style={{ fontSize: 12, color: "#8b949e", lineHeight: 1.65 }}>{body}</div>
+                </div>
+              </div>
+            ))}
+
+            {/* Keyboard shortcuts */}
+            <div style={{
+              marginTop: 8, padding: "11px 15px",
+              background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)",
+              borderRadius: 8, fontSize: 11, color: "#6e7681", lineHeight: 1.8,
+            }}>
+              <b style={{ color: "#00e5ff" }}>Keyboard shortcuts</b>
+              <br/>
+              <b style={{ color: "#8b949e" }}>1 / 2 / 3 / 4</b> — camera views (Orbit / Front / Top / Side)
+              &nbsp;·&nbsp; <b style={{ color: "#8b949e" }}>Ctrl+Z</b> — undo last wire
+              &nbsp;·&nbsp; <b style={{ color: "#8b949e" }}>Delete</b> — remove selected wire
+              &nbsp;·&nbsp; <b style={{ color: "#8b949e" }}>Esc</b> — cancel placement / wiring mode
+            </div>
+
+            <button
+              onClick={() => setShowHelp(false)}
+              style={{
+                marginTop: 18, width: "100%", padding: "9px 0",
+                background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)",
+                borderRadius: 8, color: "#00e5ff", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
