@@ -20,7 +20,20 @@ export const supabase = createClient(
       // preventing the "Already Used" collision across tabs
       lock: async (name, acquireTimeout, fn) => {
         if (typeof navigator !== "undefined" && navigator.locks) {
-          return navigator.locks.request(name, { ifAvailable: false }, fn);
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), acquireTimeout);
+          try {
+            return await navigator.locks.request(
+              name,
+              { signal: controller.signal },
+              fn
+            );
+          } catch (e) {
+            if (e?.name === "AbortError") return fn();
+            throw e;
+          } finally {
+            clearTimeout(id);
+          }
         }
         return fn();
       },

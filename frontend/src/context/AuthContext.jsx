@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { AuthContext } from "./AuthContextBase";
 import { supabase } from "../lib/supabase";
 
@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const manualLogout = useRef(false);
 
   /* ── Fetch user profile from profiles table ── */
   const fetchProfile = useCallback(async (userId) => {
@@ -54,9 +56,13 @@ export function AuthProvider({ children }) {
       }
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         setNeedsPasswordReset(false);
-        // Clear any stale token storage so the next sign-in starts clean
         setUser(null);
         setProfile(null);
+        if (!manualLogout.current) {
+          // Forced sign-out (token expired / rotated on another device)
+          setSessionExpired(true);
+        }
+        manualLogout.current = false;
       }
       if (event === "TOKEN_REFRESHED") {
         // Token rotated successfully — session is fresh, nothing extra needed
@@ -118,8 +124,12 @@ export function AuthProvider({ children }) {
 
   /* ── Sign out ── */
   const logout = useCallback(async () => {
+    manualLogout.current = true;
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      manualLogout.current = false;
+      throw error;
+    }
     setUser(null);
     setProfile(null);
     setNeedsPasswordReset(false);
@@ -299,6 +309,8 @@ export function AuthProvider({ children }) {
     return data || [];
   }, [user]);
 
+  const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
+
   /* ── Context value ── */
   const value = useMemo(
     () => ({
@@ -307,6 +319,8 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: !!user,
       isAdmin: user?.email === "aditya26047@gmail.com",
+      sessionExpired,
+      clearSessionExpired,
       // Auth actions
       signup,
       login,
@@ -331,6 +345,8 @@ export function AuthProvider({ children }) {
       user,
       profile,
       loading,
+      sessionExpired,
+      clearSessionExpired,
       signup,
       login,
       loginWithGoogle,
