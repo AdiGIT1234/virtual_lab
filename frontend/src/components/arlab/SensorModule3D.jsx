@@ -578,3 +578,19 @@ export function L298nDriver3D({ position, rotation, highlighted }) {
     </group>
   );
 }
+
+// Re-exports from ExtraComponents3D for convenient single-import usage
+export {
+  AaBattery3D, BenchPsu3D, BuckConverter3D, Lm7805Reg3D,
+  FunctionGenerator3D, UsbConnector3D, BarrelJack3D, ScrewTerminal3D,
+  Lcd1602_3D, EpaperDisplay3D, LedMatrix3D, LedBarGraph3D,
+  NeopixelRing3D, NeopixelMatrix3D, NeopixelPixel3D,
+  NtcSensor3D, Photoresistor3D, PirSensor3D, Mpu6050_3D,
+  HcSr04_3D, FlameSensor3D, GasSensor3D, HeartbeatSensor3D,
+  SoundSensor3D, Hx711_3D, RainSensor3D, Ttp223Touch3D, Sw420Vibration3D,
+  RotaryEncoder3D, AnalogJoystick3D, DipSwitch3D, SlideSwitch3D,
+  MembraneKeypad3D, IrReceiver3D, IrRemote3D,
+  StepperMotor3D, RelayModule3D,
+  Ds1307Rtc3D, MicroSdModule3D,
+  LogicGate3D, MosfetTransistor3D, OptocouplerIC3D,
+} from "./ExtraComponents3D";

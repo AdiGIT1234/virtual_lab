@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { useCircuitStore } from "../../state/useCircuitStore";
 import { getPinCoord } from "../../constants/unoPinCoords";
 import { CIRCUIT_PRESETS } from "../../constants/circuitPresets";
@@ -19,6 +21,20 @@ import DipIC3D from "./DipIC3D";
 import Buzzer3D from "./Buzzer3D";
 import SevenSegment3D from "./SevenSegment3D";
 import { Dht22_3D, OledDisplay3D, TftDisplay3D, Potentiometer3D, Max30102_3D, Tcs34725_3D, SensorModule3D, DcMotor3D, L298nDriver3D, Hc05_3D, Rc522_3D } from "./SensorModule3D";
+import {
+  AaBattery3D, BenchPsu3D, BuckConverter3D, Lm7805Reg3D,
+  FunctionGenerator3D, UsbConnector3D, BarrelJack3D, ScrewTerminal3D,
+  Lcd1602_3D, EpaperDisplay3D, LedMatrix3D, LedBarGraph3D,
+  NeopixelRing3D, NeopixelMatrix3D, NeopixelPixel3D,
+  NtcSensor3D, Photoresistor3D, PirSensor3D, Mpu6050_3D,
+  HcSr04_3D, FlameSensor3D, GasSensor3D, HeartbeatSensor3D,
+  SoundSensor3D, Hx711_3D, RainSensor3D, Ttp223Touch3D, Sw420Vibration3D,
+  RotaryEncoder3D, AnalogJoystick3D, DipSwitch3D, SlideSwitch3D,
+  MembraneKeypad3D, IrReceiver3D, IrRemote3D,
+  StepperMotor3D, RelayModule3D,
+  Ds1307Rtc3D, MicroSdModule3D,
+  LogicGate3D, MosfetTransistor3D, OptocouplerIC3D,
+} from "./ExtraComponents3D";
 
 // Convert Arduino pin number to scene-group coordinates
 function pinToSceneCoords(pinNum) {
@@ -131,6 +147,69 @@ const COMP_Y = {
   TCS34725_COLOR: BOARD_Y + 0.025,
   VCC_NODE: 0.010,   // stakes placed near workbench
   GROUND_NODE: 0.010,
+  // Displays
+  LCD1602: BOARD_Y + 0.015,
+  LCD2004: BOARD_Y + 0.015,
+  EPAPER_BASIC: BOARD_Y + 0.010,
+  LED_MATRIX: BOARD_Y + 0.010,
+  LED_BAR_GRAPH: BOARD_Y + 0.010,
+  NEOPIXEL_RING: BOARD_Y + 0.006,
+  NEOPIXEL_RING_12: BOARD_Y + 0.006,
+  NEOPIXEL_RING_16: BOARD_Y + 0.006,
+  NEOPIXEL_RING_24: BOARD_Y + 0.006,
+  NEOPIXEL_MATRIX: BOARD_Y + 0.010,
+  NEOPIXEL_PIXEL: BOARD_Y + 0.010,
+  // Sensors
+  NTC_SENSOR: BOARD_Y + 0.009,
+  PHOTORESISTOR: BOARD_Y + 0.004,
+  PIR_SENSOR: BOARD_Y + 0.010,
+  MPU6050: BOARD_Y + 0.010,
+  HC_SR04: BOARD_Y + 0.010,
+  FLAME_SENSOR: BOARD_Y + 0.010,
+  GAS_SENSOR: BOARD_Y + 0.010,
+  HEARTBEAT_SENSOR: BOARD_Y + 0.010,
+  SOUND_SENSOR: BOARD_Y + 0.010,
+  HX711_LOAD_CELL: BOARD_Y + 0.010,
+  HX711_MODULE: BOARD_Y + 0.010,
+  RAIN_SENSOR: BOARD_Y + 0.010,
+  TTP223_TOUCH: BOARD_Y + 0.010,
+  SW420_VIBRATION: BOARD_Y + 0.010,
+  // Input
+  ROTARY_ENCODER: BOARD_Y + 0.010,
+  ANALOG_JOYSTICK: BOARD_Y + 0.010,
+  DIP_SWITCH_8: BOARD_Y + 0.013,
+  SLIDE_SWITCH: BOARD_Y + 0.010,
+  MEMBRANE_KEYPAD: BOARD_Y + 0.005,
+  IR_RECEIVER: BOARD_Y + 0.010,
+  IR_REMOTE: BOARD_Y + 0.008,
+  // Motor
+  STEPPER_MOTOR: BOARD_Y + 0.040,
+  RELAY_MODULE: BOARD_Y + 0.010,
+  // Comms
+  DS1307_RTC: BOARD_Y + 0.010,
+  MICROSD_MODULE: BOARD_Y + 0.010,
+  // Logic ICs
+  LOGIC_AND: BOARD_Y + 0.013,
+  LOGIC_OR: BOARD_Y + 0.013,
+  LOGIC_NOT: BOARD_Y + 0.013,
+  LOGIC_NAND: BOARD_Y + 0.013,
+  LOGIC_NOR: BOARD_Y + 0.013,
+  LOGIC_XOR: BOARD_Y + 0.013,
+  LOGIC_DFLIPFLOP: BOARD_Y + 0.013,
+  NMOSFET: BOARD_Y + 0.060,
+  PMOSFET: BOARD_Y + 0.060,
+  OPTOCOUPLER: BOARD_Y + 0.013,
+  // Power
+  AA_BATTERY: BOARD_Y + 0.090,
+  BENCH_PSU: BOARD_Y + 0.020,
+  BUCK_CONVERTER: BOARD_Y + 0.015,
+  LM7805_REG: BOARD_Y + 0.040,
+  FUNCTION_GENERATOR: BOARD_Y + 0.020,
+  USB_CONNECTOR: BOARD_Y + 0.013,
+  BARREL_JACK: BOARD_Y + 0.020,
+  SCREW_TERMINAL_2: BOARD_Y + 0.010,
+  SCREW_TERMINAL_3: BOARD_Y + 0.010,
+  RGB_LED: BOARD_Y + 0.080,
 };
 
 function buildWirePoints(p1, p2) {
@@ -163,6 +242,48 @@ export default function CircuitScene({
   onDragEnd,
 }) {
   const [draggingId, setDraggingId] = useState(null);
+  const draggingIdRef = useRef(null);
+  const { camera, gl } = useThree();
+
+  // Keep ref in sync so DOM event closures always see the latest draggingId
+  useEffect(() => { draggingIdRef.current = draggingId; }, [draggingId]);
+
+  // DOM-level drag: bypasses Three.js raycasting so component meshes don't block it
+  useEffect(() => {
+    if (draggingId === null) return;
+    const domEl = gl.domElement;
+    // Drag plane sits at world y = 0.10 (mid-height across component types)
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.10);
+    const raycaster  = new THREE.Raycaster();
+    const target     = new THREE.Vector3();
+
+    const onMove = (e) => {
+      const id = draggingIdRef.current;
+      if (!id) return;
+      const rect = domEl.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+      const ny = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+      raycaster.setFromCamera({ x: nx, y: ny }, camera);
+      if (raycaster.ray.intersectPlane(dragPlane, target)) {
+        // target is world-space; scene group is offset by x=-0.8
+        onComponentMove?.(id, [target.x + 0.8, target.z]);
+      }
+    };
+
+    const onUp = () => {
+      setDraggingId(null);
+      gl.domElement.style.cursor = '';
+      onDragEnd?.();
+    };
+
+    domEl.addEventListener('pointermove', onMove);
+    domEl.addEventListener('pointerup',   onUp);
+    return () => {
+      domEl.removeEventListener('pointermove', onMove);
+      domEl.removeEventListener('pointerup',   onUp);
+    };
+  }, [draggingId, camera, gl, onComponentMove, onDragEnd]);
+
   const components  = useCircuitStore((s) => s.components);
   const outputs     = useCircuitStore((s) => s.outputs);
   const inputs      = useCircuitStore((s) => s.inputs);
@@ -231,33 +352,7 @@ export default function CircuitScene({
 
   return (
     <group position={[-0.8, 0, 0]}>
-      {/* Drag plane — sits at LED height (tallest common component) for accurate drag tracking */}
-      {draggingId !== null && (
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0.5, 0.12, 0]}
-          renderOrder={999}
-          onPointerMove={(e) => {
-            e.stopPropagation();
-            // e.point is world space; scene group is at x=-0.8, so add 0.8 for scene-group x
-            const sceneX = e.point.x + 0.8;
-            const sceneZ = e.point.z;
-            onComponentMove?.(draggingId, [sceneX, sceneZ]);
-          }}
-          onPointerUp={(e) => {
-            e.stopPropagation();
-            setDraggingId(null);
-            onDragEnd?.();
-          }}
-          onPointerLeave={() => {
-            setDraggingId(null);
-            onDragEnd?.();
-          }}
-        >
-          <planeGeometry args={[30, 30]} />
-          <meshBasicMaterial colorWrite={false} depthWrite={false} />
-        </mesh>
-      )}
+      {/* Drag is handled via DOM pointermove/pointerup in the useEffect above — no plane mesh needed */}
       <SceneLighting />
       <Environment preset="warehouse" intensity={0.22} />
 
@@ -477,6 +572,105 @@ export default function CircuitScene({
           element = <Hc05_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "RC522_RFID" || component.type === "RFID_MODULE") {
           element = <Rc522_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Displays
+        } else if (component.type === "LCD1602" || component.type === "LCD2004") {
+          element = <Lcd1602_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "EPAPER_BASIC") {
+          element = <EpaperDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "LED_MATRIX") {
+          element = <LedMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "LED_BAR_GRAPH") {
+          element = <LedBarGraph3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "NEOPIXEL_RING" || component.type === "NEOPIXEL_RING_12" || component.type === "NEOPIXEL_RING_16" || component.type === "NEOPIXEL_RING_24") {
+          element = <NeopixelRing3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "NEOPIXEL_MATRIX") {
+          element = <NeopixelMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "NEOPIXEL_PIXEL") {
+          element = <NeopixelPixel3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Sensors
+        } else if (component.type === "NTC_SENSOR") {
+          element = <NtcSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "PHOTORESISTOR") {
+          element = <Photoresistor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "PIR_SENSOR") {
+          element = <PirSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "MPU6050") {
+          element = <Mpu6050_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "HC_SR04") {
+          element = <HcSr04_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "FLAME_SENSOR") {
+          element = <FlameSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "GAS_SENSOR") {
+          element = <GasSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "HEARTBEAT_SENSOR") {
+          element = <HeartbeatSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "SOUND_SENSOR") {
+          element = <SoundSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "HX711_LOAD_CELL" || component.type === "HX711_MODULE") {
+          element = <Hx711_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "RAIN_SENSOR") {
+          element = <RainSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "TTP223_TOUCH") {
+          element = <Ttp223Touch3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "SW420_VIBRATION") {
+          element = <Sw420Vibration3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Input
+        } else if (component.type === "ROTARY_ENCODER") {
+          element = <RotaryEncoder3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "ANALOG_JOYSTICK") {
+          element = <AnalogJoystick3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "DIP_SWITCH_8") {
+          element = <DipSwitch3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "SLIDE_SWITCH") {
+          element = <SlideSwitch3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "MEMBRANE_KEYPAD") {
+          element = <MembraneKeypad3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "IR_RECEIVER") {
+          element = <IrReceiver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "IR_REMOTE") {
+          element = <IrRemote3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Motor
+        } else if (component.type === "STEPPER_MOTOR") {
+          element = <StepperMotor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "RELAY_MODULE") {
+          element = <RelayModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Comms / Memory
+        } else if (component.type === "DS1307_RTC") {
+          element = <Ds1307Rtc3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "MICROSD_MODULE") {
+          element = <MicroSdModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Logic ICs
+        } else if (component.type === "LOGIC_AND" || component.type === "LOGIC_OR" || component.type === "LOGIC_NAND" || component.type === "LOGIC_NOR" || component.type === "LOGIC_XOR") {
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType={component.type.replace("LOGIC_","")} />;
+        } else if (component.type === "LOGIC_NOT") {
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="NOT" />;
+        } else if (component.type === "LOGIC_DFLIPFLOP") {
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="DFF" />;
+        } else if (component.type === "NMOSFET" || component.type === "PMOSFET") {
+          element = <MosfetTransistor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} type={component.type === "PMOSFET" ? "P" : "N"} />;
+        } else if (component.type === "OPTOCOUPLER") {
+          element = <OptocouplerIC3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        // Power / Connectors
+        } else if (component.type === "AA_BATTERY") {
+          element = <AaBattery3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "BENCH_PSU") {
+          element = <BenchPsu3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "BUCK_CONVERTER") {
+          element = <BuckConverter3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "LM7805_REG") {
+          element = <Lm7805Reg3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "FUNCTION_GENERATOR") {
+          element = <FunctionGenerator3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "USB_CONNECTOR") {
+          element = <UsbConnector3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "BARREL_JACK") {
+          element = <BarrelJack3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+        } else if (component.type === "SCREW_TERMINAL_2") {
+          element = <ScrewTerminal3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} pinCount={2} />;
+        } else if (component.type === "SCREW_TERMINAL_3") {
+          element = <ScrewTerminal3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} pinCount={3} />;
+        } else if (component.type === "RGB_LED") {
+          element = <Led3D position={component.position} rotation={component.rotation} color="#ff44ff" level={(outputs[component.pin] ?? 0)} highlighted={isHighlighted} />;
         }
 
         if (element) {
@@ -489,8 +683,16 @@ export default function CircuitScene({
                 e.stopPropagation();
                 setDraggingId(component.id);
                 onDragStart?.();
+                // Set canvas cursor via DOM since CSS style doesn't apply to Three.js groups
+                gl.domElement.style.cursor = 'grabbing';
               }}
-              style={{ cursor: draggingId === component.id ? 'grabbing' : component.manuallyPlaced ? 'grab' : 'default' }}
+              onPointerEnter={() => {
+                if (component.manuallyPlaced && draggingId === null)
+                  gl.domElement.style.cursor = 'grab';
+              }}
+              onPointerLeave={() => {
+                if (draggingId === null) gl.domElement.style.cursor = '';
+              }}
             >
               {element}
             </group>
