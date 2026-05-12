@@ -31,6 +31,11 @@ int main(void) {
       { id: "res-exp01", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp01", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp01-1", source: "mcu::13",         target: "res-exp01::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp01-2", source: "res-exp01::t2",   target: "led-exp01::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp01-3", source: "led-exp01::main", target: "gnd-exp01::main",  bends: [], color: "#333" },
+    ],
   },
 
   exp02_push_button: {
@@ -62,6 +67,13 @@ int main(void) {
       { id: "res-exp02", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp02", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
       { id: "vcc-exp02", type: "VCC_NODE", pins: { main: "" }, x: 80, y: 60, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp02-1", source: "mcu::2",           target: "btn-exp02::main",  bends: [], color: "#4dabf7" },
+      { id: "w-exp02-2", source: "btn-exp02::main",  target: "gnd-exp02::main",  bends: [], color: "#333" },
+      { id: "w-exp02-3", source: "mcu::13",          target: "res-exp02::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp02-4", source: "res-exp02::t2",    target: "led-exp02::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp02-5", source: "led-exp02::main",  target: "gnd-exp02::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -102,6 +114,16 @@ int main(void) {
       { id: "res-exp03b", type: "RESISTOR", pins: { t1: 5, t2: "" }, resistance: 220, x: 380, y: 200, scale: 1 },
       { id: "gnd-exp03", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp03-a", source: "mcu::2",          target: "seg-exp03::a",    bends: [], color: "#ff4444" },
+      { id: "w-exp03-b", source: "mcu::3",          target: "seg-exp03::b",    bends: [], color: "#fbbf24" },
+      { id: "w-exp03-c", source: "mcu::4",          target: "seg-exp03::c",    bends: [], color: "#22c55e" },
+      { id: "w-exp03-d", source: "mcu::5",          target: "seg-exp03::d",    bends: [], color: "#4dabf7" },
+      { id: "w-exp03-e", source: "mcu::6",          target: "seg-exp03::e",    bends: [], color: "#a78bfa" },
+      { id: "w-exp03-f", source: "mcu::7",          target: "seg-exp03::f",    bends: [], color: "#f97316" },
+      { id: "w-exp03-g", source: "mcu::8",          target: "seg-exp03::g",    bends: [], color: "#fb7185" },
+      { id: "w-exp03-gnd", source: "gnd-exp03::main", target: "seg-exp03::com", bends: [], color: "#333" },
+    ],
   },
 
   exp04_external_interrupts: {
@@ -132,6 +154,13 @@ int main(void) {
       { id: "led-exp04", type: "LED_RED", pins: { main: 13 }, x: 460, y: 160, scale: 1 },
       { id: "res-exp04", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp04", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp04-1", source: "mcu::2",          target: "btn-exp04::main",  bends: [], color: "#4dabf7" },
+      { id: "w-exp04-2", source: "btn-exp04::main", target: "gnd-exp04::main",  bends: [], color: "#333" },
+      { id: "w-exp04-3", source: "mcu::13",         target: "res-exp04::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp04-4", source: "res-exp04::t2",   target: "led-exp04::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp04-5", source: "led-exp04::main", target: "gnd-exp04::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -165,6 +194,11 @@ int main(void) {
       { id: "res-exp05", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp05", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp05-1", source: "mcu::13",         target: "res-exp05::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp05-2", source: "res-exp05::t2",   target: "led-exp05::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp05-3", source: "led-exp05::main", target: "gnd-exp05::main",  bends: [], color: "#333" },
+    ],
   },
 
   exp06_timer1_ctc: {
@@ -192,6 +226,11 @@ int main(void) {
       { id: "led-exp06", type: "LED_RED", pins: { main: 13 }, x: 460, y: 160, scale: 1 },
       { id: "res-exp06", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp06", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp06-1", source: "mcu::13",         target: "res-exp06::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp06-2", source: "res-exp06::t2",   target: "led-exp06::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp06-3", source: "led-exp06::main", target: "gnd-exp06::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -226,6 +265,11 @@ int main(void) {
       { id: "res-exp07", type: "RESISTOR", pins: { t1: 6, t2: "" }, resistance: 220, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp07", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp07-1", source: "mcu::6",          target: "res-exp07::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp07-2", source: "res-exp07::t2",   target: "led-exp07::main",  bends: [], color: "#22c55e" },
+      { id: "w-exp07-3", source: "led-exp07::main", target: "gnd-exp07::main",  bends: [], color: "#333" },
+    ],
   },
 
   exp08_pwm_phase_correct: {
@@ -258,6 +302,11 @@ int main(void) {
       { id: "srv-exp08", type: "SERVO", pins: { main: 9 }, x: 460, y: 140, scale: 1 },
       { id: "vcc-exp08", type: "VCC_NODE", pins: { main: "" }, x: 460, y: 60, scale: 1 },
       { id: "gnd-exp08", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp08-1", source: "mcu::9",           target: "srv-exp08::main",  bends: [], color: "#fbbf24" },
+      { id: "w-exp08-2", source: "vcc-exp08::main",  target: "srv-exp08::main",  bends: [], color: "#dc2626" },
+      { id: "w-exp08-3", source: "gnd-exp08::main",  target: "srv-exp08::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -296,6 +345,17 @@ int main(void) {
       { id: "res-exp09", type: "RESISTOR", pins: { t1: 10, t2: "" }, resistance: 220, x: 440, y: 300, scale: 1 },
       { id: "gnd-exp09", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
       { id: "vcc-exp09", type: "VCC_NODE", pins: { main: "" }, x: 80, y: 60, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp09-1",  source: "mcu::14",          target: "dial-exp09::main",  bends: [], color: "#a78bfa" },
+      { id: "w-exp09-2",  source: "vcc-exp09::main",  target: "dial-exp09::main",  bends: [], color: "#dc2626" },
+      { id: "w-exp09-3",  source: "mcu::10",          target: "res-exp09::t1",     bends: [], color: "#fbbf24" },
+      { id: "w-exp09-4",  source: "res-exp09::t2",    target: "led1-exp09::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp09-5",  source: "led1-exp09::main", target: "gnd-exp09::main",   bends: [], color: "#333" },
+      { id: "w-exp09-6",  source: "mcu::11",          target: "led2-exp09::main",  bends: [], color: "#22c55e" },
+      { id: "w-exp09-7",  source: "led2-exp09::main", target: "gnd-exp09::main",   bends: [], color: "#333" },
+      { id: "w-exp09-8",  source: "mcu::12",          target: "led3-exp09::main",  bends: [], color: "#fbbf24" },
+      { id: "w-exp09-9",  source: "led3-exp09::main", target: "gnd-exp09::main",   bends: [], color: "#333" },
     ],
   },
 
@@ -336,6 +396,11 @@ int main(void) {
       { id: "res-exp10", type: "RESISTOR", pins: { t1: 1, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp10", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp10-1", source: "mcu::1",          target: "res-exp10::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp10-2", source: "res-exp10::t2",   target: "led-exp10::main",  bends: [], color: "#22c55e" },
+      { id: "w-exp10-3", source: "led-exp10::main", target: "gnd-exp10::main",  bends: [], color: "#333" },
+    ],
   },
 
   exp11_uart_rx_interrupts: {
@@ -367,6 +432,11 @@ int main(void) {
       { id: "led-exp11", type: "LED_RED", pins: { main: 13 }, x: 460, y: 160, scale: 1 },
       { id: "res-exp11", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp11", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp11-1", source: "mcu::13",         target: "res-exp11::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp11-2", source: "res-exp11::t2",   target: "led-exp11::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp11-3", source: "led-exp11::main", target: "gnd-exp11::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -404,6 +474,13 @@ int main(void) {
       { id: "led2-exp12", type: "LED_GREEN", pins: { main: 11 }, x: 460, y: 200, scale: 1 },
       { id: "res-exp12", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 300, scale: 1 },
       { id: "gnd-exp12", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp12-1", source: "mcu::13",          target: "res-exp12::t1",     bends: [], color: "#fbbf24" },
+      { id: "w-exp12-2", source: "res-exp12::t2",    target: "led-exp12::main",   bends: [], color: "#ff4444" },
+      { id: "w-exp12-3", source: "led-exp12::main",  target: "gnd-exp12::main",   bends: [], color: "#333" },
+      { id: "w-exp12-4", source: "mcu::11",          target: "led2-exp12::main",  bends: [], color: "#22c55e" },
+      { id: "w-exp12-5", source: "led2-exp12::main", target: "gnd-exp12::main",   bends: [], color: "#333" },
     ],
   },
 
@@ -455,6 +532,14 @@ int main(void) {
       { id: "vcc-exp13", type: "VCC_NODE", pins: { main: "" }, x: 80, y: 60, scale: 1 },
       { id: "gnd-exp13", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
     ],
+    wires: [
+      { id: "w-exp13-1", source: "mcu::13",          target: "led-exp13::main",   bends: [], color: "#ff4444" },
+      { id: "w-exp13-2", source: "led-exp13::main",  target: "gnd-exp13::main",   bends: [], color: "#333" },
+      { id: "w-exp13-3", source: "vcc-exp13::main",  target: "res-exp13a::t1",    bends: [], color: "#dc2626" },
+      { id: "w-exp13-4", source: "res-exp13a::t2",   target: "mcu::18",           bends: [], color: "#fbbf24" },
+      { id: "w-exp13-5", source: "vcc-exp13::main",  target: "res-exp13b::t1",    bends: [], color: "#dc2626" },
+      { id: "w-exp13-6", source: "res-exp13b::t2",   target: "mcu::19",           bends: [], color: "#22d3ee" },
+    ],
   },
 
   exp14_eeprom_rw: {
@@ -488,6 +573,11 @@ int main(void) {
       { id: "led-exp14", type: "LED_RED", pins: { main: 13 }, x: 460, y: 160, scale: 1 },
       { id: "res-exp14", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 240, scale: 1 },
       { id: "gnd-exp14", type: "GROUND_NODE", pins: { main: "" }, x: 460, y: 320, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp14-1", source: "mcu::13",         target: "res-exp14::t1",    bends: [], color: "#fbbf24" },
+      { id: "w-exp14-2", source: "res-exp14::t2",   target: "led-exp14::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp14-3", source: "led-exp14::main", target: "gnd-exp14::main",  bends: [], color: "#333" },
     ],
   },
 
@@ -527,6 +617,14 @@ int main(void) {
       { id: "res-exp15a", type: "RESISTOR", pins: { t1: 13, t2: "" }, resistance: 330, x: 460, y: 310, scale: 1 },
       { id: "res-exp15b", type: "RESISTOR", pins: { t1: 12, t2: "" }, resistance: 330, x: 380, y: 310, scale: 1 },
       { id: "gnd-exp15", type: "GROUND_NODE", pins: { main: "" }, x: 260, y: 380, scale: 1 },
+    ],
+    wires: [
+      { id: "w-exp15-1", source: "mcu::13",           target: "res-exp15a::t1",   bends: [], color: "#fbbf24" },
+      { id: "w-exp15-2", source: "res-exp15a::t2",    target: "led-exp15::main",  bends: [], color: "#ff4444" },
+      { id: "w-exp15-3", source: "led-exp15::main",   target: "gnd-exp15::main",  bends: [], color: "#333" },
+      { id: "w-exp15-4", source: "mcu::12",           target: "res-exp15b::t1",   bends: [], color: "#fbbf24" },
+      { id: "w-exp15-5", source: "res-exp15b::t2",    target: "led2-exp15::main", bends: [], color: "#22c55e" },
+      { id: "w-exp15-6", source: "led2-exp15::main",  target: "gnd-exp15::main",  bends: [], color: "#333" },
     ],
   },
 };

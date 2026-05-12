@@ -223,22 +223,26 @@ void loop() {
       // Load workspace components
       if (preset.workspace) {
         setWorkspaceItems(preset.workspace, "experiment");
-        // Auto-generate wires from the preset pins so resolveConnection works
-        const autoWires = [];
-        preset.workspace.forEach(item => {
-          if (!item.pins) return;
-          Object.entries(item.pins).forEach(([termId, targetPin]) => {
-            if (targetPin == null || targetPin === "") return;
-            autoWires.push({
-              id: `wire-preset-${item.id}-${termId}`,
-              source: `${item.id}::${termId}`,
-              target: `mcu::${targetPin}`,
-              bends: [],
-              color: "#4dabf7",
+        if (preset.wires) {
+          setWires(preset.wires);
+        } else {
+          // Auto-generate wires from the preset pins so resolveConnection works
+          const autoWires = [];
+          preset.workspace.forEach(item => {
+            if (!item.pins) return;
+            Object.entries(item.pins).forEach(([termId, targetPin]) => {
+              if (targetPin == null || targetPin === "") return;
+              autoWires.push({
+                id: `wire-preset-${item.id}-${termId}`,
+                source: `${item.id}::${termId}`,
+                target: `mcu::${targetPin}`,
+                bends: [],
+                color: "#4dabf7",
+              });
             });
           });
-        });
-        setWires(autoWires);
+          setWires(autoWires);
+        }
       }
       // Load solution code only when student explicitly unlocked it (unlock=1 param)
       const unlocked = searchParams.get("unlock") === "1";
@@ -394,6 +398,9 @@ void loop() {
 
         if (!response.ok) {
           let detail = `Server error ${response.status}`;
+          if (response.status === 429) {
+            detail = "Too many requests — please wait a moment and try again.";
+          }
           try {
             const errBody = await response.json();
             detail = errBody?.detail || detail;
@@ -1599,7 +1606,11 @@ void loop() {
                   { id: "g", label: "G", color: "#66ff66" },
                 ];
               } else if (item.type === "SERVO") {
-                terminals = [{ id: "main", label: "SIG", color: "#ff6600" }];
+                terminals = [
+                  { id: "main", label: "SIG", color: "#ff6600" },
+                  { id: "vcc",  label: "VCC", color: "#dc2626" },
+                  { id: "gnd",  label: "GND", color: "#555"    },
+                ];
               } else if (item.type === "RESISTOR") {
                 terminals = [
                   { id: "t1", label: "T1", color: "#999" },
@@ -1946,6 +1957,12 @@ void loop() {
                   ? [
                       { id: "t1", x: 24, y: 0  },
                       { id: "t2", x: 24, y: 80 },
+                    ]
+                  : item.type === "SERVO"
+                  ? [
+                      { id: "main", x: 53.5, y: 110 },
+                      { id: "vcc",  x: 60.5, y: 110 },
+                      { id: "gnd",  x: 67.5, y: 110 },
                     ]
                   : item.type === "RESISTOR"
                   ? [

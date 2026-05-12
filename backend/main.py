@@ -220,7 +220,7 @@ async def get_experiment_details(experiment_id: str):
 
 
 @app.post("/run-experiment")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def run_experiment(payload: CodeInput, request:Request):
     #print("RECEIVED CODE:")
     #print(payload.code)

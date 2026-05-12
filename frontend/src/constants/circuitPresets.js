@@ -110,7 +110,9 @@ void loop() {
       { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 180, y: 300 },
     ],
     wires: [
-      { id: "servo-w1", source: "mcu::9", target: "srv-1::main", bends: [], color: "#ff6600" },
+      { id: "servo-w1", source: "mcu::9",       target: "srv-1::main", bends: [], color: "#ff6600" },
+      { id: "servo-w2", source: "vcc-1::main",  target: "srv-1::vcc",  bends: [], color: "#dc2626" },
+      { id: "servo-w3", source: "gnd-1::main",  target: "srv-1::gnd",  bends: [], color: "#333"    },
     ],
     outputs: { 9: 0.5 },
     circuitCheck: [
@@ -147,6 +149,7 @@ void loop() {}`,
     ],
     wires: [
       { id: "t555-w1", source: "ic-555::out",      target: "led-timer::main",   bends: [], color: "#fbbf24" },
+      { id: "t555-wg", source: "led-timer::main",  target: "gnd-timer::main",   bends: [], color: "#333"    },
       { id: "t555-w2", source: "ic-555::vcc",      target: "vcc-timer::main",   bends: [], color: "#dc2626" },
       { id: "t555-w3", source: "ic-555::gnd",      target: "gnd-timer::main",   bends: [], color: "#333"    },
       { id: "t555-w4", source: "ic-555::disch",    target: "res-discharge::t1", bends: [], color: "#888"    },
@@ -475,6 +478,7 @@ void loop() {
       { id: "dash-w6", source: "mcu::34",   target: "pot-1::main",  bends: [], color: "#888"    },
       { id: "dash-w7", source: "vcc-1::main", target: "tft-1::vcc", bends: [], color: "#dc2626" },
       { id: "dash-w8", source: "gnd-1::main", target: "tft-1::gnd", bends: [], color: "#333"    },
+      { id: "dash-w9", source: "vcc-1::main", target: "tft-1::led", bends: [], color: "#dc2626" },
     ],
     outputs: {},
     inputs: { 34: 0.5 },
@@ -727,7 +731,6 @@ void loop() {
 }`,
     workspace: [
       { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 300, y: 200 },
-      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null }, x: 480, y: 360 },
     ],
     wires: [
       { id: "seg-wa", source: "mcu::2", target: "seg-1::a", bends: [], color: "#ff4444" },
@@ -741,8 +744,7 @@ void loop() {
     outputs: { 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0 },
     inputs: {},
     arlabPositions: {
-      "seg-1": { pos: [0.35, 0.085, 0],   rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.60, 0.01, 0.20], rot: [0, 0, 0] },
+      "seg-1": { pos: [0.35, 0.085, 0], rot: [0, 0, 0] },
     },
   },
 
@@ -865,7 +867,6 @@ void loop() {
       { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 380, y: 250 },
       { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 380, y: 340 },
       { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 540, y: 260 },
-      { id: "vcc-1",   type: "VCC_NODE",    pin: null, pins: { main: null }, x: 60,  y: 220 },
     ],
     wires: [
       { id: "lg-w1",  source: "mcu::2",       target: "btn-a::main",    bends: [], color: "#4dabf7" },
@@ -899,7 +900,6 @@ void loop() {
       "led-and": { pos: [ 0.40, 0.085, -0.15], rot: [0, 0, 0] },
       "led-or":  { pos: [ 0.40, 0.085,  0],    rot: [0, 0, 0] },
       "led-not": { pos: [ 0.40, 0.085,  0.15], rot: [0, 0, 0] },
-      "vcc-1":   { pos: [-0.35, 0.01,  0],     rot: [0, 0, 0] },
       "gnd-1":   { pos: [ 0.55, 0.01,  0],     rot: [0, 0, 0] },
     },
   },
@@ -943,8 +943,6 @@ void loop() {
 }`,
     workspace: [
       { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 400, y: 220 },
-      { id: "vcc-1", type: "VCC_NODE",      pin: null, pins: { main: null }, x: 80, y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 80, y: 380 },
     ],
     wires: [
       { id: "stp-w1", source: "mcu::8",  target: "stp-1::a+", bends: [], color: "#f97316" },
@@ -955,9 +953,7 @@ void loop() {
     outputs: { 8: 0, 9: 0, 10: 0, 11: 0 },
     inputs: {},
     arlabPositions: {
-      "stp-1": { pos: [0.35, 0.085, 0],    rot: [0, 0, 0] },
-      "vcc-1": { pos: [0.0,  0.01, -0.20], rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.0,  0.01,  0.20], rot: [0, 0, 0] },
+      "stp-1": { pos: [0.35, 0.085, 0], rot: [0, 0, 0] },
     },
   },
 };
