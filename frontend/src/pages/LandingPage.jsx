@@ -588,11 +588,6 @@ function AuthDock() {
           <div>
             <label className="text-xs uppercase text-(--lp-text-mid) tracking-[0.2em] mb-1 block">Confirm Password *</label>
             <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} className={inputClass} placeholder="••••••••" />
-            {mode === "forgot_reset" && (
-              <p className="text-[11px] text-(--lp-text-low) mt-1 font-mono">
-                Updating is optional—skip below if you just wanted to log in with the code.
-              </p>
-            )}
             {form.confirmPassword.length > 0 && (
               <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono">
                 <span style={{ color: passwordsMatch ? "#00FFB2" : "#ff3366", fontSize: "12px" }}>
@@ -624,20 +619,6 @@ function AuthDock() {
            mode === "forgot_email" ? "Send Magic Link" : "Update Password"}
         </button>
 
-        {mode === "forgot_reset" && (
-          <button
-            type="button"
-            className="w-full py-2.5 mt-2 text-xs font-bold tracking-[0.25em] uppercase border border-[#00F2FF] text-[#00F2FF] cursor-pointer"
-            onClick={() => {
-              setSuccess("Skipped! You are logged in.");
-              clearPasswordRecovery();
-              setTimeout(() => setMode("login"), 1000); 
-              window.location.reload(); 
-            }}
-          >
-            Skip (Keep old password)
-          </button>
-        )}
       </form>
       )}
 

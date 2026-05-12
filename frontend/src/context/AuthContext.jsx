@@ -11,17 +11,32 @@ export function AuthProvider({ children }) {
   const manualLogout = useRef(false);
 
   /* ── Fetch user profile from profiles table ── */
-  const fetchProfile = useCallback(async (userId) => {
+  const fetchProfile = useCallback(async (user) => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", userId)
+        .eq("id", user.id)
         .single();
 
-      if (error && error.code !== "PGRST116") {
-        console.error("Profile fetch error:", error);
+      if (error?.code === "PGRST116") {
+        // Profile row missing (trigger didn't fire or pre-trigger user) — create it now
+        const meta = user.user_metadata ?? {};
+        const { data: created } = await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            name: meta.name || meta.full_name || "",
+            institute: meta.institute || "",
+          })
+          .select()
+          .single();
+        setProfile(created || null);
+        return;
       }
+
+      if (error) console.error("Profile fetch error:", error);
       setProfile(data || null);
     } catch (err) {
       console.error("Profile fetch failed:", err);
@@ -35,7 +50,7 @@ export function AuthProvider({ children }) {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        fetchProfile(currentUser);
       }
       setLoading(false);
     });
@@ -47,7 +62,7 @@ export function AuthProvider({ children }) {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        fetchProfile(currentUser);
       } else {
         setProfile(null);
       }
@@ -332,7 +347,7 @@ export function AuthProvider({ children }) {
       clearPasswordRecovery,
       // Profile actions
       updateProfile,
-      fetchProfile: user ? () => fetchProfile(user.id) : () => {},
+      fetchProfile: user ? () => fetchProfile(user) : () => {},
       // Experiment actions
       saveExperiment,
       getSavedExperiments,
