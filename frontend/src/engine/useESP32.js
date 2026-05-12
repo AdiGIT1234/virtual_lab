@@ -76,6 +76,8 @@ function applyApiSubs(code) {
   // Handles both: `Adafruit_SSD1306 d(args)` and `Adafruit_SSD1306 d = Adafruit_SSD1306(args)`
   js = js.replace(/Adafruit_SSD1306\s+(\w+)\s*(?:=\s*Adafruit_SSD1306\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();');
   js = js.replace(/Adafruit_ILI9341\s+(\w+)\s*(?:=\s*Adafruit_ILI9341\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
+  // DHT sensor class instantiation
+  js = js.replace(/\bDHT\s+(\w+)\s*(?:=\s*DHT\s*)?\(([^)]*)\)\s*;/g, 'let $1 = __makeDHT($2);');
   // Strip #define constants for display libs
   js = js.replace(/#define\s+\w+\s+[^\n]+/g, '');
 
@@ -155,7 +157,8 @@ function transpileArduinoToJs(code) {
   // ── Replace Adafruit class instantiations with shim factories ─────────────
   globals = globals
     .replace(/Adafruit_SSD1306\s+(\w+)\s*(?:=\s*Adafruit_SSD1306\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitSSD1306();')
-    .replace(/Adafruit_ILI9341\s+(\w+)\s*(?:=\s*Adafruit_ILI9341\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();');
+    .replace(/Adafruit_ILI9341\s+(\w+)\s*(?:=\s*Adafruit_ILI9341\s*)?\([^)]*\)\s*;/g, 'let $1 = __makeAdafruitILI9341();')
+    .replace(/\bDHT\s+(\w+)\s*(?:=\s*DHT\s*)?\(([^)]*)\)\s*;/g, 'let $1 = __makeDHT($2);');
 
   // ── Transpile C++ helper function definitions → JS functions ──────────────
   // Handles: void|int|float|... funcName(type arg, ...) { body }
@@ -478,6 +481,24 @@ export function useESP32(_activeMcuId = "esp32") {
           ILI9341_CYAN,ILI9341_YELLOW,
         };
       },
+
+      // ── DHT sensor shim ──────────────────────────────────────────────────
+      __makeDHT(pin, _type) {
+        const pinStr = String(parseInt(pin) || 0);
+        return {
+          begin() {},
+          readTemperature(fahrenheit = false) {
+            const v = (window.__dhtByPin || {})[pinStr];
+            const t = v?.temp ?? 25;
+            return fahrenheit ? t * 9 / 5 + 32 : t;
+          },
+          readHumidity() {
+            return (window.__dhtByPin || {})[pinStr]?.humidity ?? 60;
+          },
+        };
+      },
+      DHT11: 11, DHT22: 22, DHT21: 21,
+      isnan: (v) => isNaN(v),
 
       // ILI9341 color constants referenced as bare identifiers in Arduino code
       ILI9341_BLACK: 0x0000, ILI9341_WHITE: 0xFFFF,

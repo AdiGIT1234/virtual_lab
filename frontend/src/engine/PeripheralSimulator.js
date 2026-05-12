@@ -187,7 +187,15 @@ class PeripheralSimulatorEngine {
             if (s.col >= 128) s.col = 0;
           }
 
-          if (comp.config.onRenderTarget) comp.config.onRenderTarget(s.buffer);
+          if (comp.config.onRenderTarget) {
+            if (!comp._renderPending) {
+              comp._renderPending = true;
+              requestAnimationFrame(() => {
+                comp._renderPending = false;
+                if (comp.config.onRenderTarget) comp.config.onRenderTarget(comp.state.buffer);
+              });
+            }
+          }
         }
       }
     }

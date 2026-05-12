@@ -72,69 +72,102 @@ export const LIBRARY_COMPONENTS_MAP = {
 };
 
 export const LIBRARY_TERMINAL_LAYOUTS = {
+  // Pin x/y values must exactly match the <Pin cx cy> coordinates in LibraryComponents.jsx SVGs.
+  // For pins inside <g transform="translate(0, N)">, add N to the y value.
   BUZZER: [
-    { id: "SIG", x: 20, y: 82 },
-    { id: "GND", x: 56, y: 82 }
+    { id: "SIG", x: 24, y: 84 },
+    { id: "GND", x: 56, y: 84 }
   ],
-  LCD1602: ["vss","vdd","rs","e","d4","d5","d6","d7","led+","led-"].map((id, i) => ({ id, x: 9 + i*12, y: 100 })), // Note: y=100 from component
-  LCD2004: ["vss","vdd","rs","e","d4","d5","d6","d7","led+","led-"].map((id, i) => ({ id, x: 9 + i*12, y: 100 })),
-  OLED_SSD1306: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 15 + i*16, y: 95 })),
-  ILI9341_TFT: ["vcc","gnd","cs","rst","dc","mosi","sck","led"].map((id, i) => ({ id, x: 10 + i*13, y: 142 })),
-  DHT22: ["vcc","data","gnd"].map((id, i) => ({ id, x: 13 + i*20, y: 84 })),
+  // LCD1602: 16-pin header in <g transform="translate(0,118)">, Pin y=5 → actual y=123
+  // Functional pins: vss(i=0), vdd(i=1), rs(i=3), e(i=5), d4(i=10)..d7(i=13), led+(i=14), led-(i=15)
+  LCD1602: [
+    { id: "vss",  x: 10,  y: 123 },
+    { id: "vdd",  x: 23,  y: 123 },
+    { id: "rs",   x: 49,  y: 123 },
+    { id: "e",    x: 75,  y: 123 },
+    { id: "d4",   x: 140, y: 123 },
+    { id: "d5",   x: 153, y: 123 },
+    { id: "d6",   x: 166, y: 123 },
+    { id: "d7",   x: 179, y: 123 },
+    { id: "led+", x: 192, y: 123 },
+    { id: "led-", x: 205, y: 123 },
+  ],
+  LCD2004: [
+    { id: "vss",  x: 10,  y: 123 },
+    { id: "vdd",  x: 23,  y: 123 },
+    { id: "rs",   x: 49,  y: 123 },
+    { id: "e",    x: 75,  y: 123 },
+    { id: "d4",   x: 140, y: 123 },
+    { id: "d5",   x: 153, y: 123 },
+    { id: "d6",   x: 166, y: 123 },
+    { id: "d7",   x: 179, y: 123 },
+    { id: "led+", x: 192, y: 123 },
+    { id: "led-", x: 205, y: 123 },
+  ],
+  // OLED: 4-pin header in <g transform="translate(0,118)">, Pin y=5 → actual y=123, x=18+i*25
+  OLED_SSD1306: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 18 + i*25, y: 123 })),
+  // ILI9341: 8-pin header in <g transform="translate(0,172)">, Pin y=5 → actual y=177, x=10+i*16
+  ILI9341_TFT: ["vcc","gnd","cs","rst","dc","mosi","sck","led"].map((id, i) => ({ id, x: 10 + i*16, y: 177 })),
+  // EPAPER: 8-pin header in <g transform="translate(0,104)">, Pin y=5 → actual y=109, x=11+i*21
+  EPAPER_BASIC: ["vcc","gnd","sck","mosi","cs","dc","rst","busy"].map((id, i) => ({ id, x: 11 + i*21, y: 109 })),
+  DHT22: ["vcc","data","gnd"].map((id, i) => ({ id, x: 16 + i*18, y: 98 })),
   NTC_SENSOR: [
-    { id: "t1", x: 15, y: 74 },
-    { id: "t2", x: 35, y: 74 }
+    { id: "t1", x: 18, y: 82 },
+    { id: "t2", x: 36, y: 82 }
   ],
   PHOTORESISTOR: [
-    { id: "l1", x: 15, y: 74 },
-    { id: "l2", x: 35, y: 74 }
+    { id: "l1", x: 14, y: 82 },
+    { id: "l2", x: 40, y: 82 }
   ],
-  PIR_SENSOR: ["vcc","out","gnd"].map((id, i) => ({ id, x: 14 + i*24, y: 84 })),
-  MPU6050: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 10 + i*21, y: 60 })),
-  HC_SR04: ["vcc","trig","echo","gnd"].map((id, i) => ({ id, x: 20 + i*23, y: 60 })),
-  FLAME_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*16, y: 84 })),
-  GAS_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*20, y: 94 })),
-  HEARTBEAT_SENSOR: ["vcc","sig","gnd"].map((id, i) => ({ id, x: 12 + i*23, y: 84 })),
-  SOUND_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*18, y: 84 })),
-  HX711_LOAD_CELL: ["e+","e-","a+","a-","dt","sck","vcc","gnd"].map((id, i) => ({ id, x: 9 + i*11, y: 84 })),
-  HX711_MODULE: ["e+","e-","a+","a-","dt","sck","vcc","gnd"].map((id, i) => ({ id, x: 9 + i*11, y: 84 })),
-  MEMBRANE_KEYPAD: [1,2,3,4,5,6,7,8].map(i => ({ id: `p${i}`, x: 84, y: 15 + i*13 })),
-  ROTARY_ENCODER: ["clk","dt","sw","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*11, y: 84 })),
-  ANALOG_JOYSTICK: ["vrx","vry","sw","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*16, y: 90 })),
+  PIR_SENSOR: ["vcc","out","gnd"].map((id, i) => ({ id, x: 18 + i*22, y: 90 })),
+  MPU6050: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 11 + i*22, y: 64 })),
+  HC_SR04: ["vcc","trig","echo","gnd"].map((id, i) => ({ id, x: 15 + i*28, y: 65 })),
+  FLAME_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*18, y: 90 })),
+  GAS_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 12 + i*20, y: 100 })),
+  HEARTBEAT_SENSOR: ["vcc","sig","gnd"].map((id, i) => ({ id, x: 14 + i*24, y: 89 })),
+  SOUND_SENSOR: ["aout","dout","vcc","gnd"].map((id, i) => ({ id, x: 11 + i*19, y: 90 })),
+  HX711_LOAD_CELL: ["e+","e-","a+","a-","dt","sck","vcc","gnd"].map((id, i) => ({ id, x: 9 + i*11, y: 90 })),
+  HX711_MODULE: ["e+","e-","a+","a-","dt","sck","vcc","gnd"].map((id, i) => ({ id, x: 9 + i*11, y: 90 })),
+  // Keypad: 8 pins on the right edge at x=92, y=10+i*14 (i=0..7)
+  MEMBRANE_KEYPAD: [1,2,3,4,5,6,7,8].map(i => ({ id: `p${i}`, x: 92, y: 10 + (i - 1) * 14 })),
+  ROTARY_ENCODER: ["clk","dt","sw","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*12, y: 90 })),
+  ANALOG_JOYSTICK: ["vrx","vry","sw","vcc","gnd"].map((id, i) => ({ id, x: 10 + i*17, y: 96 })),
   DIP_SWITCH_8: [
-    ...[1,2,3,4,5,6,7,8].map(i => ({ id: i.toString(), x: 3 + i*11, y: 58 })),
-    { id: "com", x: 105, y: 58 }
+    ...[1,2,3,4,5,6,7,8].map(i => ({ id: i.toString(), x: 13 + (i - 1)*13, y: 50 })),
+    { id: "com", x: 110, y: 60 }
   ],
   SLIDE_SWITCH: [
-    { id: "1", x: 12, y: 50 },
-    { id: "2", x: 27, y: 50 },
-    { id: "3", x: 43, y: 50 }
+    { id: "1", x: 14, y: 52 },
+    { id: "2", x: 30, y: 52 },
+    { id: "3", x: 46, y: 52 }
   ],
-  NEOPIXEL_MATRIX:  ["5v","din","gnd"].map((id, i) => ({ id, x: 8 + i*22, y: 76 })),
-  NEOPIXEL_RING:    ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
-  NEOPIXEL_RING_12: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
-  NEOPIXEL_RING_16: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
-  NEOPIXEL_RING_24: ["5v","din","gnd"].map((id, i) => ({ id, x: 22 + i*30, y: 103 })),
-  STEPPER_MOTOR: ["a+","a-","b+","b-"].map((id, i) => ({ id, x: 20 + i*16, y: 84 })),
-  NEOPIXEL_PIXEL: ["5v","din","gnd"].map((id, i) => ({ id, x: 10 + i*15, y: 50 })),
-  IR_RECEIVER: ["out","vcc","gnd"].map((id, i) => ({ id, x: 12 + i*13, y: 64 })),
+  // NeopixelMatrix: W=62, H=78; pins at x≈8/27/45, y=76
+  NEOPIXEL_MATRIX:  [{ id: "5v", x: 8, y: 76 }, { id: "din", x: 27, y: 76 }, { id: "gnd", x: 45, y: 76 }],
+  // NeopixelRing: pins in <g transform="translate(0,114)">, Pin y=5 → actual y=119, x=28+i*32
+  NEOPIXEL_RING:    ["5v","din","gnd"].map((id, i) => ({ id, x: 28 + i*32, y: 119 })),
+  NEOPIXEL_RING_12: ["5v","din","gnd"].map((id, i) => ({ id, x: 28 + i*32, y: 119 })),
+  NEOPIXEL_RING_16: ["5v","din","gnd"].map((id, i) => ({ id, x: 28 + i*32, y: 119 })),
+  NEOPIXEL_RING_24: ["5v","din","gnd"].map((id, i) => ({ id, x: 28 + i*32, y: 119 })),
+  STEPPER_MOTOR: ["a+","a-","b+","b-"].map((id, i) => ({ id, x: 20 + i*18, y: 90 })),
+  // NeopixelPixel: pins in <g transform="translate(0,52)">, Pin y=5 → actual y=57, x=10+i*18
+  NEOPIXEL_PIXEL: ["5v","din","gnd"].map((id, i) => ({ id, x: 10 + i*18, y: 57 })),
+  IR_RECEIVER: ["out","vcc","gnd"].map((id, i) => ({ id, x: 12 + i*15, y: 70 })),
   IR_REMOTE: [],
-  DS1307_RTC: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 15 + i*20, y: 84 })),
-  MICROSD_MODULE: ["vcc","gnd","miso","mosi","sck","cs"].map((id, i) => ({ id, x: 8 + i*13, y: 70 })),
+  DS1307_RTC: ["vcc","gnd","scl","sda"].map((id, i) => ({ id, x: 12 + i*23, y: 90 })),
+  MICROSD_MODULE: ["vcc","gnd","miso","mosi","sck","cs"].map((id, i) => ({ id, x: 8 + i*14, y: 75 })),
   SHIFT_REGISTER: [
-    ...["vcc","q0","ds","oe","stcp","shcp","mr","q7'"].map((id, i) => ({ id, x: 10, y: 15 + i*11 })),
-    ...["q7","q6","q5","q4","q3","q2","q1","gnd"].map((id, i) => ({ id, x: 90, y: 15 + i*11 }))
+    ...["vcc","q0","ds","oe","stcp","shcp","mr","q7'"].map((id, i) => ({ id, x: 12, y: 18 + i*10 })),
+    ...["q7","q6","q5","q4","q3","q2","q1","gnd"].map((id, i) => ({ id, x: 98, y: 18 + i*10 }))
   ],
   RELAY_MODULE: [
-    ...["in","vcc","gnd"].map((id, i) => ({ id, x: 15 + i*16, y: 94 })),
-    ...["com","no","nc"].map((id, i) => ({ id, x: 60 + i*12, y: 94 }))
+    ...["in","vcc","gnd"].map((id, i) => ({ id, x: 16 + i*18, y: 98 })),
+    ...["com","no","nc"].map((id, i) => ({ id, x: 58 + i*14, y: 98 }))
   ],
   LED_MATRIX: [
-    ...[0,1,2,3,4,5,6,7].map(i => ({ id: `c${i}`, x: 12 + i*9, y: 5 })),
-    ...[0,1,2,3,4,5,6,7].map(i => ({ id: `r${i}`, x: 12 + i*9, y: 85 }))
+    ...[0,1,2,3,4,5,6,7].map(i => ({ id: `c${i}`, x: 13 + i*10, y: 5 })),
+    ...[0,1,2,3,4,5,6,7].map(i => ({ id: `r${i}`, x: 13 + i*10, y: 89 }))
   ],
-  LED_BAR_GRAPH: ["1","2","3","4","5","6","7","8","9","10"].map((id, i) => ({ id, x: 11 + i*13, y: 35 })),
-  EPAPER_BASIC: ["vcc", "gnd", "sck", "mosi", "cs", "dc", "rst", "busy"].map((id, i) => ({ id, x: 14 + i*16, y: 194 })),
+  LED_BAR_GRAPH: ["1","2","3","4","5","6","7","8","9","10"].map((id, i) => ({ id, x: 11 + i*14, y: 50 })),
   ANALOG_TV: ["video", "gnd"].map((id, i) => ({ id, x: 50 + i*60, y: 170 })),
   // 2-input gates: in1 and in2 on left, out on right
   LOGIC_AND:  [{ id: "in1", x: 0, y: 22 }, { id: "in2", x: 0, y: 48 }, { id: "out", x: 90, y: 35 }],

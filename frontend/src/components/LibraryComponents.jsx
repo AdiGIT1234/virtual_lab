@@ -998,7 +998,11 @@ export const Dht22 = ({ id, pinStates = {}, wiredPins = {} }) => {
     window.__sensorValues[id] = { temp, humidity: humid };
     const pin = wiredPins.data ?? wiredPins.DATA;
     pushAnalog(pin, temp / 80);
-  }, [id, temp, humid, wiredPins.data]);
+    if (pin != null) {
+      window.__dhtByPin = window.__dhtByPin || {};
+      window.__dhtByPin[String(pin)] = { temp, humidity: humid };
+    }
+  }, [id, temp, humid, wiredPins.data, wiredPins.DATA]);
 
   return (
     <div style={{ display: 'inline-block' }}>
