@@ -116,7 +116,6 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
 
       {/* Camera Control Buttons */}
       <div style={styles.cameraPanel} role="toolbar" aria-label="Camera views">
-        <span style={styles.cameraPanelLabel} aria-hidden="true">VIEW</span>
         <div style={styles.cameraButtons}>
           {[
             { view: "perspective", label: "Orbit view (1)", key: "1", icon: (
@@ -159,8 +158,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
       <div style={styles.hintsBar} aria-label="Navigation controls">
         <span style={styles.hint}><kbd style={styles.kbd}>Drag</kbd> Rotate</span>
         <span style={styles.hint}><kbd style={styles.kbd}>Scroll</kbd> Zoom</span>
-        <span style={styles.hint}><kbd style={styles.kbd}>Right-drag</kbd> Pan</span>
-        <span style={styles.hint}><kbd style={styles.kbd}>1–4</kbd> Views</span>
+        <span style={styles.hint}><kbd style={styles.kbd}>R-drag</kbd> Pan</span>
       </div>
 
       {/* Property Inspector */}
@@ -257,13 +255,6 @@ const styles = {
     flexDirection: "column",
     gap: 8,
     alignItems: "flex-end",
-  },
-  cameraPanelLabel: {
-    fontSize: 10,
-    color: "#8b949e",
-    fontWeight: 700,
-    fontFamily: "'Inter', sans-serif",
-    letterSpacing: "0.12em",
   },
   cameraButtons: {
     display: "flex",

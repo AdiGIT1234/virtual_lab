@@ -17,8 +17,8 @@ const COLOR_WIRING   = new THREE.Color("#00e5ff");
 const holeGeo    = new THREE.CylinderGeometry(HOLE_RADIUS, HOLE_RADIUS * 0.8, 0.015, 8);
 const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true });
 // Larger transparent cylinders used only for pointer hit-testing — makes hover forgiving
-const holeHitGeo = new THREE.CylinderGeometry(0.020, 0.020, 0.020, 8);
-const holeHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const holeHitGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.025, 8);
+const holeHitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
 export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick, onHoleHover: externalHover, wiringFromHole }) {
   const instancedRef    = useRef();
@@ -163,6 +163,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
         <instancedMesh
           ref={hitInstancedRef}
           args={[holeHitGeo, holeHitMat, holes.length]}
+          frustumCulled={false}
           onPointerMove={handlePointerMove}
           onPointerOut={handlePointerOut}
           onClick={handleClick}

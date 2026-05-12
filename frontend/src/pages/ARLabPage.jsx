@@ -483,67 +483,6 @@ export default function ARLabPage() {
             {codeOpen ? "Hide Code" : "Edit Code"}
           </button>
           <button
-            style={{
-              ...styles.headerBtn,
-              background: wiringMode ? "rgba(0,229,255,0.15)" : "#21262d",
-              color: wiringMode ? "#00e5ff" : "#c9d1d9",
-              border: wiringMode ? "1px solid rgba(0,229,255,0.5)" : "1px solid #30363d",
-            }}
-            onClick={() => { setWiringMode(m => !m); setWireAnchor(null); }}
-            aria-label="Toggle wire drawing mode"
-            aria-pressed={wiringMode}
-          >
-            {wiringMode ? "Exit Wire Mode" : "Add Wire"}
-          </button>
-          <button
-            style={{ ...styles.headerBtn, opacity: drawnWires.length === 0 ? 0.4 : 1 }}
-            onClick={() => { setDrawnWires(prev => prev.slice(0, -1)); setSelectedWireIdx(null); }}
-            disabled={drawnWires.length === 0}
-            aria-label="Undo last wire"
-            title="Undo last wire (Ctrl+Z)"
-          >
-            Undo Wire
-          </button>
-          {selectedWireIdx !== null && (
-            <button
-              style={{ ...styles.headerBtn, color: "#f87171", border: "1px solid rgba(248,113,113,0.5)" }}
-              onClick={() => { setDrawnWires(prev => prev.filter((_, i) => i !== selectedWireIdx)); setSelectedWireIdx(null); }}
-              aria-label="Delete selected wire"
-              title="Delete selected wire (Delete)"
-            >
-              Delete Wire
-            </button>
-          )}
-          {drawnWires.length > 0 && selectedWireIdx === null && (
-            <button
-              style={{ ...styles.headerBtn, color: "#f87171" }}
-              onClick={() => setDrawnWires([])}
-              aria-label="Clear all drawn wires"
-              title="Clear all wires"
-            >
-              Clear
-            </button>
-          )}
-          {/* Wire color palette — visible in wiring mode */}
-          {wiringMode && (
-            <div style={styles.colorPalette} role="group" aria-label="Wire color">
-              {WIRE_PALETTE.map((c) => (
-                <button
-                  key={c}
-                  style={{
-                    ...styles.colorSwatch,
-                    background: c,
-                    boxShadow: activeWireColor === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "none",
-                    transform: activeWireColor === c ? "scale(1.25)" : "scale(1)",
-                  }}
-                  onClick={() => setActiveWireColor(c)}
-                  aria-label={`Wire color ${c}`}
-                  title={c}
-                />
-              ))}
-            </div>
-          )}
-          <button
             style={{ ...styles.simulateBtn, background: isRunning ? "#b91c1c" : "#1a7f37" }}
             onClick={handleSimulate}
             aria-label="Toggle simulation"
@@ -718,6 +657,94 @@ export default function ARLabPage() {
             onWireSelect={setSelectedWireIdx}
             onRemoveComponent={handleRemoveComponent}
           />
+
+          {/* Floating wire toolbar — glassmorphic pill anchored at bottom-center */}
+          <div style={styles.wireToolbar} role="toolbar" aria-label="Wire controls">
+            <button
+              style={{
+                ...styles.wireToggleBtn,
+                background: wiringMode ? "rgba(0,229,255,0.18)" : "transparent",
+                color: wiringMode ? "#00e5ff" : "#c9d1d9",
+                border: wiringMode ? "1px solid rgba(0,229,255,0.6)" : "1px solid rgba(48,54,61,0.7)",
+                boxShadow: wiringMode ? "0 0 10px rgba(0,229,255,0.25)" : "none",
+              }}
+              onClick={() => { setWiringMode(m => !m); setWireAnchor(null); }}
+              aria-label="Toggle wire drawing mode"
+              aria-pressed={wiringMode}
+              title="Toggle wire mode"
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 5, verticalAlign: "middle" }}>
+                <path d="M2 8 Q5 2 8 8 T14 8"/>
+              </svg>
+              {wiringMode ? "Wire Mode On" : "Wire Mode"}
+            </button>
+
+            {wiringMode && (
+              <div style={styles.wireToolbarDivider} aria-hidden="true" />
+            )}
+
+            {wiringMode && (
+              <div style={styles.wireSwatchRow} role="group" aria-label="Wire color">
+                {WIRE_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    style={{
+                      ...styles.colorSwatch,
+                      background: c,
+                      boxShadow: activeWireColor === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "none",
+                      transform: activeWireColor === c ? "scale(1.25)" : "scale(1)",
+                    }}
+                    onClick={() => setActiveWireColor(c)}
+                    aria-label={`Wire color ${c}`}
+                    title={c}
+                  />
+                ))}
+              </div>
+            )}
+
+            {wiringMode && drawnWires.length > 0 && (
+              <>
+                <div style={styles.wireToolbarDivider} aria-hidden="true" />
+                <button
+                  style={styles.wireIconBtn}
+                  onClick={() => { setDrawnWires(prev => prev.slice(0, -1)); setSelectedWireIdx(null); }}
+                  aria-label="Undo last wire"
+                  title="Undo last wire (Ctrl+Z)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 8 L6 4 M2 8 L6 12 M2 8 H10 a4 4 0 0 1 0 8 H8"/>
+                  </svg>
+                </button>
+                <button
+                  style={styles.wireIconBtn}
+                  onClick={() => setDrawnWires([])}
+                  aria-label="Clear all wires"
+                  title="Clear all wires"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 5h10M6 5V3h4v2M5 5l1 9h4l1-9"/>
+                  </svg>
+                </button>
+              </>
+            )}
+
+            {selectedWireIdx !== null && (
+              <>
+                <div style={styles.wireToolbarDivider} aria-hidden="true" />
+                <button
+                  style={styles.wireDeleteBtn}
+                  onClick={() => { setDrawnWires(prev => prev.filter((_, i) => i !== selectedWireIdx)); setSelectedWireIdx(null); }}
+                  aria-label="Delete selected wire"
+                  title="Delete selected wire (Delete)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ marginRight: 5, verticalAlign: "middle" }}>
+                    <path d="M4 4l8 8M12 4l-8 8"/>
+                  </svg>
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -914,6 +941,78 @@ const styles = {
     background: "rgba(13,17,23,0.7)",
     border: "1px solid #30363d",
     borderRadius: 8,
+  },
+  // Floating wire toolbar (glassmorphic pill inside canvas)
+  wireToolbar: {
+    position: "absolute",
+    bottom: 58,
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 25,
+    background: "rgba(13,17,23,0.88)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: "1px solid rgba(48,54,61,0.9)",
+    borderRadius: 28,
+    padding: "6px 12px",
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+  },
+  wireToggleBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 14px",
+    fontSize: 12,
+    fontWeight: 600,
+    borderRadius: 20,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    outline: "none",
+    whiteSpace: "nowrap",
+    transition: "background 0.15s, color 0.15s, box-shadow 0.15s",
+  },
+  wireToolbarDivider: {
+    width: 1,
+    height: 20,
+    background: "rgba(48,54,61,0.9)",
+    flexShrink: 0,
+  },
+  wireSwatchRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  wireIconBtn: {
+    width: 28,
+    height: 28,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    color: "#8b949e",
+    border: "1px solid rgba(48,54,61,0.7)",
+    borderRadius: "50%",
+    cursor: "pointer",
+    outline: "none",
+    transition: "color 0.15s, background 0.15s",
+    padding: 0,
+  },
+  wireDeleteBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    border: "1px solid rgba(248,113,113,0.5)",
+    borderRadius: 20,
+    background: "rgba(248,113,113,0.08)",
+    color: "#f87171",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    outline: "none",
+    whiteSpace: "nowrap",
   },
   colorSwatch: {
     width: 16,
