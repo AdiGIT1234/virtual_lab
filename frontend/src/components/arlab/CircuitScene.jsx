@@ -567,22 +567,25 @@ export default function CircuitScene({
           const speed = outputs[component.pins?.ena ?? component.pin] ?? 0;
           element = <DcMotor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} speed={speed} />;
         } else if (component.type === "L298N_DRIVER") {
-          element = <L298nDriver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          const l298Active = component.pins
+            ? [component.pins.in1, component.pins.in2, component.pins.in3, component.pins.in4].some(p => p != null && (outputs[p] ?? 0) > 0.1)
+            : (outputs[component.pin] ?? 0) > 0.1;
+          element = <L298nDriver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={l298Active} />;
         } else if (component.type === "HC05_BLUETOOTH" || component.type === "BLUETOOTH_MODULE") {
           element = <Hc05_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "RC522_RFID" || component.type === "RFID_MODULE") {
           element = <Rc522_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         // Displays
         } else if (component.type === "LCD1602" || component.type === "LCD2004") {
-          element = <Lcd1602_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <Lcd1602_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "EPAPER_BASIC") {
           element = <EpaperDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "LED_MATRIX") {
-          element = <LedMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <LedMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "LED_BAR_GRAPH") {
-          element = <LedBarGraph3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <LedBarGraph3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} level={outputs[component.pin] ?? 0} />;
         } else if (component.type === "NEOPIXEL_RING" || component.type === "NEOPIXEL_RING_12" || component.type === "NEOPIXEL_RING_16" || component.type === "NEOPIXEL_RING_24") {
-          element = <NeopixelRing3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <NeopixelRing3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "NEOPIXEL_MATRIX") {
           element = <NeopixelMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "NEOPIXEL_PIXEL") {
@@ -593,27 +596,27 @@ export default function CircuitScene({
         } else if (component.type === "PHOTORESISTOR") {
           element = <Photoresistor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "PIR_SENSOR") {
-          element = <PirSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <PirSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "MPU6050") {
           element = <Mpu6050_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "HC_SR04") {
-          element = <HcSr04_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <HcSr04_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pins?.echo ?? component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "FLAME_SENSOR") {
-          element = <FlameSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <FlameSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "GAS_SENSOR") {
-          element = <GasSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <GasSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "HEARTBEAT_SENSOR") {
-          element = <HeartbeatSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <HeartbeatSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "SOUND_SENSOR") {
-          element = <SoundSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <SoundSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "HX711_LOAD_CELL" || component.type === "HX711_MODULE") {
           element = <Hx711_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "RAIN_SENSOR") {
-          element = <RainSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <RainSensor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "TTP223_TOUCH") {
-          element = <Ttp223Touch3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <Ttp223Touch3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(inputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "SW420_VIBRATION") {
-          element = <Sw420Vibration3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <Sw420Vibration3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         // Input
         } else if (component.type === "ROTARY_ENCODER") {
           element = <RotaryEncoder3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
@@ -626,14 +629,17 @@ export default function CircuitScene({
         } else if (component.type === "MEMBRANE_KEYPAD") {
           element = <MembraneKeypad3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "IR_RECEIVER") {
-          element = <IrReceiver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <IrReceiver3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "IR_REMOTE") {
           element = <IrRemote3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         // Motor
         } else if (component.type === "STEPPER_MOTOR") {
-          element = <StepperMotor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          const stepperActive = component.pins
+            ? Object.values(component.pins).some(p => p != null && (outputs[p] ?? 0) > 0.1)
+            : (outputs[component.pin] ?? 0) > 0.1;
+          element = <StepperMotor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={stepperActive} />;
         } else if (component.type === "RELAY_MODULE") {
-          element = <RelayModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <RelayModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         // Comms / Memory
         } else if (component.type === "DS1307_RTC") {
           element = <Ds1307Rtc3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
@@ -641,15 +647,15 @@ export default function CircuitScene({
           element = <MicroSdModule3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         // Logic ICs
         } else if (component.type === "LOGIC_AND" || component.type === "LOGIC_OR" || component.type === "LOGIC_NAND" || component.type === "LOGIC_NOR" || component.type === "LOGIC_XOR") {
-          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType={component.type.replace("LOGIC_","")} />;
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType={component.type.replace("LOGIC_","")} active={(outputs[component.pins?.out ?? component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "LOGIC_NOT") {
-          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="NOT" />;
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="NOT" active={(outputs[component.pins?.out ?? component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "LOGIC_DFLIPFLOP") {
-          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="DFF" />;
+          element = <LogicGate3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} gateType="DFF" active={(outputs[component.pins?.q ?? component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "NMOSFET" || component.type === "PMOSFET") {
-          element = <MosfetTransistor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} type={component.type === "PMOSFET" ? "P" : "N"} />;
+          element = <MosfetTransistor3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} type={component.type === "PMOSFET" ? "P" : "N"} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "OPTOCOUPLER") {
-          element = <OptocouplerIC3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <OptocouplerIC3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         // Power / Connectors
         } else if (component.type === "AA_BATTERY") {
           element = <AaBattery3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;

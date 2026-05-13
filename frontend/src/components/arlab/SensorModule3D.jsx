@@ -543,7 +543,7 @@ export function DcMotor3D({ position, rotation, highlighted, speed = 0 }) {
 }
 
 // L298N H-bridge driver module (red PCB with heatsink)
-export function L298nDriver3D({ position, rotation, highlighted }) {
+export function L298nDriver3D({ position, rotation, highlighted, active = false }) {
   return (
     <group position={position} rotation={rotation}>
       {/* PCB base */}
@@ -554,19 +554,31 @@ export function L298nDriver3D({ position, rotation, highlighted }) {
       {/* L298N IC chip */}
       <mesh position={[0, 0.018, 0]}>
         <boxGeometry args={[0.04, 0.016, 0.05]} />
-        <meshStandardMaterial color="#111" roughness={0.9} metalness={0.05} />
+        <meshStandardMaterial color="#111" roughness={0.9} metalness={0.05}
+          emissive={active ? "#1d4ed8" : "#000"} emissiveIntensity={active ? 0.3 : 0} />
       </mesh>
       {/* Heatsink fins */}
       {[-0.012, -0.006, 0, 0.006, 0.012].map((zOff, i) => (
         <mesh key={i} position={[0, 0.032, zOff]}>
           <boxGeometry args={[0.042, 0.02, 0.003]} />
-          <meshStandardMaterial color="#6b7280" roughness={0.4} metalness={0.7} />
+          <meshStandardMaterial color={active ? "#94a3b8" : "#6b7280"} roughness={0.4} metalness={0.7} />
         </mesh>
       ))}
       {/* Terminal block — motor outputs */}
       <mesh position={[0.055, 0.012, 0]}>
         <boxGeometry args={[0.016, 0.012, 0.07]} />
         <meshStandardMaterial color="#374151" roughness={0.7} metalness={0.1} />
+      </mesh>
+      {/* Direction indicator LEDs */}
+      <mesh position={[-0.035, 0.016, -0.030]}>
+        <cylinderGeometry args={[0.003, 0.003, 0.004, 10]} />
+        <meshStandardMaterial color={active ? "#22c55e" : "#14532d"}
+          emissive={active ? "#22c55e" : "#000"} emissiveIntensity={active ? 1.0 : 0} />
+      </mesh>
+      <mesh position={[-0.035, 0.016, 0.030]}>
+        <cylinderGeometry args={[0.003, 0.003, 0.004, 10]} />
+        <meshStandardMaterial color={active ? "#ef4444" : "#450a0a"}
+          emissive={active ? "#ef4444" : "#000"} emissiveIntensity={active ? 1.0 : 0} />
       </mesh>
       {/* Control pin headers */}
       {[-0.025, -0.015, -0.005, 0.005, 0.015, 0.025].map((zOff, i) => (
@@ -575,6 +587,9 @@ export function L298nDriver3D({ position, rotation, highlighted }) {
           <meshStandardMaterial color="#c0a830" metalness={0.8} roughness={0.3} />
         </mesh>
       ))}
+      <Text position={[0, 0.016, -0.052]} rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={0.009} color="#a3e635" anchorX="center" anchorY="middle">L298N</Text>
+      {active && <pointLight color="#1d4ed8" intensity={0.2} distance={0.4} decay={2} position={[0, 0.05, 0]} />}
     </group>
   );
 }

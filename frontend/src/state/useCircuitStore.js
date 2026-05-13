@@ -5,6 +5,7 @@ const LED_COLORS = {
   LED_RED: "#ff5b5b",
   LED_GREEN: "#5bff95",
   LED_YELLOW: "#f6d96b",
+  LED_BLUE: "#5b9fff",
   LED: "#ff5b5b",
 };
 
@@ -15,32 +16,55 @@ const cloneWorkspace = (items = []) => items.map((item) => ({
 
 const RENDERABLE_TYPES = new Set([
   // Basic passives / actives
-  "LED_RED", "LED_GREEN", "LED_YELLOW", "LED",
-  "RESISTOR", "BUTTON", "RGB_LED", "SERVO", "SEVEN_SEG",
+  "LED", "LED_RED", "LED_GREEN", "LED_YELLOW", "LED_BLUE", "RGB_LED",
+  "RESISTOR", "BUTTON", "SERVO", "SEVEN_SEG",
   "CAPACITOR", "NPN_TRANSISTOR", "PNP_TRANSISTOR",
   "TIMER_555", "SHIFT_REGISTER", "CUSTOM_DIGITAL_IC", "WASM_IC",
   "BUZZER",
   // Power / utility markers
   "GROUND_NODE", "VCC_NODE",
-  // Sensors / displays / modules
+  // Power / Connectors
+  "AA_BATTERY", "BENCH_PSU", "BUCK_CONVERTER", "LM7805_REG",
+  "FUNCTION_GENERATOR", "USB_CONNECTOR", "BARREL_JACK",
+  "SCREW_TERMINAL_2", "SCREW_TERMINAL_3",
+  // Displays
+  "OLED_SSD1306", "ILI9341_TFT",
+  "LCD1602", "LCD2004", "EPAPER_BASIC",
+  "LED_MATRIX", "LED_BAR_GRAPH",
+  "NEOPIXEL_RING", "NEOPIXEL_RING_12", "NEOPIXEL_RING_16", "NEOPIXEL_RING_24",
+  "NEOPIXEL_MATRIX", "NEOPIXEL_PIXEL",
+  // Sensors
   "DHT22",
-  "OLED_SSD1306",
-  "ILI9341_TFT",
   "DIAL", "POTENTIOMETER",
   "MAX30102", "MAX30102_PULSE", "PULSE_SENSOR",
   "TCS34725", "TCS34725_COLOR", "COLOR_SENSOR",
-  "DC_MOTOR",
-  "L298N_DRIVER",
+  "NTC_SENSOR", "PHOTORESISTOR", "PIR_SENSOR", "MPU6050",
+  "HC_SR04", "FLAME_SENSOR", "GAS_SENSOR", "HEARTBEAT_SENSOR",
+  "SOUND_SENSOR", "HX711_LOAD_CELL", "HX711_MODULE",
+  "RAIN_SENSOR", "TTP223_TOUCH", "SW420_VIBRATION",
+  // Input / Control
+  "ROTARY_ENCODER", "ANALOG_JOYSTICK", "DIP_SWITCH_8", "SLIDE_SWITCH",
+  "MEMBRANE_KEYPAD", "IR_RECEIVER", "IR_REMOTE",
+  // Motors
+  "DC_MOTOR", "L298N_DRIVER", "STEPPER_MOTOR", "RELAY_MODULE",
+  // Comms / Memory
   "HC05_BLUETOOTH", "BLUETOOTH_MODULE",
   "RC522_RFID", "RFID_MODULE",
+  "DS1307_RTC", "MICROSD_MODULE",
+  // Logic / Analog ICs
+  "LOGIC_AND", "LOGIC_OR", "LOGIC_NOT", "LOGIC_NAND", "LOGIC_NOR", "LOGIC_XOR", "LOGIC_DFLIPFLOP",
+  "NMOSFET", "PMOSFET", "OPTOCOUPLER",
 ]);
+
+// Only the LED color variants map to the generic "LED" renderer
+const LED_COLOR_VARIANTS = new Set(["LED", "LED_RED", "LED_GREEN", "LED_YELLOW", "LED_BLUE"]);
 
 const deriveComponents = (workspaceItems = []) => {
   return workspaceItems
     .filter((item) => RENDERABLE_TYPES.has(item.type))
     .map((item, index) => {
       const pin = item.pins?.main ?? item.pin ?? null;
-      const componentType = item.type.startsWith("LED") ? "LED" : item.type;
+      const componentType = LED_COLOR_VARIANTS.has(item.type) ? "LED" : item.type;
       const base = {
         id: item.id,
         type: componentType,
