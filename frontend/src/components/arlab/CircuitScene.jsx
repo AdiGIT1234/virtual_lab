@@ -62,8 +62,8 @@ function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }) {
   // All offsets are in scene-group units (1 unit ≈ 200 mm).
   // Components sit at y≈0.085; wires drop down from y≈0.085 so dy=0 here.
   const OFF = {
-    // Resistor leads (horizontal)
-    t1: [-0.025, 0, 0],  t2: [+0.025, 0, 0],
+    // Resistor leads — match new HL=0.090 + bent-lead offset ≈ 0.115
+    t1: [-0.115, 0, 0],  t2: [+0.115, 0, 0],
     // Generic
     main:[0,0,0], sig:[+0.05,0,0], out:[+0.05,0,0],
     // Power (four-pin row: VCC GND SCL SDA or VCC GND SDA SCL)
