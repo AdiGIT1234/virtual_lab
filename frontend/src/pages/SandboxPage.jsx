@@ -261,7 +261,7 @@ void loop() {
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
-  const [chipTransform, setChipTransform] = useState({ x: 60, y: 80, scale: 0.9 });
+  const [chipTransform, setChipTransform] = useState({ x: 300, y: 250, scale: 1.0 });
   const chipDragDataRef = useRef(null);
   const [isChipDragging, setIsChipDragging] = useState(false);
 
@@ -1075,9 +1075,12 @@ void loop() {
     chipDragDataRef.current = {
       offsetX: pointerX - chipTransform.x,
       offsetY: pointerY - chipTransform.y,
+      startChipX: chipTransform.x,
+      startChipY: chipTransform.y,
+      startItems: workspaceItems.map(item => ({ id: item.id, x: item.x, y: item.y })),
     };
     setIsChipDragging(true);
-  }, [viewScale, chipTransform.x, chipTransform.y]);
+  }, [viewScale, chipTransform.x, chipTransform.y, workspaceItems]);
 
   const handleChipWheel = useCallback((e) => {
     e.preventDefault();
@@ -1090,7 +1093,7 @@ void loop() {
   }, []);
 
   const resetChipTransform = useCallback(() => {
-    setChipTransform({ x: 260, y: 100, scale: 1.2 });
+    setChipTransform({ x: 300, y: 250, scale: 1.0 });
   }, []);
 
   const handlePanMove = useCallback((e) => {
@@ -1148,11 +1151,17 @@ void loop() {
       if (!rect || !chipDragDataRef.current) return;
       const pointerX = (e.clientX - rect.left) / viewScale;
       const pointerY = (e.clientY - rect.top) / viewScale;
-      setChipTransform((prev) => ({
-        ...prev,
-        x: pointerX - chipDragDataRef.current.offsetX,
-        y: pointerY - chipDragDataRef.current.offsetY,
-      }));
+      const newX = pointerX - chipDragDataRef.current.offsetX;
+      const newY = pointerY - chipDragDataRef.current.offsetY;
+      setChipTransform((prev) => ({ ...prev, x: newX, y: newY }));
+
+      const dx = newX - chipDragDataRef.current.startChipX;
+      const dy = newY - chipDragDataRef.current.startChipY;
+      const startItems = chipDragDataRef.current.startItems;
+      setWorkspaceItems((prev) => prev.map(item => {
+        const s = startItems.find(si => si.id === item.id);
+        return s ? { ...item, x: s.x + dx, y: s.y + dy } : item;
+      }), "sandbox");
     };
     const handleUp = () => {
       setIsChipDragging(false);
@@ -1320,6 +1329,17 @@ void loop() {
 
               // Wires
               setWires(preset.wires || []);
+
+              // Position components relative to wherever the chip currently sits
+              // Preset positions were designed for chip at (300, 250)
+              const CHIP_REF_X = 300, CHIP_REF_Y = 250;
+              const ox = chipTransform.x - CHIP_REF_X;
+              const oy = chipTransform.y - CHIP_REF_Y;
+              setWorkspaceItems((preset.workspace || []).map(item => ({
+                ...item,
+                x: item.x + ox,
+                y: item.y + oy,
+              })), "sandbox");
 
               // Code
               if (preset.starterCode) setCode(preset.starterCode);
@@ -2439,8 +2459,8 @@ function getStyles(theme, isCompact) {
     },
     workplane: {
       position: "relative",
-      width: 1400,
-      height: 900,
+      width: 3000,
+      height: 2000,
       backgroundColor: "#e2e8f0", // slate-200, greyish
       backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px)",
       borderRadius: 20,

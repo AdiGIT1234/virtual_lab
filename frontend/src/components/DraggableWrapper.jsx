@@ -27,6 +27,14 @@ const DraggableWrapper = ({
 
   const termList = terminals || [{ id: "main" }];
 
+  // Sync external position changes (chip drag, preset load) into internal state
+  // when this component itself is not being dragged.
+  useEffect(() => {
+    if (!isDragging) {
+      setPosition({ x: initialX, y: initialY });
+    }
+  }, [initialX, initialY]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleMouseDown = (e) => {
     // Don't drag when the user interacts with a child control
     const tag = e.target.tagName.toLowerCase();

@@ -15,9 +15,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "led-1",  type: "LED_RED",      pin: 13, pins: { main: 13 }, x: 380, y: 240 },
-      { id: "res-1",  type: "RESISTOR",      pin: 13, pins: { main: 13 }, resistance: 330, x: 240, y: 240 },
-      { id: "gnd-1",  type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 480, y: 360 },
+      { id: "led-1",  type: "LED_RED",      pin: 13, pins: { main: 13 }, x: 840, y: 120 },
+      { id: "res-1",  type: "RESISTOR",      pin: 13, pins: { main: 13 }, resistance: 330, x: 660, y: 120 },
+      { id: "gnd-1",  type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 1000, y: 120 },
     ],
     wires: [
       { id: "blink-w1", source: "mcu::13",   target: "res-1::t1",   bends: [], color: "#fbbf24" },
@@ -55,10 +55,10 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "btn-1",  type: "BUTTON",        pin: 2,  pins: { main: 2  }, x: 120, y: 240 },
-      { id: "led-1",  type: "LED_RED",        pin: 13, pins: { main: 13 }, x: 380, y: 240 },
-      { id: "res-1",  type: "RESISTOR",       pin: 13, pins: { main: 13 }, resistance: 330, x: 240, y: 240 },
-      { id: "gnd-1",  type: "GROUND_NODE",    pin: null, pins: { main: null }, x: 480, y: 360 },
+      { id: "btn-1",  type: "BUTTON",        pin: 2,  pins: { main: 2  }, x: 720, y: 860 },
+      { id: "led-1",  type: "LED_RED",        pin: 13, pins: { main: 13 }, x: 820, y: 120 },
+      { id: "res-1",  type: "RESISTOR",       pin: 13, pins: { main: 13 }, resistance: 330, x: 640, y: 120 },
+      { id: "gnd-1",  type: "GROUND_NODE",    pin: null, pins: { main: null }, x: 1000, y: 120 },
     ],
     wires: [
       { id: "btnled-w1", source: "mcu::2",    target: "btn-1::main",  bends: [], color: "#4dabf7" },
@@ -105,9 +105,9 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "srv-1",  type: "SERVO",       pin: 9,  pins: { main: 9  }, x: 320, y: 200 },
-      { id: "vcc-1",  type: "VCC_NODE",    pin: null, pins: { main: null }, x: 180, y: 130 },
-      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 180, y: 300 },
+      { id: "srv-1",  type: "SERVO",       pin: 9,  pins: { main: 9  }, x: 800, y: 110 },
+      { id: "vcc-1",  type: "VCC_NODE",    pin: null, pins: { main: null }, x: 540, y: 100 },
+      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 540, y: 210 },
     ],
     wires: [
       { id: "servo-w1", source: "mcu::9",       target: "srv-1::main", bends: [], color: "#ff6600" },
@@ -139,13 +139,13 @@ void loop() {
 void setup() {}
 void loop() {}`,
     workspace: [
-      { id: "ic-555",       type: "TIMER_555",  pin: 3,  pins: { main: 3  }, x: 240, y: 200 },
-      { id: "led-timer",    type: "LED_RED",     pin: 3,  pins: { main: 3  }, x: 400, y: 200 },
-      { id: "res-timing",   type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 10000, x: 160, y: 130 },
-      { id: "cap-timing",   type: "CAPACITOR",   pin: 6,  pins: { main: 6  }, x: 160, y: 290, metadata: { capacitance: 10, unit: "µF" } },
-      { id: "res-discharge",type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 47000, x: 80,  y: 200 },
-      { id: "vcc-timer",    type: "VCC_NODE",    pin: null, pins: { main: null }, x: 80, y: 80  },
-      { id: "gnd-timer",    type: "GROUND_NODE", pin: null, pins: { main: null }, x: 80, y: 380 },
+      { id: "ic-555",       type: "TIMER_555",  pin: 3,  pins: { main: 3  }, x: 1200, y: 360 },
+      { id: "led-timer",    type: "LED_RED",     pin: 3,  pins: { main: 3  }, x: 1400, y: 360 },
+      { id: "res-timing",   type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 10000, x: 1040, y: 430 },
+      { id: "cap-timing",   type: "CAPACITOR",   pin: 6,  pins: { main: 6  }, x: 1200, y: 560, metadata: { capacitance: 10, unit: "µF" } },
+      { id: "res-discharge",type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 47000, x: 1040,  y: 290 },
+      { id: "vcc-timer",    type: "VCC_NODE",    pin: null, pins: { main: null }, x: 1040, y: 140  },
+      { id: "gnd-timer",    type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1040, y: 700 },
     ],
     wires: [
       { id: "t555-w1", source: "ic-555::out",      target: "led-timer::main",   bends: [], color: "#fbbf24" },
@@ -187,12 +187,12 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "q1",            type: "NPN_TRANSISTOR", pin: 9,   pins: { main: 9   }, x: 260, y: 220 },
-      { id: "led-q",         type: "LED_GREEN",       pin: 9,    pins: { main: 9    }, x: 380, y: 150 },
-      { id: "res-base",      type: "RESISTOR",        pin: 9,   pins: { main: 9   }, resistance: 1000, x: 150, y: 220 },
-      { id: "res-collector", type: "RESISTOR",        pin: null, pins: { main: null }, resistance: 330, x: 380, y: 220 },
-      { id: "vcc-q",         type: "VCC_NODE",        pin: null, pins: { main: null }, x: 80, y: 100 },
-      { id: "gnd-q",         type: "GROUND_NODE",     pin: null, pins: { main: null }, x: 260, y: 360 },
+      { id: "q1",            type: "NPN_TRANSISTOR", pin: 9,   pins: { main: 9   }, x: 870, y: 130 },
+      { id: "led-q",         type: "LED_GREEN",       pin: 9,    pins: { main: 9    }, x: 1190, y: 50 },
+      { id: "res-base",      type: "RESISTOR",        pin: 9,   pins: { main: 9   }, resistance: 1000, x: 720, y: 130 },
+      { id: "res-collector", type: "RESISTOR",        pin: null, pins: { main: null }, resistance: 330, x: 1030, y: 50 },
+      { id: "vcc-q",         type: "VCC_NODE",        pin: null, pins: { main: null }, x: 1360, y: 50 },
+      { id: "gnd-q",         type: "GROUND_NODE",     pin: null, pins: { main: null }, x: 870, y: 240 },
     ],
     wires: [
       { id: "npn-w1", source: "mcu::9",              target: "res-base::t1",      bends: [], color: "#4dabf7" },
@@ -231,10 +231,10 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "buzz-1",   type: "BUZZER",       pin: 11, pins: { main: 11 }, x: 340, y: 200 },
-      { id: "btn-alarm",type: "BUTTON",        pin: 4,  pins: { main: 4  }, x: 140, y: 200 },
-      { id: "res-buzz", type: "RESISTOR",      pin: 11, pins: { main: 11 }, resistance: 100, x: 240, y: 200 },
-      { id: "gnd-buzz", type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 440, y: 320 },
+      { id: "buzz-1",   type: "BUZZER",       pin: 11, pins: { main: 11 }, x: 900, y: 120 },
+      { id: "btn-alarm",type: "BUTTON",        pin: 4,  pins: { main: 4  }, x: 680, y: 860 },
+      { id: "res-buzz", type: "RESISTOR",      pin: 11, pins: { main: 11 }, resistance: 100, x: 720, y: 120 },
+      { id: "gnd-buzz", type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 1070, y: 120 },
     ],
     wires: [
       { id: "buzz-w1", source: "mcu::4",       target: "btn-alarm::main", bends: [], color: "#4dabf7" },
@@ -306,10 +306,10 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "oled-1", type: "OLED_SSD1306", pin: 21, pins: { SCL: 22, SDA: 21 }, x: 360, y: 160 },
-      { id: "dht-1",  type: "DHT22",        pin: 4,  pins: { DATA: 4 },           x: 160, y: 160 },
-      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null },       x: 80,  y: 80  },
-      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 80,  y: 340 },
+      { id: "oled-1", type: "OLED_SSD1306", pin: 21, pins: { SCL: 22, SDA: 21 }, x: 700, y: 110 },
+      { id: "dht-1",  type: "DHT22",        pin: 4,  pins: { DATA: 4 },           x: 960, y: 110 },
+      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null },       x: 450,  y: 80  },
+      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 450,  y: 860 },
     ],
     wires: [
       { id: "oled-w1", source: "mcu::22",    target: "oled-1::scl",  bends: [], color: "#4dabf7" },
@@ -365,16 +365,16 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "btn-0", type: "BUTTON", pin: 2,  pins: { main: 2  }, x: 80,  y: 220 },
-      { id: "btn-1", type: "BUTTON", pin: 3,  pins: { main: 3  }, x: 130, y: 220 },
-      { id: "btn-2", type: "BUTTON", pin: 4,  pins: { main: 4  }, x: 180, y: 220 },
-      { id: "btn-3", type: "BUTTON", pin: 5,  pins: { main: 5  }, x: 230, y: 220 },
-      { id: "btn-4", type: "BUTTON", pin: 6,  pins: { main: 6  }, x: 280, y: 220 },
-      { id: "btn-5", type: "BUTTON", pin: 7,  pins: { main: 7  }, x: 330, y: 220 },
-      { id: "btn-6", type: "BUTTON", pin: 8,  pins: { main: 8  }, x: 380, y: 220 },
-      { id: "btn-7", type: "BUTTON", pin: 9,  pins: { main: 9  }, x: 430, y: 220 },
-      { id: "buz-1", type: "BUZZER", pin: 11, pins: { main: 11 }, x: 260, y: 360 },
-      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null }, x: 480, y: 360 },
+      { id: "btn-0", type: "BUTTON", pin: 2,  pins: { main: 2  }, x: 440,  y: 860 },
+      { id: "btn-1", type: "BUTTON", pin: 3,  pins: { main: 3  }, x: 540, y: 860 },
+      { id: "btn-2", type: "BUTTON", pin: 4,  pins: { main: 4  }, x: 640, y: 860 },
+      { id: "btn-3", type: "BUTTON", pin: 5,  pins: { main: 5  }, x: 740, y: 860 },
+      { id: "btn-4", type: "BUTTON", pin: 6,  pins: { main: 6  }, x: 840, y: 860 },
+      { id: "btn-5", type: "BUTTON", pin: 7,  pins: { main: 7  }, x: 940, y: 860 },
+      { id: "btn-6", type: "BUTTON", pin: 8,  pins: { main: 8  }, x: 1040, y: 860 },
+      { id: "btn-7", type: "BUTTON", pin: 9,  pins: { main: 9  }, x: 1140, y: 860 },
+      { id: "buz-1", type: "BUZZER", pin: 11, pins: { main: 11 }, x: 760, y: 120 },
+      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1280, y: 860 },
     ],
     wires: [
       { id: "piano-w0",  source: "mcu::2",    target: "btn-0::main", bends: [], color: "#4dabf7" },
@@ -464,10 +464,10 @@ void loop() {
   delay(50);
 }`,
     workspace: [
-      { id: "tft-1", type: "ILI9341_TFT", pin: 5,  pins: { CS: 5, DC: 2, RESET: 4, MOSI: 23, SCK: 18 }, x: 340, y: 160 },
-      { id: "pot-1", type: "DIAL",         pin: 34, pins: { main: 34 },                                   x: 140, y: 200 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },                                x: 80,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },                                x: 80,  y: 340 },
+      { id: "tft-1", type: "ILI9341_TFT", pin: 5,  pins: { CS: 5, DC: 2, RESET: 4, MOSI: 23, SCK: 18 }, x: 760, y: 110 },
+      { id: "pot-1", type: "DIAL",         pin: 34, pins: { main: 34 },                                   x: 1090, y: 110 },
+      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },                                x: 450,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },                                x: 450,  y: 860 },
     ],
     wires: [
       { id: "dash-w1", source: "mcu::5",    target: "tft-1::cs",    bends: [], color: "#4dabf7" },
@@ -551,9 +551,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "max-1", type: "MAX30102_PULSE", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 340, y: 200 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 80,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 80,  y: 360 },
+      { id: "max-1", type: "MAX30102_PULSE", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 800, y: 110 },
+      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 550,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 550,  y: 860 },
     ],
     wires: [
       { id: "max-w1", source: "mcu::18",     target: "max-1::sda",   bends: [], color: "#fbbf24" },
@@ -629,9 +629,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "tcs-1", type: "TCS34725_COLOR", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 340, y: 200 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 80,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 80,  y: 360 },
+      { id: "tcs-1", type: "TCS34725_COLOR", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 800, y: 110 },
+      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 550,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 550,  y: 860 },
     ],
     wires: [
       { id: "tcs-w1", source: "mcu::18",     target: "tcs-1::sda",   bends: [], color: "#fbbf24" },
@@ -677,9 +677,9 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "bt-1",  type: "HC05_BLUETOOTH", pin: 1,   pins: { TXD: 1, RXD: 0 },  x: 340, y: 200 },
-      { id: "vcc-1", type: "VCC_NODE",        pin: null, pins: { main: null },      x: 80,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",     pin: null, pins: { main: null },      x: 80,  y: 360 },
+      { id: "bt-1",  type: "HC05_BLUETOOTH", pin: 1,   pins: { TXD: 1, RXD: 0 },  x: 780, y: 860 },
+      { id: "vcc-1", type: "VCC_NODE",        pin: null, pins: { main: null },      x: 500,  y: 80  },
+      { id: "gnd-1", type: "GROUND_NODE",     pin: null, pins: { main: null },      x: 1020,  y: 860 },
     ],
     wires: [
       { id: "bt-w1", source: "mcu::1",      target: "bt-1::rxd",    bends: [], color: "#22d3ee" },
@@ -730,7 +730,7 @@ void loop() {
   delay(800);
 }`,
     workspace: [
-      { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 300, y: 200 },
+      { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 700, y: 860 },
     ],
     wires: [
       { id: "seg-wa", source: "mcu::2", target: "seg-1::a", bends: [], color: "#ff4444" },
@@ -798,10 +798,10 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "l298-1", type: "L298N_DRIVER", pin: 3,  pins: { ena: 3, in1: 4, in2: 5, enb: null, in3: null, in4: null, vcc: null, gnd: null }, x: 280, y: 180 },
-      { id: "mot-1",  type: "DC_MOTOR",     pin: null, pins: { "m+": null, "m-": null, ena: 3 }, x: 440, y: 200 },
-      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null }, x: 80, y: 80  },
-      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 80, y: 360 },
+      { id: "l298-1", type: "L298N_DRIVER", pin: 3,  pins: { ena: 3, in1: 4, in2: 5, enb: null, in3: null, in4: null, vcc: null, gnd: null }, x: 660, y: 860 },
+      { id: "mot-1",  type: "DC_MOTOR",     pin: null, pins: { "m+": null, "m-": null, ena: 3 }, x: 870, y: 860 },
+      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null }, x: 450, y: 80  },
+      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 1100, y: 860 },
     ],
     wires: [
       { id: "mot-w1", source: "mcu::3",      target: "l298-1::ena",  bends: [], color: "#fbbf24" },
@@ -855,18 +855,18 @@ void loop() {
   delay(100);
 }`,
     workspace: [
-      { id: "btn-a",  type: "BUTTON",       pin: 2,  pins: { main: 2  }, x: 100, y: 160 },
-      { id: "btn-b",  type: "BUTTON",       pin: 3,  pins: { main: 3  }, x: 100, y: 280 },
-      { id: "and-1",  type: "LOGIC_AND",    pin: 10, pins: { in1: 2, in2: 3, out: 10 }, x: 280, y: 160 },
-      { id: "or-1",   type: "LOGIC_OR",     pin: 11, pins: { in1: 2, in2: 3, out: 11 }, x: 280, y: 250 },
-      { id: "not-1",  type: "LOGIC_NOT",    pin: 12, pins: { in1: 2, out: 12 }, x: 280, y: 340 },
-      { id: "led-and", type: "LED_GREEN",   pin: 10, pins: { main: 10 }, x: 440, y: 160 },
-      { id: "led-or",  type: "LED_YELLOW",  pin: 11, pins: { main: 11 }, x: 440, y: 250 },
-      { id: "led-not", type: "LED_RED",     pin: 12, pins: { main: 12 }, x: 440, y: 340 },
-      { id: "res-and", type: "RESISTOR",    pin: 10, pins: { main: 10 }, resistance: 330, x: 380, y: 160 },
-      { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 380, y: 250 },
-      { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 380, y: 340 },
-      { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 540, y: 260 },
+      { id: "btn-a",  type: "BUTTON",       pin: 2,  pins: { main: 2  }, x: 720, y: 860 },
+      { id: "btn-b",  type: "BUTTON",       pin: 3,  pins: { main: 3  }, x: 800, y: 960 },
+      { id: "and-1",  type: "LOGIC_AND",    pin: 10, pins: { in1: 2, in2: 3, out: 10 }, x: 820, y: 60 },
+      { id: "or-1",   type: "LOGIC_OR",     pin: 11, pins: { in1: 2, in2: 3, out: 11 }, x: 820, y: 150 },
+      { id: "not-1",  type: "LOGIC_NOT",    pin: 12, pins: { in1: 2, out: 12 }, x: 820, y: 240 },
+      { id: "led-and", type: "LED_GREEN",   pin: 10, pins: { main: 10 }, x: 1150, y: 60 },
+      { id: "led-or",  type: "LED_YELLOW",  pin: 11, pins: { main: 11 }, x: 1150, y: 150 },
+      { id: "led-not", type: "LED_RED",     pin: 12, pins: { main: 12 }, x: 1150, y: 240 },
+      { id: "res-and", type: "RESISTOR",    pin: 10, pins: { main: 10 }, resistance: 330, x: 990, y: 60 },
+      { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 990, y: 150 },
+      { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 990, y: 240 },
+      { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1300, y: 150 },
     ],
     wires: [
       { id: "lg-w1",  source: "mcu::2",       target: "btn-a::main",    bends: [], color: "#4dabf7" },
@@ -942,7 +942,7 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 400, y: 220 },
+      { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 880, y: 120 },
     ],
     wires: [
       { id: "stp-w1", source: "mcu::8",  target: "stp-1::a+", bends: [], color: "#f97316" },

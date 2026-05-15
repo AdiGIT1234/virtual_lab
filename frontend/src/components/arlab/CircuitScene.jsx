@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useCircuitStore } from "../../state/useCircuitStore";
@@ -37,19 +37,19 @@ import {
 } from "./ExtraComponents3D";
 
 // Convert Arduino pin number to scene-group coordinates
-function pinToSceneCoords(pinNum) {
+function pinToSceneCoords(pinNum, boardOff = { x: 0, z: 0 }) {
   const local = getPinCoord(Number(pinNum));
-  return [-0.6 + local[0], 0.01 + local[1] + 0.04, local[2]];
+  return [-0.6 + boardOff.x + local[0], 0.01 + local[1] + 0.04, boardOff.z + local[2]];
 }
 
 // Resolve a wire endpoint string like "mcu::13" or "res-1::t1" to scene-group [x,y,z]
-function resolveEndpoint(str, posMap) {
+function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }) {
   if (!str) return null;
   const [id, terminal] = str.split("::");
 
   if (id === "mcu") {
     const pinNum = Number(terminal);
-    if (!isNaN(pinNum)) return pinToSceneCoords(pinNum);
+    if (!isNaN(pinNum)) return pinToSceneCoords(pinNum, boardOff);
     return null;
   }
 
@@ -253,6 +253,16 @@ export default function CircuitScene({
   const isDraggingSetupRef = useRef(false);
   const setupDragOriginRef = useRef({ x: 0, z: 0 });
   const setupStartRef = useRef({ x: 0, z: 0 });
+
+  // Per-board position offsets (scene-group local space)
+  const [boardOffset, setBoardOffset] = useState({ x: 0, z: 0 });
+  const [bbOffset, setBbOffset] = useState({ x: 0, z: 0 });
+  const boardOffsetRef = useRef({ x: 0, z: 0 });
+  const bbOffsetRef = useRef({ x: 0, z: 0 });
+  const [draggingBoard, setDraggingBoard] = useState(null); // 'arduino' | 'breadboard' | null
+  const draggingBoardRef = useRef(null);
+  const boardDragOriginRef = useRef({ x: 0, z: 0 });
+  const boardDragStartRef = useRef({ x: 0, z: 0 });
   const { camera, gl } = useThree();
 
   const components   = useCircuitStore((s) => s.components);
@@ -266,9 +276,15 @@ export default function CircuitScene({
   const preset = CIRCUIT_PRESETS[presetId] || {};
   const arlabPositions = preset.arlabPositions || {};
 
-  // Keep ref in sync so DOM event closures always see the latest draggingId
+  // Keep refs in sync so DOM event closures always see the latest values
   useEffect(() => { draggingIdRef.current = draggingId; }, [draggingId]);
   useEffect(() => { isDraggingSetupRef.current = isDraggingSetup; }, [isDraggingSetup]);
+  useEffect(() => { draggingBoardRef.current = draggingBoard; }, [draggingBoard]);
+  useEffect(() => { boardOffsetRef.current = boardOffset; }, [boardOffset]);
+  useEffect(() => { bbOffsetRef.current = bbOffset; }, [bbOffset]);
+
+  // Reset board positions when preset changes
+  useEffect(() => { setBoardOffset({ x: 0, z: 0 }); setBbOffset({ x: 0, z: 0 }); }, [presetId]);
 
   // Clear local position overrides when the preset changes
   useEffect(() => { setLocalPosOverrides({}); }, [presetId]);
@@ -350,6 +366,67 @@ export default function CircuitScene({
     };
   }, [isDraggingSetup, camera, gl, onSetupMove, onDragEnd]);
 
+  // Board drag — moves the Arduino or breadboard independently on the workbench plane
+  useEffect(() => {
+    if (!draggingBoard) return;
+    const domEl = gl.domElement;
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const raycaster = new THREE.Raycaster();
+    const hit = new THREE.Vector3();
+
+    const onMove = (e) => {
+      if (!draggingBoardRef.current) return;
+      const rect = domEl.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera({ x: nx, y: ny }, camera);
+      if (raycaster.ray.intersectPlane(dragPlane, hit)) {
+        const dx = hit.x - boardDragOriginRef.current.x;
+        const dz = hit.z - boardDragOriginRef.current.z;
+        if (draggingBoardRef.current === 'arduino') {
+          setBoardOffset({ x: boardDragStartRef.current.x + dx, z: boardDragStartRef.current.z + dz });
+        } else {
+          setBbOffset({ x: boardDragStartRef.current.x + dx, z: boardDragStartRef.current.z + dz });
+        }
+      }
+    };
+
+    const onUp = () => {
+      setDraggingBoard(null);
+      draggingBoardRef.current = null;
+      domEl.style.cursor = '';
+      onDragEnd?.();
+    };
+
+    domEl.addEventListener('pointermove', onMove);
+    domEl.addEventListener('pointerup', onUp);
+    return () => {
+      domEl.removeEventListener('pointermove', onMove);
+      domEl.removeEventListener('pointerup', onUp);
+    };
+  }, [draggingBoard, camera, gl, onDragEnd]);
+
+  const startBoardDrag = useCallback((boardId, e) => {
+    e.stopPropagation();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const raycaster = new THREE.Raycaster();
+    const hit = new THREE.Vector3();
+    const rect = gl.domElement.getBoundingClientRect();
+    const nx = ((e.nativeEvent.clientX - rect.left) / rect.width) * 2 - 1;
+    const ny = -((e.nativeEvent.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera({ x: nx, y: ny }, camera);
+    if (raycaster.ray.intersectPlane(dragPlane, hit)) {
+      boardDragOriginRef.current = { x: hit.x, z: hit.z };
+      boardDragStartRef.current = boardId === 'arduino'
+        ? { ...boardOffsetRef.current }
+        : { ...bbOffsetRef.current };
+      setDraggingBoard(boardId);
+      draggingBoardRef.current = boardId;
+      gl.domElement.style.cursor = 'grabbing';
+      onDragStart?.();
+    }
+  }, [camera, gl, onDragStart]);
+
   // Build a position map: component id -> scene-group [x,y,z]
   const posMap = useMemo(() => {
     const map = {};
@@ -359,12 +436,12 @@ export default function CircuitScene({
     // Sandbox mode: use the stable per-component column assignments from the store
     // so positions don't shift when other components are added or removed.
     if (presetId === '__sandbox__') {
-      // Breadboard group is at scene-group x=1.2; 63 holes, 0.05 step, startX = -0.375
-      const startX = 1.2 - (63 * 0.05) / 2; // = -0.375
+      // Breadboard group is at scene-group x = 1.2 + bbOffset.x; components follow it
+      const startX = 1.2 + bbOffset.x - (63 * 0.05) / 2;
       components.forEach((c) => {
         const col = sandboxColMap[c.id] ?? 3;
         const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
-        map[c.id] = [startX + (col - 1) * 0.05, y, 0, c.type];
+        map[c.id] = [startX + (col - 1) * 0.05, y, bbOffset.z, c.type];
       });
       return map;
     }
@@ -394,7 +471,7 @@ export default function CircuitScene({
       map[id] = [...pos, map[id]?.[3] ?? null];
     });
     return map;
-  }, [components, arlabPositions, presetId, sandboxColMap, localPosOverrides]);
+  }, [components, arlabPositions, presetId, sandboxColMap, localPosOverrides, bbOffset]);
 
   // Resolve wires to 3D points.
   // Sandbox wires take precedence when the user has drawn connections in the 2D lab;
@@ -403,13 +480,13 @@ export default function CircuitScene({
     const wires = sandboxWires.length > 0 ? sandboxWires : (preset.wires || []);
     return wires.flatMap((wire) => {
       if (!wire.source || !wire.target) return [];
-      const p1 = resolveEndpoint(wire.source, posMap);
-      const p2 = resolveEndpoint(wire.target, posMap);
+      const p1 = resolveEndpoint(wire.source, posMap, boardOffset);
+      const p2 = resolveEndpoint(wire.target, posMap, boardOffset);
       const pts = buildWirePoints(p1, p2);
       if (!pts) return [];
       return [{ ...wire, points: pts }];
     });
-  }, [sandboxWires, preset.wires, posMap]);
+  }, [sandboxWires, preset.wires, posMap, boardOffset]);
 
   // Build sceneComponents with final positions/rotations.
   // y is always derived from COMP_Y[type] so every component sits at the correct height
@@ -486,14 +563,24 @@ export default function CircuitScene({
       <gridHelper args={[2000, 500, "#1a2535", "#111820"]} position={[0.2, -0.039, 0]} />
       <ContactShadows opacity={0.7} blur={3} far={5} resolution={1024} color="#000820" position={[0.2, -0.04, 0]} />
 
-      {/* Arduino Uno */}
-      <group position={[-0.6, 0.01, 0]}>
+      {/* Arduino Uno — draggable board */}
+      <group
+        position={[-0.6 + boardOffset.x, 0.01, boardOffset.z]}
+        onPointerDown={(e) => { if (draggingId === null && !isDraggingSetup) startBoardDrag('arduino', e); }}
+        onPointerEnter={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = 'grab'; }}
+        onPointerLeave={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = ''; }}
+      >
         <BoardModel />
         <PinHotspots onPinClick={onPinClick} wiringFrom={wiringFrom} />
       </group>
 
-      {/* Breadboard */}
-      <group position={[1.2, 0.01, 0]}>
+      {/* Breadboard — draggable board */}
+      <group
+        position={[1.2 + bbOffset.x, 0.01, bbOffset.z]}
+        onPointerDown={(e) => { if (draggingId === null && !isDraggingSetup) startBoardDrag('breadboard', e); }}
+        onPointerEnter={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = 'grab'; }}
+        onPointerLeave={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = ''; }}
+      >
         <BreadboardModel occupiedHoles={occupiedHoles || new Set()} onHoleClick={onHoleClick} wiringFromHole={wiringFromHole} />
       </group>
 

@@ -181,6 +181,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           <span style={styles.hint}><kbd style={styles.kbd}>Drag</kbd> Rotate</span>
           <span style={styles.hint}><kbd style={styles.kbd}>Scroll</kbd> Zoom</span>
           <span style={styles.hint}><kbd style={styles.kbd}>R-drag</kbd> Pan</span>
+          <span style={styles.hint}><kbd style={styles.kbd}>Board-drag</kbd> Move board</span>
         </div>
       )}
 
