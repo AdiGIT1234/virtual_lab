@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, Component } from "react";
+import { useState, useEffect, useRef, Suspense, Component } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stats } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -25,7 +25,7 @@ class CanvasErrorBoundary extends Component {
 const showStats = import.meta.env.DEV;
 
 // Scene center: midpoint between Arduino (world x≈-1.4) and breadboard mid (world x≈0.4)
-const SCENE_CENTER = [-0.2, 0, 0.1];
+const SCENE_CENTER = [-0.5, 0, 0];
 const CAMERA_PRESETS = {
   perspective: { pos: [0.4, 2.0, 3.2], target: SCENE_CENTER, fov: 52 },
   front:       { pos: [-0.2, 0.8, 5.0], target: SCENE_CENTER, fov: 44 },
@@ -35,10 +35,21 @@ const CAMERA_PRESETS = {
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
+function SetupOrbitSync({ sp, cr }) {
+  useEffect(() => {
+    if (!cr?.current) return;
+    cr.current.target.set(-0.5 + sp.x, 0, sp.z);
+    cr.current.update();
+  }, [sp, cr]);
+  return null;
+}
+
 export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent, onComponentMove, compact = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
   const [isDragging, setIsDragging] = useState(false);
+  const [setupPos, setSetupPos] = useState({ x: 0, z: 0 });
+  const controlsRef = useRef(null);
 
   // Keyboard shortcuts: 1-4 to switch camera views
   useEffect(() => {
@@ -56,15 +67,15 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
     <CanvasErrorBoundary>
       <Canvas
         shadows
-        camera={{ position: [0.4, 2.0, 3.2], fov: 52, near: 0.01, far: 100 }}
+        camera={{ position: [0.4, 2.0, 3.2], fov: 52, near: 0.01, far: 600 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
       >
-        <CameraController view={cameraView} />
+        <CameraController view={cameraView} controlsRef={controlsRef} />
         
         {/* Dark lab atmosphere */}
         <color attach="background" args={["#0d1117"]} />
-        <fog attach="fog" args={["#0d1117", 10, 40]} />
+        <fog attach="fog" args={["#0d1117", 60, 300]} />
 
         <Suspense fallback={null}>
           <CircuitScene
@@ -83,7 +94,10 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
             onDragStart={() => setIsDragging(true)}
             onDragEnd={() => setIsDragging(false)}
             onComponentMove={onComponentMove}
+            setupPos={setupPos}
+            onSetupMove={(x, z) => setSetupPos({ x, z })}
           />
+          <SetupOrbitSync sp={setupPos} cr={controlsRef} />
           <EffectComposer disableNormalPass multisampling={4}>
             <Bloom
               luminanceThreshold={0.45}
@@ -97,6 +111,8 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         </Suspense>
 
         <OrbitControls
+          ref={controlsRef}
+          makeDefault
           enabled={!isDragging}
           enableDamping
           dampingFactor={0.1}
@@ -105,7 +121,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
           maxPolarAngle={Math.PI / 2.05}
           minPolarAngle={0.05}
           minDistance={0.5}
-          maxDistance={15.0}
+          maxDistance={120.0}
           rotateSpeed={0.6}
           zoomSpeed={0.8}
           panSpeed={0.8}
@@ -180,7 +196,7 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
   );
 }
 
-function CameraController({ view }) {
+function CameraController({ view, controlsRef }) {
   const { camera } = useThree();
   useEffect(() => {
     const preset = CAMERA_PRESETS[view] || CAMERA_PRESETS.perspective;
@@ -198,10 +214,14 @@ function CameraController({ view }) {
       camera.position.lerpVectors(startPos, targetPos, ease);
       camera.lookAt(...preset.target);
 
+      if (controlsRef?.current) {
+        controlsRef.current.target.set(...preset.target);
+        controlsRef.current.update();
+      }
       if (t < 1) requestAnimationFrame(animate);
     };
     animate();
-  }, [view, camera]);
+  }, [view, camera, controlsRef]);
   return null;
 }
 

@@ -960,6 +960,27 @@ void loop() {
       return { pin: null, resistance: currentResistance, logicValue: true };
     }
 
+    // 11. L298N H-bridge: out1/out2 driven by ENA+IN1/IN2, out3/out4 by ENB+IN3/IN4
+    if (item.type === "L298N_DRIVER") {
+      const ch = (termId === "out1" || termId === "out2") ? "a" : (termId === "out3" || termId === "out4") ? "b" : null;
+      if (ch) {
+        const enTerm  = ch === "a" ? "ena" : "enb";
+        const in1Term = ch === "a" ? "in1" : "in3";
+        const in2Term = ch === "a" ? "in2" : "in4";
+        const enConn  = resolveConnection(compId, enTerm,  new Set(visited));
+        const in1Conn = resolveConnection(compId, in1Term, new Set(visited));
+        const in2Conn = resolveConnection(compId, in2Term, new Set(visited));
+        const enPin   = enConn.pin  != null ? getPinAnalog(enConn.pin) : (enConn.logicValue  ? 255 : 0);
+        const in1High = in1Conn.pin != null ? !!getPinLogic(in1Conn.pin) : (in1Conn.logicValue ?? false);
+        const in2High = in2Conn.pin != null ? !!getPinLogic(in2Conn.pin) : (in2Conn.logicValue ?? false);
+        if (!enPin) return { pin: null, resistance: currentResistance, logicValue: false };
+        const out1High = in1High && !in2High;
+        const out2High = !in1High && in2High;
+        const isOut1 = termId === "out1" || termId === "out3";
+        return { pin: null, resistance: currentResistance, logicValue: isOut1 ? out1High : out2High };
+      }
+    }
+
     return { pin: null, resistance: currentResistance };
   }, [workspaceItems, wires, getPinLogic]);
 
@@ -1833,19 +1854,10 @@ void loop() {
                 );
               } else if (item.type === "SERVO") {
                 usesEmbeddedTerminals = false;
-                // For Timer1 OC1A (pin 9) or OC1B (pin 10), read full 16-bit OCR1 from memory
-                // Standard servo: 1000 ticks = 0° (1ms), 2000 ticks = 180° (2ms) at prescaler 8
-                const servoPin = resolvedMain.pin;
-                let servoAngle = 0;
-                if (servoPin === 9 && currentMemory) {
-                  const ocr1a = ((currentMemory[0x89] || 0) << 8) | (currentMemory[0x88] || 0);
-                  servoAngle = ocr1a > 0 ? Math.max(0, Math.min(180, ((ocr1a - 1000) / 1000) * 180)) : 0;
-                } else if (servoPin === 10 && currentMemory) {
-                  const ocr1b = ((currentMemory[0x8B] || 0) << 8) | (currentMemory[0x8A] || 0);
-                  servoAngle = ocr1b > 0 ? Math.max(0, Math.min(180, ((ocr1b - 1000) / 1000) * 180)) : 0;
-                } else {
-                  servoAngle = analogState > 0 ? (analogState / 255) * 180 : 0;
-                }
+                // The backend Servo class uses analogWrite (0-255), so read the PWM register directly.
+                // pwmMap[pin] = OCR low byte = analogWrite value → angle = (pwm/255)*180
+                const servoPwm = getPinAnalog(resolvedMain.pin); // returns 0-255
+                const servoAngle = servoPwm > 0 ? Math.max(0, Math.min(180, (servoPwm / 255) * 180)) : 0;
                 renderedContent = <Servo angle={servoAngle} />;
               } else if (item.type === "SEVEN_SEG") {
                 usesEmbeddedTerminals = false;

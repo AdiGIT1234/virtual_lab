@@ -240,13 +240,38 @@ export default function CircuitScene({
   onComponentMove,
   onDragStart,
   onDragEnd,
+  setupPos = { x: 0, z: 0 },
+  onSetupMove,
 }) {
   const [draggingId, setDraggingId] = useState(null);
   const draggingIdRef = useRef(null);
+  const setupPosRef = useRef(setupPos);
+  useEffect(() => { setupPosRef.current = setupPos; }, [setupPos]);
+
+  const [localPosOverrides, setLocalPosOverrides] = useState({});
+  const [isDraggingSetup, setIsDraggingSetup] = useState(false);
+  const isDraggingSetupRef = useRef(false);
+  const setupDragOriginRef = useRef({ x: 0, z: 0 });
+  const setupStartRef = useRef({ x: 0, z: 0 });
   const { camera, gl } = useThree();
+
+  const components   = useCircuitStore((s) => s.components);
+  const outputs      = useCircuitStore((s) => s.outputs);
+  const inputs       = useCircuitStore((s) => s.inputs);
+  const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
+  const presetId     = useCircuitStore((s) => s.presetId);
+  const sandboxWires = useCircuitStore((s) => s.sandboxWires);
+  const sandboxColMap = useCircuitStore((s) => s.sandboxColMap);
+
+  const preset = CIRCUIT_PRESETS[presetId] || {};
+  const arlabPositions = preset.arlabPositions || {};
 
   // Keep ref in sync so DOM event closures always see the latest draggingId
   useEffect(() => { draggingIdRef.current = draggingId; }, [draggingId]);
+  useEffect(() => { isDraggingSetupRef.current = isDraggingSetup; }, [isDraggingSetup]);
+
+  // Clear local position overrides when the preset changes
+  useEffect(() => { setLocalPosOverrides({}); }, [presetId]);
 
   // DOM-level drag: bypasses Three.js raycasting so component meshes don't block it
   useEffect(() => {
@@ -265,8 +290,13 @@ export default function CircuitScene({
       const ny = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
       raycaster.setFromCamera({ x: nx, y: ny }, camera);
       if (raycaster.ray.intersectPlane(dragPlane, target)) {
-        // target is world-space; scene group is offset by x=-0.8
-        onComponentMove?.(id, [target.x + 0.8, target.z]);
+        // target is world-space; scene group origin is (-0.8 + setupPos.x, 0, setupPos.z)
+        const sp = setupPosRef.current;
+        const localX = target.x - (-0.8 + sp.x);
+        const localZ = target.z - sp.z;
+        const comp = components.find(c => c.id === id);
+        const compY = COMP_Y[comp?.type] ?? (BOARD_Y + 0.025);
+        setLocalPosOverrides(prev => ({ ...prev, [id]: [localX, compY, localZ] }));
       }
     };
 
@@ -282,18 +312,43 @@ export default function CircuitScene({
       domEl.removeEventListener('pointermove', onMove);
       domEl.removeEventListener('pointerup',   onUp);
     };
-  }, [draggingId, camera, gl, onComponentMove, onDragEnd]);
+  }, [draggingId, camera, gl, onDragEnd, components]);
 
-  const components   = useCircuitStore((s) => s.components);
-  const outputs      = useCircuitStore((s) => s.outputs);
-  const inputs       = useCircuitStore((s) => s.inputs);
-  const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
-  const presetId     = useCircuitStore((s) => s.presetId);
-  const sandboxWires = useCircuitStore((s) => s.sandboxWires);
-  const sandboxColMap = useCircuitStore((s) => s.sandboxColMap);
+  // Setup drag (whole scene translates on workbench plane)
+  useEffect(() => {
+    if (!isDraggingSetup) return;
+    const domEl = gl.domElement;
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const raycaster = new THREE.Raycaster();
+    const hit = new THREE.Vector3();
 
-  const preset = CIRCUIT_PRESETS[presetId] || {};
-  const arlabPositions = preset.arlabPositions || {};
+    const onMove = (e) => {
+      if (!isDraggingSetupRef.current) return;
+      const rect = domEl.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera({ x: nx, y: ny }, camera);
+      if (raycaster.ray.intersectPlane(dragPlane, hit)) {
+        const dx = hit.x - setupDragOriginRef.current.x;
+        const dz = hit.z - setupDragOriginRef.current.z;
+        onSetupMove?.(setupStartRef.current.x + dx, setupStartRef.current.z + dz);
+      }
+    };
+
+    const onUp = () => {
+      setIsDraggingSetup(false);
+      isDraggingSetupRef.current = false;
+      domEl.style.cursor = '';
+      onDragEnd?.();
+    };
+
+    domEl.addEventListener('pointermove', onMove);
+    domEl.addEventListener('pointerup', onUp);
+    return () => {
+      domEl.removeEventListener('pointermove', onMove);
+      domEl.removeEventListener('pointerup', onUp);
+    };
+  }, [isDraggingSetup, camera, gl, onSetupMove, onDragEnd]);
 
   // Build a position map: component id -> scene-group [x,y,z]
   const posMap = useMemo(() => {
@@ -334,8 +389,12 @@ export default function CircuitScene({
         ];
       }
     });
+    // Apply any session-level drag overrides (for both preset and sandbox components)
+    Object.entries(localPosOverrides).forEach(([id, pos]) => {
+      map[id] = [...pos, map[id]?.[3] ?? null];
+    });
     return map;
-  }, [components, arlabPositions, presetId, sandboxColMap]);
+  }, [components, arlabPositions, presetId, sandboxColMap, localPosOverrides]);
 
   // Resolve wires to 3D points.
   // Sandbox wires take precedence when the user has drawn connections in the 2D lab;
@@ -358,16 +417,45 @@ export default function CircuitScene({
   const sceneComponents = useMemo(() => {
     return components.map((component) => {
       const layout = arlabPositions[component.id];
-      const base = layout ? layout.pos : (posMap[component.id] || [0, BOARD_Y, 0]);
+      const base = localPosOverrides[component.id] ?? (layout ? layout.pos : (posMap[component.id] || [0, BOARD_Y, 0]));
       const y = COMP_Y[component.type] ?? (BOARD_Y + 0.025);
       const position = [base[0], y, base[2]];
       const rotation = layout ? (layout.rot || [0, 0, 0]) : [0, 0, 0];
       return { ...component, position, rotation };
     });
-  }, [components, arlabPositions, posMap]);
+  }, [components, arlabPositions, posMap, localPosOverrides]);
 
   return (
-    <group position={[-0.8, 0, 0]}>
+    <group position={[-0.8 + setupPos.x, 0, setupPos.z]}>
+      {/* Invisible workbench grab-surface — pointer-down here starts setup drag */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0.2, -0.041, 0]}
+        renderOrder={-1}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          if (draggingId !== null) return;
+          const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+          const raycaster = new THREE.Raycaster();
+          const hit = new THREE.Vector3();
+          const rect = gl.domElement.getBoundingClientRect();
+          const nx = ((e.nativeEvent.clientX - rect.left) / rect.width) * 2 - 1;
+          const ny = -((e.nativeEvent.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera({ x: nx, y: ny }, camera);
+          if (raycaster.ray.intersectPlane(dragPlane, hit)) {
+            setupDragOriginRef.current = { x: hit.x, z: hit.z };
+            setupStartRef.current = { x: setupPosRef.current.x, z: setupPosRef.current.z };
+            setIsDraggingSetup(true);
+            isDraggingSetupRef.current = true;
+            gl.domElement.style.cursor = 'grabbing';
+            onDragStart?.();
+          }
+        }}
+      >
+        <planeGeometry args={[2000, 2000]} />
+        <meshBasicMaterial visible={false} side={THREE.DoubleSide} />
+      </mesh>
+
       {/* Drag is handled via DOM pointermove/pointerup in the useEffect above — no plane mesh needed */}
       <SceneLighting />
       <Environment preset="warehouse" intensity={0.22} />
@@ -375,7 +463,7 @@ export default function CircuitScene({
       {/* ── Workbench ──────────────────────────────────────────────────────── */}
       {/* Top surface — receives shadows, provides the lit deck appearance */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.2, -0.042, 0]} receiveShadow>
-        <planeGeometry args={[24, 24]} />
+        <planeGeometry args={[2000, 2000]} />
         <meshStandardMaterial color="#181f28" roughness={0.92} metalness={0.04} />
       </mesh>
 
@@ -384,18 +472,18 @@ export default function CircuitScene({
           Extends 2 m downward so no lead geometry is ever visible from any
           allowed camera angle (maxPolarAngle = π/2.05 ≈ 87.8°). */}
       <mesh position={[0.2, -1.042, 0]} receiveShadow castShadow>
-        <boxGeometry args={[24, 2.0, 24]} />
+        <boxGeometry args={[2000, 2.0, 2000]} />
         <meshStandardMaterial color="#111720" roughness={0.96} metalness={0.02} />
       </mesh>
 
       {/* Front edge highlight strip — gives the bench a visible, chamfered edge */}
       <mesh position={[0.2, -0.052, 6.0]}>
-        <boxGeometry args={[24, 0.02, 0.012]} />
+        <boxGeometry args={[2000, 0.02, 0.012]} />
         <meshStandardMaterial color="#22304a" roughness={0.7} metalness={0.1} />
       </mesh>
 
       {/* Grid overlay */}
-      <gridHelper args={[20, 40, "#1e2d3d", "#151e28"]} position={[0.2, -0.039, 0]} />
+      <gridHelper args={[2000, 500, "#1a2535", "#111820"]} position={[0.2, -0.039, 0]} />
       <ContactShadows opacity={0.7} blur={3} far={5} resolution={1024} color="#000820" position={[0.2, -0.04, 0]} />
 
       {/* Arduino Uno */}
@@ -701,7 +789,6 @@ export default function CircuitScene({
               key={component.id}
               onClick={(e) => { e.stopPropagation(); if (draggingId === null) onSelect?.(component.id); }}
               onPointerDown={(e) => {
-                if (!component.manuallyPlaced) return;
                 e.stopPropagation();
                 setDraggingId(component.id);
                 onDragStart?.();
@@ -709,7 +796,7 @@ export default function CircuitScene({
                 gl.domElement.style.cursor = 'grabbing';
               }}
               onPointerEnter={() => {
-                if (component.manuallyPlaced && draggingId === null)
+                if (draggingId === null)
                   gl.domElement.style.cursor = 'grab';
               }}
               onPointerLeave={() => {
