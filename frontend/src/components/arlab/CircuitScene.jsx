@@ -284,29 +284,45 @@ export default function CircuitScene({
     };
   }, [draggingId, camera, gl, onComponentMove, onDragEnd]);
 
-  const components  = useCircuitStore((s) => s.components);
-  const outputs     = useCircuitStore((s) => s.outputs);
-  const inputs      = useCircuitStore((s) => s.inputs);
+  const components   = useCircuitStore((s) => s.components);
+  const outputs      = useCircuitStore((s) => s.outputs);
+  const inputs       = useCircuitStore((s) => s.inputs);
   const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
-  const presetId    = useCircuitStore((s) => s.presetId);
+  const presetId     = useCircuitStore((s) => s.presetId);
   const sandboxWires = useCircuitStore((s) => s.sandboxWires);
+  const sandboxColMap = useCircuitStore((s) => s.sandboxColMap);
 
   const preset = CIRCUIT_PRESETS[presetId] || {};
   const arlabPositions = preset.arlabPositions || {};
 
   // Build a position map: component id -> scene-group [x,y,z]
-  // Seed ALL arlabPositions first (covers VCC_NODE / GROUND_NODE which are non-renderable)
   const posMap = useMemo(() => {
     const map = {};
-    // Build a quick id→type lookup from components
     const typeById = {};
     components.forEach(c => { typeById[c.id] = c.type; });
 
+    // Sandbox mode: use the stable per-component column assignments from the store
+    // so positions don't shift when other components are added or removed.
+    if (presetId === '__sandbox__') {
+      // Breadboard group is at scene-group x=1.2; 63 holes, 0.05 step, startX = -0.375
+      const startX = 1.2 - (63 * 0.05) / 2; // = -0.375
+      components.forEach((c) => {
+        const col = sandboxColMap[c.id] ?? 3;
+        const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
+        map[c.id] = [startX + (col - 1) * 0.05, y, 0, c.type];
+      });
+      return map;
+    }
+
+    // Preset mode: seed from explicit arlabPositions first
     Object.entries(arlabPositions).forEach(([id, layout]) => {
       const type = typeById[id] || null;
       const y = COMP_Y[type] ?? (BOARD_Y + 0.025);
       map[id] = [layout.pos[0], y, layout.pos[2], type];
     });
+    // Fallback for components without an explicit layout entry.
+    // manuallyPlaced components store their position as encoded scene coords;
+    // other un-positioned components use raw 2D coords as a best-effort fallback.
     components.forEach((c) => {
       if (!map[c.id]) {
         const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
@@ -319,7 +335,7 @@ export default function CircuitScene({
       }
     });
     return map;
-  }, [components, arlabPositions]);
+  }, [components, arlabPositions, presetId, sandboxColMap]);
 
   // Resolve wires to 3D points.
   // Sandbox wires take precedence when the user has drawn connections in the 2D lab;

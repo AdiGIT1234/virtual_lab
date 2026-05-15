@@ -35,7 +35,7 @@ const CAMERA_PRESETS = {
 
 const VIEW_KEYS = { "1": "perspective", "2": "front", "3": "top", "4": "side" };
 
-export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent, onComponentMove }) {
+export default function ARLabCanvas({ highlightedId, componentStyles, wires = [], onHoleClick, occupiedHoles, onPinClick, wiringFrom, wiringFromHole, drawnWires = [], selectedWireIdx, onWireSelect, onRemoveComponent, onComponentMove, compact = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [cameraView, setCameraView] = useState("perspective");
   const [isDragging, setIsDragging] = useState(false);
@@ -159,12 +159,14 @@ export default function ARLabCanvas({ highlightedId, componentStyles, wires = []
         </div>
       </div>
 
-      {/* Controls hint — bottom-left */}
-      <div style={styles.hintsBar} aria-label="Navigation controls">
-        <span style={styles.hint}><kbd style={styles.kbd}>Drag</kbd> Rotate</span>
-        <span style={styles.hint}><kbd style={styles.kbd}>Scroll</kbd> Zoom</span>
-        <span style={styles.hint}><kbd style={styles.kbd}>R-drag</kbd> Pan</span>
-      </div>
+      {/* Controls hint — hidden in compact (PiP) mode */}
+      {!compact && (
+        <div style={styles.hintsBar} aria-label="Navigation controls">
+          <span style={styles.hint}><kbd style={styles.kbd}>Drag</kbd> Rotate</span>
+          <span style={styles.hint}><kbd style={styles.kbd}>Scroll</kbd> Zoom</span>
+          <span style={styles.hint}><kbd style={styles.kbd}>R-drag</kbd> Pan</span>
+        </div>
+      )}
 
       {/* Property Inspector */}
       {selectedId && (

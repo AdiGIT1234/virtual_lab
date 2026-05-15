@@ -169,6 +169,7 @@ void loop() {
   const [activeOutputTab, setActiveOutputTab] = useState("waveforms");
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [pip3DExpanded, setPip3DExpanded] = useState(false);
 
   const [activeWire, setActiveWire] = useState(null);
   const activeWireRef = useRef(null);
@@ -187,6 +188,7 @@ void loop() {
   const syncInputs = useCircuitStore((state) => state.syncInputs);
   const loadPreset = useCircuitStore((state) => state.loadPreset);
   const syncWires = useCircuitStore((state) => state.syncWires);
+  const enterSandboxMode = useCircuitStore((state) => state.enterSandboxMode);
 
   const defaultWorkspace = useMemo(() => [], []);
 
@@ -1214,8 +1216,19 @@ void loop() {
           >
             {isRunning ? "⏹ Stop" : "▶ Run"}
           </button>
-          <button style={styles.xrButton} onClick={() => setIs3DMode(!is3DMode)}>
-            {is3DMode ? "2D Workbench" : "3D Lab"}
+          <button style={styles.xrButton} onClick={() => {
+            if (!is3DMode) enterSandboxMode();
+            else setPip3DExpanded(false);
+            setIs3DMode(!is3DMode);
+          }}>
+            {is3DMode ? "2D View" : "3D Preview"}
+          </button>
+          <button
+            style={{ ...styles.xrButton, marginLeft: 6, fontSize: 11, letterSpacing: "0.02em" }}
+            onClick={() => { enterSandboxMode(); navigate('/arlab?from=sandbox'); }}
+            title="Open your circuit in the full 3D lab with code editor and simulation"
+          >
+            Full 3D Lab →
           </button>
         </div>
       </div>
@@ -1507,84 +1520,6 @@ void loop() {
         </div>
 
         <div style={styles.chipColumn}>
-          {is3DMode ? (
-            <div 
-              style={{
-                flex: 1, position: "absolute", inset: 0, width: "100%", height: "100%",
-                borderRadius: 14, overflow: "hidden",
-                border: "1px solid rgba(0,210,255,0.15)",
-                background: "linear-gradient(135deg, #010307 0%, #020810 100%)",
-                boxShadow: "inset 0 0 60px rgba(0,210,255,0.03), 0 0 40px rgba(0,0,0,0.5)",
-              }}
-              onWheel={(e) => e.stopPropagation()}
-            >
-              <ARLabCanvas highlightedId={null} componentStyles={{}} wires={wires} />
-
-              {/* Bottom-left status badge */}
-              <div style={{
-                position: "absolute", bottom: 20, left: 20, zIndex: 10,
-                padding: "10px 18px", borderRadius: 10,
-                background: "rgba(0,8,20,0.85)", backdropFilter: "blur(16px)",
-                border: `1px solid ${isRunning || liveMode ? "rgba(0,242,255,0.2)" : "rgba(255,255,255,0.06)"}`,
-                display: "flex", alignItems: "center", gap: 10,
-                boxShadow: isRunning || liveMode ? "0 0 20px rgba(0,242,255,0.1)" : "none",
-              }}>
-                {isRunning || liveMode ? (
-                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00f2ff", boxShadow: "0 0 12px #00f2ff, 0 0 4px #00f2ff", animation: "pulse 1.5s infinite" }}></div><span style={{ color: "#00f2ff", fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", fontFamily: "monospace" }}>LIVE MCU</span></>
-                ) : (
-                   <><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#333", boxShadow: "0 0 4px #222" }}></div><span style={{ color: "#555", fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", fontFamily: "monospace" }}>IDLE</span></>
-                )}
-              </div>
-
-              {/* Top-right port state HUD */}
-              <div style={{
-                position: "absolute", top: 20, right: 20, zIndex: 10,
-                padding: "14px 18px", borderRadius: 10,
-                background: "rgba(0,8,20,0.88)", backdropFilter: "blur(16px)",
-                border: "1px solid rgba(0,210,255,0.12)",
-                display: "flex", flexDirection: "column", gap: 7,
-                minWidth: 175, boxShadow: "0 4px 30px rgba(0,0,0,0.4)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00f2ff", boxShadow: "0 0 6px #00f2ff" }} />
-                  <span style={{ color: "#00f2ff", fontSize: 9, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "monospace" }}>Port Register State</span>
-                </div>
-                {["PORTB", "PORTC", "PORTD"].map((portName) => {
-                  const arr = currentRegisters?.[portName] || Array(8).fill(0);
-                  const hexHex = parseInt([...arr].reverse().join(""), 2).toString(16).toUpperCase().padStart(2, "0");
-                  return (
-                    <div key={portName} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>
-                      <span style={{ color: "#6090b0" }}>{portName}</span>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {[...arr].reverse().map((bit, bi) => (
-                          <div key={bi} style={{
-                            width: 7, height: 7,
-                            background: bit ? "#00f2ff" : "#1a2030",
-                            borderRadius: 1,
-                            boxShadow: bit ? "0 0 4px #00f2ff" : "none",
-                            transition: "all 0.2s",
-                          }} />
-                        ))}
-                        <span style={{ color: "#e0e8f0", fontWeight: 700, marginLeft: 6, fontSize: 11 }}>0x{hexHex}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom-right hint */}
-              <div style={{
-                position: "absolute", bottom: 20, right: 20, zIndex: 10,
-                padding: "8px 14px", borderRadius: 8,
-                background: "rgba(0,8,20,0.7)", backdropFilter: "blur(12px)",
-                border: "1px solid rgba(255,255,255,0.04)",
-              }}>
-                <span style={{ color: "#506070", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                  🖱 Orbit · Scroll Zoom · Drag Pan
-                </span>
-              </div>
-            </div>
-          ) : (
           <div
             id="workplane-container"
             ref={workplaneRef}
@@ -2068,6 +2003,160 @@ void loop() {
               outputs={storeOutputs}
             />
           </div>
+
+          {/* Floating PiP 3D panel — overlays the workplane when 3D mode is on */}
+          {is3DMode && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: pip3DExpanded ? 0 : 24,
+                right: pip3DExpanded ? 0 : 24,
+                left: pip3DExpanded ? 0 : 'auto',
+                top: pip3DExpanded ? 0 : 'auto',
+                width: pip3DExpanded ? '100%' : 400,
+                height: pip3DExpanded ? '100%' : 290,
+                zIndex: 50,
+                borderRadius: pip3DExpanded ? 0 : 14,
+                overflow: 'hidden',
+                border: pip3DExpanded ? 'none' : '1.5px solid rgba(0,229,255,0.25)',
+                boxShadow: pip3DExpanded ? 'none' : '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,229,255,0.06)',
+                background: '#020810',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onWheel={(e) => e.stopPropagation()}
+            >
+              {/* Header bar */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 36,
+                background: 'rgba(2,8,16,0.95)',
+                backdropFilter: 'blur(12px)',
+                borderBottom: '1px solid rgba(0,229,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 12px',
+                gap: 8,
+                zIndex: 10,
+                userSelect: 'none',
+              }}>
+                <div style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: (isRunning || liveMode) ? '#00f2ff' : '#3a4250',
+                  boxShadow: (isRunning || liveMode) ? '0 0 8px #00f2ff' : 'none',
+                  transition: 'background 0.2s, box-shadow 0.2s',
+                }} />
+                <span style={{
+                  color: '#c9d1d9',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  flex: 1,
+                }}>
+                  3D VIEW{(isRunning || liveMode) ? ' · LIVE' : ''}
+                </span>
+                <button
+                  onClick={() => setPip3DExpanded(!pip3DExpanded)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6e7681',
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    lineHeight: 1,
+                  }}
+                  title={pip3DExpanded ? 'Collapse' : 'Expand'}
+                >
+                  {pip3DExpanded ? '⊡' : '⊞'}
+                </button>
+                <button
+                  onClick={() => { setIs3DMode(false); setPip3DExpanded(false); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6e7681',
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    lineHeight: 1,
+                  }}
+                  title="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 3D canvas area below header */}
+              <div style={{ position: 'absolute', inset: 0, top: 36 }}>
+                <ARLabCanvas highlightedId={null} componentStyles={{}} wires={wires} compact={!pip3DExpanded} />
+
+                {/* Empty-state overlay when no components have been placed yet */}
+                {workspaceItems.length === 0 && (
+                  <div style={{
+                    position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 8,
+                    pointerEvents: 'none',
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(0,229,255,0.3)" strokeWidth="1.5" strokeLinecap="round">
+                      <rect x="2" y="6" width="20" height="12" rx="2"/>
+                      <path d="M8 6V4M12 6V4M16 6V4M8 18v2M12 18v2M16 18v2"/>
+                    </svg>
+                    <span style={{ fontSize: 11, color: 'rgba(139,148,158,0.7)', fontFamily: "'Inter', sans-serif", textAlign: 'center', lineHeight: 1.5 }}>
+                      Add components in 2D<br/>to see them here
+                    </span>
+                  </div>
+                )}
+
+                {/* Compact port register HUD */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 12,
+                  right: 12,
+                  zIndex: 10,
+                  background: 'rgba(0,8,20,0.82)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(0,210,255,0.1)',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  fontSize: 10,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 5,
+                }}>
+                  {["PORTB", "PORTC", "PORTD"].map((portName) => {
+                    const arr = currentRegisters?.[portName] || Array(8).fill(0);
+                    const hexHex = parseInt([...arr].reverse().join(""), 2).toString(16).toUpperCase().padStart(2, "0");
+                    return (
+                      <div key={portName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <span style={{ color: '#6090b0' }}>{portName}</span>
+                        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                          {[...arr].reverse().map((bit, bi) => (
+                            <div key={bi} style={{
+                              width: 6,
+                              height: 6,
+                              background: bit ? '#00f2ff' : '#1a2030',
+                              borderRadius: 1,
+                              boxShadow: bit ? '0 0 3px #00f2ff' : 'none',
+                              transition: 'all 0.2s',
+                            }} />
+                          ))}
+                          <span style={{ color: '#e0e8f0', fontWeight: 700, marginLeft: 5, fontSize: 10 }}>0x{hexHex}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

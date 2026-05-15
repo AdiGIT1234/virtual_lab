@@ -247,16 +247,18 @@ export default function ARLabPage() {
   const navigate = useNavigate();
   const { search } = useLocation();
   const params = new URLSearchParams(search);
+  const fromSandbox = params.get("from") === "sandbox";
   const presetParam = params.get("preset") || "blink";
 
   const loadPreset = useCircuitStore((state) => state.loadPreset);
+  const enterSandboxMode = useCircuitStore((state) => state.enterSandboxMode);
   const presetMeta = useCircuitStore((state) => state.presetMeta);
   const addComponent = useCircuitStore((state) => state.addComponent);
   const updateComponent = useCircuitStore((state) => state.updateComponent);
   const removeComponent = useCircuitStore((state) => state.removeComponent);
   const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
 
-  const preset = CIRCUIT_PRESETS[presetParam];
+  const preset = fromSandbox ? null : CIRCUIT_PRESETS[presetParam];
   const isESP32 = preset?.mcu === "esp32";
 
   // Both hooks called unconditionally (React rules); active one selected by MCU
@@ -281,7 +283,9 @@ export default function ARLabPage() {
   const components = useCircuitStore(s => s.components);
 
   const [simError, setSimError] = useState("");
-  const [editorCode, setEditorCode] = useState(preset?.starterCode || "");
+  const [editorCode, setEditorCode] = useState(
+    fromSandbox ? "void setup() {\n\n}\n\nvoid loop() {\n\n}\n" : (preset?.starterCode || "")
+  );
   const [codeOpen, setCodeOpen] = useState(false);
   const [panelHeight, setPanelHeight] = useState(280);
   const dragRef = useRef(null);
@@ -302,11 +306,12 @@ export default function ARLabPage() {
     window.addEventListener("mouseup", onUp);
   }, [panelHeight]);
 
-  // Sync editor when preset changes (warn user if they've made edits)
+  // Sync editor when preset changes — skip in sandbox mode (user writes their own code)
   useEffect(() => {
+    if (fromSandbox) return;
     setEditorCode(preset?.starterCode || "");
     setCodeOpen(false);
-  }, [presetParam, preset]);
+  }, [presetParam, preset, fromSandbox]);
 
   const handleSimulate = useCallback(async () => {
     if (isRunning) { stopSimulation(); return; }
@@ -406,10 +411,14 @@ export default function ARLabPage() {
   // Tracks IDs of components placed via sidebar (vs. from preset workspace)
   const manuallyPlacedIds = useRef(new Set());
   useEffect(() => {
-    loadPreset(presetParam);
+    if (fromSandbox) {
+      enterSandboxMode();
+    } else {
+      loadPreset(presetParam);
+    }
     nextBbColRef.current = 10;
     manuallyPlacedIds.current = new Set();
-  }, [presetParam, loadPreset]);
+  }, [presetParam, fromSandbox, loadPreset, enterSandboxMode]);
 
   // Keyboard shortcuts: Ctrl+Z = undo last wire, Delete/Backspace = delete selected wire
   useEffect(() => {
@@ -529,27 +538,35 @@ export default function ARLabPage() {
         </div>
 
         <div style={styles.headerCenter}>
-          <label htmlFor="preset-select" style={styles.srOnly}>Circuit preset</label>
-          <div style={styles.selectWrapper}>
-            <select
-              id="preset-select"
-              style={styles.presetDropdown}
-              value={presetParam}
-              onChange={(e) => navigate(`/arlab?preset=${e.target.value}`)}
-              aria-label="Select circuit preset"
-            >
-              {presetOptions.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
-            <span style={styles.selectChevron} aria-hidden="true">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M2 4l4 4 4-4"/>
-              </svg>
+          {fromSandbox ? (
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#00e5ff", fontFamily: "'Inter', sans-serif", letterSpacing: "0.03em" }}>
+              Custom Circuit
             </span>
-          </div>
+          ) : (
+            <>
+              <label htmlFor="preset-select" style={styles.srOnly}>Circuit preset</label>
+              <div style={styles.selectWrapper}>
+                <select
+                  id="preset-select"
+                  style={styles.presetDropdown}
+                  value={presetParam}
+                  onChange={(e) => navigate(`/arlab?preset=${e.target.value}`)}
+                  aria-label="Select circuit preset"
+                >
+                  {presetOptions.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                <span style={styles.selectChevron} aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M2 4l4 4 4-4"/>
+                  </svg>
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={styles.headerRight}>
@@ -558,7 +575,7 @@ export default function ARLabPage() {
             onClick={() => navigate("/sandbox")}
             aria-label="Switch to 2D workbench"
           >
-            2D Workbench
+            {fromSandbox ? "← Back to Sandbox" : "2D Workbench"}
           </button>
           <button
             style={{

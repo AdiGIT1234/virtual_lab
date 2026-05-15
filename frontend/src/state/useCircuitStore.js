@@ -108,7 +108,24 @@ export const useCircuitStore = create((set) => ({
   lastInputsSource: null,
   // Wires drawn in the 2D sandbox — synced here so the 3D lab can read them
   sandboxWires: [],
+  // Stable breadboard column assignments for sandbox components (id → col number)
+  sandboxColMap: {},
   syncWires: (wires) => set(() => ({ sandboxWires: wires })),
+  enterSandboxMode: () => set((state) => {
+    // Assign a fixed breadboard column to every current component.
+    // These won't change as components are added/removed later.
+    const colMap = {};
+    let col = 3;
+    state.components.forEach((c) => {
+      colMap[c.id] = col;
+      col += 4;
+    });
+    return {
+      presetId: '__sandbox__',
+      presetMeta: { name: 'Custom Circuit', description: 'Your sandbox circuit in 3D' },
+      sandboxColMap: colMap,
+    };
+  }),
   loadPreset: (presetId) => {
     const preset = CIRCUIT_PRESETS[presetId] || defaultPreset;
     const workspaceItems = cloneWorkspace(preset.workspace || []);
@@ -129,12 +146,31 @@ export const useCircuitStore = create((set) => ({
   },
   syncFromWorkspace: (workspaceItems, source = "sandbox") => {
     const cloned = cloneWorkspace(workspaceItems);
-    set((state) => ({
-      workspaceItems: cloned,
-      workspaceVersion: state.workspaceVersion + 1,
-      lastUpdatedBy: source,
-      components: deriveComponents(cloned),
-    }));
+    set((state) => {
+      let sandboxColMap = state.sandboxColMap;
+      if (state.presetId === '__sandbox__') {
+        const usedCols = new Set(Object.values(sandboxColMap));
+        const nextFreeCol = () => {
+          let c = 3;
+          while (usedCols.has(c)) c += 4;
+          usedCols.add(c);
+          return c;
+        };
+        const derived = deriveComponents(cloned);
+        derived.forEach((comp) => {
+          if (sandboxColMap[comp.id] == null) {
+            sandboxColMap = { ...sandboxColMap, [comp.id]: nextFreeCol() };
+          }
+        });
+      }
+      return {
+        workspaceItems: cloned,
+        workspaceVersion: state.workspaceVersion + 1,
+        lastUpdatedBy: source,
+        components: deriveComponents(cloned),
+        sandboxColMap,
+      };
+    });
   },
   setOutputLevel: (pin, value) => {
     set((state) => ({
