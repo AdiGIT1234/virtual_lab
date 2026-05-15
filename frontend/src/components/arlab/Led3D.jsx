@@ -18,56 +18,52 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
     }
   });
 
+  // Realistic 5 mm LED at scene scale (1 unit ≈ 50 mm)
+  // Body: r=0.048 (≈2.4 mm radius = 4.8 mm diam), h=0.18
+  const R  = 0.048;
+  const HH = 0.090; // half-height of cylinder
+
   return (
     <group position={position} rotation={rotation}>
-      {/* LED Main Lens/Body */}
+      {/* Cylindrical body */}
       <mesh castShadow receiveShadow ref={glowRef}>
-        <cylinderGeometry args={[0.032, 0.032, 0.16, 28]} />
+        <cylinderGeometry args={[R, R, HH * 2, 28]} />
         <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.2}
-          roughness={0.1}
-          metalness={0.1}
-          transparent
-          opacity={0.85}
+          color={color} emissive={color} emissiveIntensity={0.2}
+          roughness={0.1} metalness={0.1} transparent opacity={0.88}
         />
       </mesh>
 
-      {/* Flat bottom rim (Anode/Cathode indicator) */}
-      <mesh position={[0, -0.08, 0]}>
-        <cylinderGeometry args={[0.036, 0.036, 0.015, 28]} />
-        <meshStandardMaterial color={color} roughness={0.2} />
+      {/* Flat bottom rim — polarity flat */}
+      <mesh position={[0, -HH, 0]}>
+        <cylinderGeometry args={[R + 0.005, R + 0.005, 0.016, 28]} />
+        <meshStandardMaterial color={color} roughness={0.18} />
       </mesh>
 
-      {/* Domed Top */}
-      <mesh position={[0, 0.08, 0]} ref={lensRef}>
-        <sphereGeometry args={[0.032, 24, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />
+      {/* Domed top */}
+      <mesh position={[0, HH, 0]} ref={lensRef}>
+        <sphereGeometry args={[R, 24, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshPhysicalMaterial
-          color={color}
-          transparent
-          opacity={0.6}
-          roughness={0}
-          transmission={0.9}
-          thickness={0.05}
+          color={color} transparent opacity={0.62}
+          roughness={0} transmission={0.88} thickness={0.06}
         />
       </mesh>
 
-      {/* LED internal structure (Cathode/Anode flags) */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.015, 0.06, 0.005]} />
+      {/* Internal die flag (visible through lens) */}
+      <mesh position={[0, 0.01, 0]}>
+        <boxGeometry args={[0.018, 0.065, 0.006]} />
         <meshStandardMaterial color="#dfe7ef" metalness={0.9} roughness={0.1} />
       </mesh>
 
-      {/* Long Lead (Anode) — trimmed to realistic breadboard insertion depth */}
-      <mesh position={[0.012, -0.115, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.19, 8]} />
+      {/* Long lead (anode) */}
+      <mesh position={[0.014, -HH - 0.10, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.20, 8]} />
         <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.9} />
       </mesh>
 
-      {/* Short Lead (Cathode) */}
-      <mesh position={[-0.012, -0.1, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 0.16, 8]} />
+      {/* Short lead (cathode) */}
+      <mesh position={[-0.014, -HH - 0.085, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.17, 8]} />
         <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
       </mesh>
 
@@ -83,7 +79,7 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
 
       {highlighted && (
         <mesh position={[0, 0.05, 0]}>
-          <sphereGeometry args={[0.06, 24, 24]} />
+          <sphereGeometry args={[0.085, 24, 24]} />
           <meshBasicMaterial color={color} opacity={0.15} transparent blending={THREE.AdditiveBlending} />
         </mesh>
       )}

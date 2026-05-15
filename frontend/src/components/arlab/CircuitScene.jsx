@@ -118,12 +118,12 @@ const BOARD_Y = 0.035;
 // Per-type y-lift: distance from BOARD_Y to model origin so body bottom sits at BOARD_Y.
 // Derived from each model's geometry (body-center to body-bottom distance).
 const COMP_Y = {
-  LED: BOARD_Y + 0.080,          // cylinder h=0.16, half=0.08
-  LED_RED: BOARD_Y + 0.080,
-  LED_GREEN: BOARD_Y + 0.080,
-  LED_YELLOW: BOARD_Y + 0.080,
-  LED_BLUE: BOARD_Y + 0.080,
-  RESISTOR: BOARD_Y + 0.022,     // horizontal cylinder radius 0.022
+  LED: BOARD_Y + 0.090,          // cylinder h=0.18, half=0.09
+  LED_RED: BOARD_Y + 0.090,
+  LED_GREEN: BOARD_Y + 0.090,
+  LED_YELLOW: BOARD_Y + 0.090,
+  LED_BLUE: BOARD_Y + 0.090,
+  RESISTOR: BOARD_Y + 0.032,     // horizontal cylinder radius 0.032
   BUTTON: BOARD_Y + 0.000,       // body bottom already at y=0 in group
   BUZZER: BOARD_Y + 0.015,       // disk bottom at y=-0.015
   CAPACITOR: BOARD_Y + 0.013,    // disk bottom at y=-0.013
@@ -209,7 +209,7 @@ const COMP_Y = {
   BARREL_JACK: BOARD_Y + 0.020,
   SCREW_TERMINAL_2: BOARD_Y + 0.010,
   SCREW_TERMINAL_3: BOARD_Y + 0.010,
-  RGB_LED: BOARD_Y + 0.080,
+  RGB_LED: BOARD_Y + 0.090,
 };
 
 function buildWirePoints(p1, p2) {

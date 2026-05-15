@@ -32,65 +32,69 @@ export default function Resistor3D({ id, resistance = 330, position = [0, 0, 0],
     if (!isNaN(val)) updateComponent(id, { resistance: val });
   };
 
+  // Realistic ¼W resistor: body 3 mm diam × 9 mm long at scene scale
+  // (1 unit ≈ 50 mm → body r=0.032, half-length=0.090)
+  const R = 0.032;   // body radius
+  const HL = 0.090;  // body half-length
+  const LR = 0.007;  // lead wire radius
+
   return (
     <group position={position} rotation={rotation}>
       {/* Lay resistor horizontally (rotate 90° around Z) */}
       <group rotation={[0, 0, Math.PI / 2]}>
         {/* Body */}
         <mesh castShadow onPointerDown={(e) => { e.stopPropagation(); setEditing(!editing); }}>
-          <cylinderGeometry args={[0.022, 0.022, 0.16, 24]} />
+          <cylinderGeometry args={[R, R, HL * 2, 24]} />
           <meshStandardMaterial
             color={highlighted ? "#e8d0a0" : "#d4c088"}
-            roughness={0.45}
-            metalness={0.08}
+            roughness={0.45} metalness={0.08}
             emissive={highlighted ? "#ffcc99" : "#000000"}
             emissiveIntensity={highlighted ? 0.15 : 0}
           />
         </mesh>
 
         {/* End caps */}
-        <mesh position={[0, 0.075, 0]}>
-          <cylinderGeometry args={[0.024, 0.022, 0.018, 24]} />
+        <mesh position={[0,  HL + 0.008, 0]}>
+          <cylinderGeometry args={[R + 0.003, R, 0.018, 24]} />
           <meshStandardMaterial color={highlighted ? "#e8d0a0" : "#d4c088"} />
         </mesh>
-        <mesh position={[0, -0.075, 0]}>
-          <cylinderGeometry args={[0.022, 0.024, 0.018, 24]} />
+        <mesh position={[0, -HL - 0.008, 0]}>
+          <cylinderGeometry args={[R, R + 0.003, 0.018, 24]} />
           <meshStandardMaterial color={highlighted ? "#e8d0a0" : "#d4c088"} />
         </mesh>
 
-        {/* Dynamic 4-band color code */}
+        {/* Dynamic 4-band color code — spaced proportionally on body */}
         {bands.map((bandColor, i) => {
-          const positions = [0.042, 0.016, -0.010, -0.045];
+          const pos = [ HL*0.52, HL*0.20, -HL*0.10, -HL*0.48 ][i];
           return (
-            <mesh key={i} position={[0, positions[i], 0]}>
-              <cylinderGeometry args={[0.0228, 0.0228, 0.011, 24]} />
+            <mesh key={i} position={[0, pos, 0]}>
+              <cylinderGeometry args={[R + 0.001, R + 0.001, 0.015, 24]} />
               <meshStandardMaterial
                 color={bandColor}
-                metalness={i === 3 ? 0.7 : 0.05}
-                roughness={i === 3 ? 0.25 : 0.6}
+                metalness={i === 3 ? 0.70 : 0.05}
+                roughness={i === 3 ? 0.25 : 0.60}
               />
             </mesh>
           );
         })}
 
-        {/* Leads */}
-        <mesh position={[0, 0.185, 0]}>
-          <cylinderGeometry args={[0.005, 0.005, 0.2, 8]} />
+        {/* Axial leads — horizontal portion inside the inner rotated group */}
+        <mesh position={[0,  HL + 0.12, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.22, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
-        <mesh position={[0, -0.185, 0]}>
-          <cylinderGeometry args={[0.005, 0.005, 0.2, 8]} />
+        <mesh position={[0, -HL - 0.12, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.22, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
       </group>
 
-      {/* Bent leads — vertical portion that inserts into breadboard holes.
-          Positioned in the outer (unrotated) group so they go straight down.
-          After inner group rotation, the body ends are at x ≈ ±0.085 in outer space.
-          These drop from the outer group's y=0 down to y=-0.022 (reaching board surface). */}
-      {[0.085, -0.085].map((lx) => (
-        <mesh key={lx} position={[lx, -0.011, 0]}>
-          <cylinderGeometry args={[0.005, 0.005, 0.022, 8]} />
+      {/* Bent leads — vertical portion going down into breadboard holes.
+          Lead bends at x ≈ ±(HL + 0.22) = ±0.31 in outer (unrotated) space,
+          but we keep hole-span realistic: ±0.115 (≈ 4 breadboard pitches = 10 mm). */}
+      {[0.115, -0.115].map((lx) => (
+        <mesh key={lx} position={[lx, -0.016, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.032, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
       ))}

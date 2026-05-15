@@ -155,6 +155,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
         <instancedMesh
           ref={instancedRef}
           args={[holeGeo, holeMat, holes.length]}
+          frustumCulled={false}
         />
       </group>
 
