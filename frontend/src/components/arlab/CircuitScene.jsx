@@ -436,12 +436,15 @@ export default function CircuitScene({
     // Sandbox mode: use the stable per-component column assignments from the store
     // so positions don't shift when other components are added or removed.
     if (presetId === '__sandbox__') {
-      // Breadboard group is at scene-group x = 1.2 + bbOffset.x; components follow it
+      // Breadboard group is at scene-group x = 1.2 + bbOffset.x; components follow it.
+      // Z = 0.165 places components in the lower main rows (f-j, near row h) — the center
+      // channel at z=0 has no holes and is just the plastic divider.
       const startX = 1.2 + bbOffset.x - (63 * 0.05) / 2;
+      const rowZ   = bbOffset.z + 0.165;
       components.forEach((c) => {
         const col = sandboxColMap[c.id] ?? 3;
         const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
-        map[c.id] = [startX + (col - 1) * 0.05, y, bbOffset.z, c.type];
+        map[c.id] = [startX + (col - 1) * 0.05, y, rowZ, c.type];
       });
       return map;
     }
@@ -501,6 +504,24 @@ export default function CircuitScene({
       return { ...component, position, rotation };
     });
   }, [components, arlabPositions, posMap, localPosOverrides]);
+
+  // ── Power-bus jumper wires ─────────────────────────────────────────────────
+  // Arduino power header sits at board-local [x, 0.075, -0.52].
+  // Pin order (left→right): IOREF RST 3V3 5V GND GND VIN
+  //   5V  → local x = 0.35  → scene-group x = -0.25 + boardOffset.x
+  //   GND → local x = 0.45  → scene-group x = -0.15 + boardOffset.x
+  // Breadboard top rails (local): +rail z=-0.35, -rail z=-0.40
+  //   column 3 x ≈ -0.275, column 5 x ≈ -0.175 (aligns visually with above pins)
+  const powerBusWires = useMemo(() => {
+    const vccPin    = [-0.25 + boardOffset.x, 0.085, -0.52 + boardOffset.z];
+    const gndPin    = [-0.15 + boardOffset.x, 0.085, -0.52 + boardOffset.z];
+    const bbVccRail = [-0.275 + bbOffset.x,   0.045, -0.35  + bbOffset.z];
+    const bbGndRail = [-0.175 + bbOffset.x,   0.045, -0.40  + bbOffset.z];
+    return {
+      vcc: buildWirePoints(vccPin, bbVccRail),
+      gnd: buildWirePoints(gndPin, bbGndRail),
+    };
+  }, [boardOffset.x, boardOffset.z, bbOffset.x, bbOffset.z]);
 
   return (
     <group position={[-0.8 + setupPos.x, 0, setupPos.z]}>
@@ -912,6 +933,10 @@ export default function CircuitScene({
           onClick={(e) => { e.stopPropagation(); onWireSelect?.(i === selectedWireIdx ? null : i); }}
         />
       ))}
+
+      {/* Power-bus jumpers — always visible, connect Arduino 5V/GND to breadboard rails */}
+      <Wire3D points={powerBusWires.vcc} color="#dc2626" />
+      <Wire3D points={powerBusWires.gnd} color="#111111" />
     </group>
   );
 }
