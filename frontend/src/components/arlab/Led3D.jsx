@@ -56,14 +56,14 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
       </mesh>
 
       {/* Long lead (anode) */}
-      <mesh position={[0.014, -HH - 0.10, 0]}>
-        <cylinderGeometry args={[0.007, 0.007, 0.20, 8]} />
+      <mesh position={[0.014, -HH - 0.125, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.25, 8]} />
         <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.9} />
       </mesh>
 
       {/* Short lead (cathode) */}
-      <mesh position={[-0.014, -HH - 0.085, 0]}>
-        <cylinderGeometry args={[0.007, 0.007, 0.17, 8]} />
+      <mesh position={[-0.014, -HH - 0.105, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.21, 8]} />
         <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
       </mesh>
 

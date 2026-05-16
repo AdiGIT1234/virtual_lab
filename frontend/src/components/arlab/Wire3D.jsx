@@ -29,7 +29,7 @@ export default function Wire3D({ points = [], color = "#cc2200", glow = false, o
 
     const curve = new THREE.CatmullRomCurve3(enriched, false, "catmullrom", 0.3);
     const segments = Math.max(20, enriched.length * 6);
-    return new THREE.TubeGeometry(curve, segments, 0.009, 8, false);
+    return new THREE.TubeGeometry(curve, segments, 0.018, 12, false);
   }, [points]);
 
   useEffect(() => () => geometry?.dispose(), [geometry]);
@@ -40,8 +40,8 @@ export default function Wire3D({ points = [], color = "#cc2200", glow = false, o
     <mesh geometry={geometry} castShadow onClick={onClick}>
       <meshStandardMaterial
         color={color}
-        roughness={0.55}
-        metalness={0.05}
+        roughness={0.65}
+        metalness={0.02}
         emissive={glow ? color : "#000000"}
         emissiveIntensity={glow ? 0.8 : 0}
       />

@@ -9,12 +9,12 @@ const HOLE_RADIUS = 0.012;
 const ROW_LABELS_TOP = ["a", "b", "c", "d", "e"];
 const ROW_LABELS_BOT = ["f", "g", "h", "i", "j"];
 
-const COLOR_DEFAULT  = new THREE.Color("#0f0f0f");
-const COLOR_HOVER    = new THREE.Color("#ff6200");
-const COLOR_OCCUPIED = new THREE.Color("#00cc55");
-const COLOR_WIRING   = new THREE.Color("#00e5ff");
+const COLOR_DEFAULT = new THREE.Color("#101010");
+const COLOR_HOVER = new THREE.Color("#ff8c00");
+const COLOR_OCCUPIED = new THREE.Color("#00dd55");
+const COLOR_WIRING = new THREE.Color("#00e5ff");
 
-const holeGeo    = new THREE.CylinderGeometry(HOLE_RADIUS, HOLE_RADIUS * 0.8, 0.015, 8);
+const holeGeo    = new THREE.BoxGeometry(HOLE_RADIUS * 2.0, 0.018, HOLE_RADIUS * 2.0);
 const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true });
 // Larger transparent cylinders used only for pointer hit-testing — makes hover forgiving
 const holeHitGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.025, 8);
@@ -108,20 +108,20 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
     <group>
       {/* PCB Body — mid-tone warm gray, toned down in dark lab environment */}
       <mesh receiveShadow castShadow position={[0, -0.008, 0]}>
-        <boxGeometry args={[boardWidth, 0.06, boardDepth]} />
-        <meshStandardMaterial color="#9e9890" roughness={0.92} metalness={0.03} />
+        <boxGeometry args={[boardWidth, 0.065, boardDepth]} />
+        <meshStandardMaterial color="#f0ede4" roughness={0.82} metalness={0.03} />
       </mesh>
 
       {/* Subtle rounded edge bevel */}
       <mesh position={[0, -0.008, 0]}>
         <boxGeometry args={[boardWidth + 0.01, 0.058, boardDepth + 0.01]} />
-        <meshStandardMaterial color="#8e8a82" roughness={0.92} metalness={0} transparent opacity={0.45} />
+        <meshStandardMaterial color="#dedad2" roughness={0.92} metalness={0} transparent opacity={0.45} />
       </mesh>
 
       {/* Center channel divider */}
       <mesh position={[0, 0.025, 0]}>
         <boxGeometry args={[boardWidth - 0.08, 0.008, 0.05]} />
-        <meshStandardMaterial color="#b8b4aa" roughness={0.9} />
+        <meshStandardMaterial color="#d8d4cc" roughness={0.9} />
       </mesh>
 
       {/* Power rail stripes */}
@@ -132,7 +132,7 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
         { z: 0.04 + MAIN_ROWS * HOLE_SPACING + 0.08,  color: "#2040cc" },
       ].map((stripe, i) => (
         <mesh key={i} position={[0, 0.023, stripe.z]}>
-          <boxGeometry args={[boardWidth - 0.1, 0.003, 0.008]} />
+          <boxGeometry args={[boardWidth - 0.06, 0.004, 0.010]} />
           <meshStandardMaterial color={stripe.color} />
         </mesh>
       ))}

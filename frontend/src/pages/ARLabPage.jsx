@@ -370,6 +370,8 @@ export default function ARLabPage() {
   const [drawnWires, setDrawnWires] = useState([]);
   const [selectedWireIdx, setSelectedWireIdx] = useState(null);
   const [pendingPart, setPendingPart] = useState(null); // { type, label } — awaiting hole click to place
+  const [cameraView, setCameraView] = useState("perspective");
+  const [zoomPct, setZoomPct] = useState(100);
 
   const wiringFrom = wireAnchor?.kind === 'pin' ? wireAnchor.id : null;
   const wiringFromHole = wireAnchor?.kind === 'hole' ? wireAnchor.id : null;
@@ -779,88 +781,122 @@ export default function ARLabPage() {
             onWireSelect={setSelectedWireIdx}
             onRemoveComponent={handleRemoveComponent}
             onComponentMove={handleComponentMove}
+            cameraView={cameraView}
+            onCameraViewChange={setCameraView}
+            onZoomChange={setZoomPct}
           />
 
-          {/* Floating wire toolbar — glassmorphic pill anchored at bottom-center */}
-          <div style={styles.wireToolbar} role="toolbar" aria-label="Wire controls">
+          {/* ── Unified bottom pill bar — withdiode style ── */}
+          <div style={styles.bottomBar} role="toolbar" aria-label="Controls">
+
+            {/* Zoom controls */}
+            <button style={styles.pillIconBtn} onClick={() => setCameraView("perspective")} title="Reset view (1)" aria-label="Reset to perspective view">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8zM8 5v3l2 2"/>
+              </svg>
+            </button>
+            <button style={styles.pillIconBtn} onClick={() => setZoomPct(p => Math.min(800, p + 20))} title="Zoom in" aria-label="Zoom in">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <circle cx="7" cy="7" r="5"/><path d="M12 12l2.5 2.5M7 4v6M4 7h6"/>
+              </svg>
+            </button>
+            <span style={styles.zoomPct}>{zoomPct}%</span>
+            <button style={styles.pillIconBtn} onClick={() => setZoomPct(p => Math.max(6, p - 20))} title="Zoom out" aria-label="Zoom out">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <circle cx="7" cy="7" r="5"/><path d="M12 12l2.5 2.5M4 7h6"/>
+              </svg>
+            </button>
+
+            <div style={styles.pillDivider} aria-hidden="true" />
+
+            {/* Camera view text pills */}
+            {[
+              { view: "perspective", label: "Orbit" },
+              { view: "front",       label: "Front" },
+              { view: "top",         label: "Top"   },
+              { view: "side",        label: "Side"  },
+            ].map(({ view, label }) => (
+              <button
+                key={view}
+                style={{
+                  ...styles.viewBtn,
+                  ...(cameraView === view ? styles.viewBtnActive : {}),
+                }}
+                onClick={() => setCameraView(view)}
+                aria-pressed={cameraView === view}
+              >
+                {label}
+              </button>
+            ))}
+
+            <div style={styles.pillDivider} aria-hidden="true" />
+
+            {/* Wire mode toggle */}
             <button
               style={{
                 ...styles.wireToggleBtn,
-                background: wiringMode ? "rgba(0,229,255,0.18)" : "transparent",
-                color: wiringMode ? "#00e5ff" : "#c9d1d9",
-                border: wiringMode ? "1px solid rgba(0,229,255,0.6)" : "1px solid rgba(48,54,61,0.7)",
-                boxShadow: wiringMode ? "0 0 10px rgba(0,229,255,0.25)" : "none",
+                background: wiringMode ? "rgba(0,229,255,0.15)" : "transparent",
+                color: wiringMode ? "#00e5ff" : "#8b949e",
+                border: wiringMode ? "1px solid rgba(0,229,255,0.5)" : "1px solid transparent",
               }}
               onClick={() => { setWiringMode(m => !m); setWireAnchor(null); }}
-              aria-label="Toggle wire drawing mode"
               aria-pressed={wiringMode}
               title="Toggle wire mode"
             >
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 5, verticalAlign: "middle" }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
                 <path d="M2 8 Q5 2 8 8 T14 8"/>
               </svg>
-              {wiringMode ? "Wire Mode On" : "Wire Mode"}
+              Wire
             </button>
 
+            {/* Color swatches — only in wire mode */}
             {wiringMode && (
-              <div style={styles.wireToolbarDivider} aria-hidden="true" />
-            )}
-
-            {wiringMode && (
-              <div style={styles.wireSwatchRow} role="group" aria-label="Wire color">
+              <>
+                <div style={styles.pillDivider} aria-hidden="true" />
                 {WIRE_PALETTE.map((c) => (
                   <button
                     key={c}
                     style={{
                       ...styles.colorSwatch,
                       background: c,
-                      boxShadow: activeWireColor === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "none",
-                      transform: activeWireColor === c ? "scale(1.25)" : "scale(1)",
+                      boxShadow: activeWireColor === c ? `0 0 0 2px #111, 0 0 0 4px ${c}` : "none",
+                      transform: activeWireColor === c ? "scale(1.3)" : "scale(1)",
                     }}
                     onClick={() => setActiveWireColor(c)}
                     aria-label={`Wire color ${c}`}
                     title={c}
                   />
                 ))}
-              </div>
+              </>
             )}
 
+            {/* Undo / clear — only when wires exist in wire mode */}
             {wiringMode && drawnWires.length > 0 && (
               <>
-                <div style={styles.wireToolbarDivider} aria-hidden="true" />
-                <button
-                  style={styles.wireIconBtn}
-                  onClick={() => { setDrawnWires(prev => prev.slice(0, -1)); setSelectedWireIdx(null); }}
-                  aria-label="Undo last wire"
-                  title="Undo last wire (Ctrl+Z)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <div style={styles.pillDivider} aria-hidden="true" />
+                <button style={styles.pillIconBtn} onClick={() => { setDrawnWires(p => p.slice(0, -1)); setSelectedWireIdx(null); }} title="Undo last wire">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M2 8 L6 4 M2 8 L6 12 M2 8 H10 a4 4 0 0 1 0 8 H8"/>
                   </svg>
                 </button>
-                <button
-                  style={styles.wireIconBtn}
-                  onClick={() => setDrawnWires([])}
-                  aria-label="Clear all wires"
-                  title="Clear all wires"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <button style={styles.pillIconBtn} onClick={() => setDrawnWires([])} title="Clear all wires">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 5h10M6 5V3h4v2M5 5l1 9h4l1-9"/>
                   </svg>
                 </button>
               </>
             )}
 
+            {/* Delete selected wire */}
             {selectedWireIdx !== null && (
               <>
-                <div style={styles.wireToolbarDivider} aria-hidden="true" />
+                <div style={styles.pillDivider} aria-hidden="true" />
                 <button
-                  style={styles.wireDeleteBtn}
-                  onClick={() => { setDrawnWires(prev => prev.filter((_, i) => i !== selectedWireIdx)); setSelectedWireIdx(null); }}
-                  aria-label="Delete selected wire"
-                  title="Delete selected wire (Delete)"
+                  style={{ ...styles.wireToggleBtn, color: "#f87171", border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.07)" }}
+                  onClick={() => { setDrawnWires(p => p.filter((_, i) => i !== selectedWireIdx)); setSelectedWireIdx(null); }}
+                  title="Delete selected wire"
                 >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ marginRight: 5, verticalAlign: "middle" }}>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" style={{ marginRight: 4 }}>
                     <path d="M4 4l8 8M12 4l-8 8"/>
                   </svg>
                   Delete
@@ -1055,20 +1091,20 @@ const styles = {
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    background: "#0d1117",
+    background: "#080808",
     fontFamily: "'Inter', 'Inconsolata', monospace, sans-serif",
     overflow: "hidden",
   },
 
   // Header
   header: {
-    height: 52,
+    height: 50,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 16px",
-    background: "#161b22",
-    borderBottom: "1px solid #21262d",
+    background: "#0e0e10",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
     flexShrink: 0,
     zIndex: 100,
     gap: 12,
@@ -1176,49 +1212,33 @@ const styles = {
     border: "1px solid #30363d",
     borderRadius: 8,
   },
-  // Floating wire toolbar (glassmorphic pill inside canvas)
-  wireToolbar: {
+  // Unified bottom pill bar (withdiode-style)
+  bottomBar: {
     position: "absolute",
-    bottom: 58,
+    bottom: 18,
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 25,
-    background: "rgba(13,17,23,0.88)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    border: "1px solid rgba(48,54,61,0.9)",
-    borderRadius: 28,
-    padding: "6px 12px",
+    background: "rgba(10,12,16,0.90)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 32,
+    padding: "5px 10px",
     display: "flex",
-    gap: 8,
+    gap: 4,
     alignItems: "center",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+    boxShadow: "0 6px 28px rgba(0,0,0,0.6)",
+    userSelect: "none",
   },
-  wireToggleBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "5px 14px",
-    fontSize: 12,
-    fontWeight: 600,
-    borderRadius: 20,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    outline: "none",
-    whiteSpace: "nowrap",
-    transition: "background 0.15s, color 0.15s, box-shadow 0.15s",
-  },
-  wireToolbarDivider: {
+  pillDivider: {
     width: 1,
-    height: 20,
-    background: "rgba(48,54,61,0.9)",
+    height: 18,
+    background: "rgba(255,255,255,0.08)",
     flexShrink: 0,
+    margin: "0 2px",
   },
-  wireSwatchRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  wireIconBtn: {
+  pillIconBtn: {
     width: 28,
     height: 28,
     display: "flex",
@@ -1226,37 +1246,64 @@ const styles = {
     justifyContent: "center",
     background: "transparent",
     color: "#8b949e",
-    border: "1px solid rgba(48,54,61,0.7)",
-    borderRadius: "50%",
+    border: "none",
+    borderRadius: 8,
     cursor: "pointer",
     outline: "none",
-    transition: "color 0.15s, background 0.15s",
+    transition: "color 0.12s, background 0.12s",
     padding: 0,
+    flexShrink: 0,
   },
-  wireDeleteBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "5px 12px",
+  zoomPct: {
     fontSize: 12,
+    fontWeight: 700,
+    color: "#c9d1d9",
+    fontFamily: "'JetBrains Mono', monospace",
+    minWidth: 40,
+    textAlign: "center",
+    letterSpacing: "0.02em",
+  },
+  viewBtn: {
+    padding: "4px 10px",
+    fontSize: 11,
     fontWeight: 600,
-    border: "1px solid rgba(248,113,113,0.5)",
-    borderRadius: 20,
-    background: "rgba(248,113,113,0.08)",
-    color: "#f87171",
+    color: "#8b949e",
+    background: "transparent",
+    border: "none",
+    borderRadius: 8,
     cursor: "pointer",
-    fontFamily: "inherit",
     outline: "none",
+    fontFamily: "'Inter', sans-serif",
+    letterSpacing: "0.02em",
+    transition: "color 0.12s, background 0.12s",
     whiteSpace: "nowrap",
   },
+  viewBtnActive: {
+    color: "#e6edf3",
+    background: "rgba(255,255,255,0.09)",
+  },
+  wireToggleBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    fontSize: 11,
+    fontWeight: 600,
+    borderRadius: 8,
+    cursor: "pointer",
+    fontFamily: "'Inter', sans-serif",
+    outline: "none",
+    whiteSpace: "nowrap",
+    transition: "background 0.12s, color 0.12s",
+  },
   colorSwatch: {
-    width: 16,
-    height: 16,
+    width: 14,
+    height: 14,
     borderRadius: "50%",
     border: "none",
     cursor: "pointer",
     padding: 0,
     outline: "none",
-    transition: "transform 0.12s, box-shadow 0.12s",
+    transition: "transform 0.1s, box-shadow 0.1s",
     flexShrink: 0,
   },
   simulateBtn: {

@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useCircuitStore } from "../../state/useCircuitStore";
 import { getPinCoord } from "../../constants/unoPinCoords";
 import { CIRCUIT_PRESETS } from "../../constants/circuitPresets";
-import { Environment, ContactShadows } from "@react-three/drei";
+import { Environment, ContactShadows, Html } from "@react-three/drei";
 import SceneLighting from "./SceneLighting";
 import BoardModel from "./BoardModel";
 import BreadboardModel from "./BreadboardModel";
@@ -224,6 +224,28 @@ function buildWirePoints(p1, p2) {
   ];
 }
 
+// Build a human-readable tooltip label for a component
+function compTooltip(comp) {
+  const t = comp.type || "";
+  const pin = comp.pin != null ? ` → D${comp.pin}` : "";
+  if (t.startsWith("LED_")) return `LED (${t.slice(4).charAt(0) + t.slice(5).toLowerCase()})${pin}`;
+  if (t === "RESISTOR")   return comp.resistance != null ? `Resistor (${comp.resistance}Ω)${pin}` : `Resistor${pin}`;
+  if (t === "BUTTON")     return `Push Button${pin}`;
+  if (t === "SERVO")      return `Servo Motor${pin}`;
+  if (t === "CAPACITOR")  return comp.metadata?.capacitance != null ? `Capacitor (${comp.metadata.capacitance}${comp.metadata.unit || "nF"})${pin}` : `Capacitor${pin}`;
+  if (t === "BUZZER")     return `Buzzer${pin}`;
+  if (t === "SEVEN_SEG")  return `7-Segment Display`;
+  if (t === "TIMER_555")  return `555 Timer`;
+  if (t === "DHT22")      return `DHT22 Temp/Humidity`;
+  if (t === "HC_SR04")    return `HC-SR04 Ultrasonic`;
+  if (t === "PIR_SENSOR") return `PIR Motion Sensor`;
+  if (t === "OLED_SSD1306") return `OLED Display (128×64)`;
+  if (t === "NPN_TRANSISTOR") return `NPN Transistor${pin}`;
+  if (t === "PNP_TRANSISTOR") return `PNP Transistor${pin}`;
+  // Generic fallback: "LOGIC_AND" → "Logic And"
+  return t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) + pin;
+}
+
 export default function CircuitScene({
   highlightedComponentId,
   componentStyles = {},
@@ -245,6 +267,7 @@ export default function CircuitScene({
 }) {
   const [draggingId, setDraggingId] = useState(null);
   const draggingIdRef = useRef(null);
+  const [hoveredCompId, setHoveredCompId] = useState(null);
   const setupPosRef = useRef(setupPos);
   useEffect(() => { setupPosRef.current = setupPos; }, [setupPos]);
 
@@ -892,6 +915,8 @@ export default function CircuitScene({
         }
 
         if (element) {
+          const tooltipLabel = compTooltip(component);
+          const [cx, cy, cz] = component.position || [0, 0, 0];
           return (
             <group
               key={component.id}
@@ -899,19 +924,41 @@ export default function CircuitScene({
               onPointerDown={(e) => {
                 e.stopPropagation();
                 setDraggingId(component.id);
+                setHoveredCompId(null);
                 onDragStart?.();
-                // Set canvas cursor via DOM since CSS style doesn't apply to Three.js groups
                 gl.domElement.style.cursor = 'grabbing';
               }}
               onPointerEnter={() => {
-                if (draggingId === null)
+                if (draggingId === null) {
                   gl.domElement.style.cursor = 'grab';
+                  setHoveredCompId(component.id);
+                }
               }}
               onPointerLeave={() => {
                 if (draggingId === null) gl.domElement.style.cursor = '';
+                setHoveredCompId(null);
               }}
             >
               {element}
+              {hoveredCompId === component.id && tooltipLabel && (
+                <Html position={[0, 0.28, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: "none" }}>
+                  <div style={{
+                    background: "rgba(10,12,16,0.92)",
+                    color: "#e6edf3",
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.6)",
+                    backdropFilter: "blur(8px)",
+                  }}>
+                    {tooltipLabel}
+                  </div>
+                </Html>
+              )}
             </group>
           );
         }
