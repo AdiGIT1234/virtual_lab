@@ -14,14 +14,16 @@ const WIRE_COLORS = [
 function getChipRect(workspaceRect, viewScale, viewOffset) {
   const chipNode = document.getElementById('atmega-chip')
                 || document.getElementById('esp32-chip')
-                || document.getElementById('arduino-uno-board');
+                || document.getElementById('arduino-uno-board')
+                || document.getElementById('esp32-board')
+                || document.getElementById('esp32-board-container');
   if (!chipNode || !workspaceRect) return null;
   const r = chipNode.getBoundingClientRect();
   return {
-    left:   (r.left   - workspaceRect.left - viewOffset.x) / viewScale,
-    right:  (r.right  - workspaceRect.left - viewOffset.x) / viewScale,
-    top:    (r.top    - workspaceRect.top  - viewOffset.y) / viewScale,
-    bottom: (r.bottom - workspaceRect.top  - viewOffset.y) / viewScale,
+    left:   (r.left   - workspaceRect.left) / viewScale,
+    right:  (r.right  - workspaceRect.left) / viewScale,
+    top:    (r.top    - workspaceRect.top)  / viewScale,
+    bottom: (r.bottom - workspaceRect.top)  / viewScale,
   };
 }
 
@@ -71,24 +73,16 @@ function detectTerminalSide(termNode) {
 // When null the function falls back to chip-edge detection (MCU pins), then 'bottom'.
 function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
   const PAD  = 20;
-  const STUB = 32; // perpendicular exit length in px
+  const STUB = 60; // perpendicular exit length in px
 
   const toPath = (pts) => {
     if (pts.length < 2) return '';
     let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-      const prev = pts[i - 1];
       const curr = pts[i];
+      const prev = pts[i - 1];
       if (Math.abs(curr.x - prev.x) < 0.1 && Math.abs(curr.y - prev.y) < 0.1) continue;
-      const mx = (prev.x + curr.x) / 2;
-      const my = (prev.y + curr.y) / 2;
-      const dx = curr.x - prev.x;
-      const dy = curr.y - prev.y;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const sag = Math.min(len * 0.04, 6);
-      const ox = -dy / (len || 1) * sag;
-      const oy =  dx / (len || 1) * sag;
-      d += ` Q ${(mx + ox).toFixed(1)} ${(my + oy).toFixed(1)} ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
+      d += ` L ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
     }
     return d;
   };
@@ -97,10 +91,15 @@ function buildOrthogonalPath(sx, sy, ex, ey, chip, srcSide, tgtSide) {
   function resolveSide(x, y, given) {
     if (given) return given;
     if (chip) {
-      if (Math.abs(x - chip.left)   < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'left';
-      if (Math.abs(x - chip.right)  < 50 && y >= chip.top - 10 && y <= chip.bottom + 10) return 'right';
-      if (Math.abs(y - chip.top)    < 50 && x >= chip.left - 10 && x <= chip.right + 10) return 'top';
-      if (Math.abs(y - chip.bottom) < 50 && x >= chip.left - 10 && x <= chip.right + 10) return 'bottom';
+      const chipW = chip.right - chip.left;
+      const chipH = chip.bottom - chip.top;
+      // Use proportional thresholds: 15% of chip dimension or 80px, whichever is larger
+      const hPad = Math.max(80, chipW * 0.15);
+      const vPad = Math.max(80, chipH * 0.15);
+      if (Math.abs(y - chip.top)    < vPad && x >= chip.left - 10 && x <= chip.right + 10) return 'top';
+      if (Math.abs(y - chip.bottom) < vPad && x >= chip.left - 10 && x <= chip.right + 10) return 'bottom';
+      if (Math.abs(x - chip.left)   < hPad && y > chip.top + vPad && y < chip.bottom - vPad) return 'left';
+      if (Math.abs(x - chip.right)  < hPad && y > chip.top + vPad && y < chip.bottom - vPad) return 'right';
     }
     return 'bottom';
   }
@@ -244,8 +243,8 @@ const WiringCanvas = ({
           if (!node) return null;
           const rect = node.getBoundingClientRect();
           return {
-            x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-            y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            x:    (rect.left + rect.width  / 2 - workspaceRect.left) / viewScale,
+            y:    (rect.top  + rect.height / 2 - workspaceRect.top)  / viewScale,
             side: null, // MCU pins: detected inside buildOrthogonalPath via chip bounds
           };
         } else {
@@ -255,8 +254,8 @@ const WiringCanvas = ({
           if (!node) return null;
           const rect = node.getBoundingClientRect();
           return {
-            x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-            y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+            x:    (rect.left + rect.width  / 2 - workspaceRect.left) / viewScale,
+            y:    (rect.top  + rect.height / 2 - workspaceRect.top)  / viewScale,
             side: detectTerminalSide(node),
           };
         }
@@ -290,7 +289,7 @@ const WiringCanvas = ({
     updateLines();
     const interval = setInterval(updateLines, 16);
     return () => clearInterval(interval);
-  }, [wires, items, workspaceId, viewScale, viewOffset]);
+  }, [wires, items, workspaceId, viewScale, viewOffset, outputs]);
 
   const handleWireRightClick = (e, wireId) => {
     e.preventDefault();
@@ -328,8 +327,8 @@ const WiringCanvas = ({
         if (!node) return { x: fallbackX, y: fallbackY, side: null };
         const rect = node.getBoundingClientRect();
         return {
-          x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-          y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          x:    (rect.left + rect.width  / 2 - workspaceRect.left) / viewScale,
+          y:    (rect.top  + rect.height / 2 - workspaceRect.top)  / viewScale,
           side: null,
         };
       } else {
@@ -339,8 +338,8 @@ const WiringCanvas = ({
         if (!node) return { x: fallbackX, y: fallbackY, side: null };
         const rect = node.getBoundingClientRect();
         return {
-          x:    (rect.left + rect.width  / 2 - workspaceRect.left - viewOffset.x) / viewScale,
-          y:    (rect.top  + rect.height / 2 - workspaceRect.top  - viewOffset.y) / viewScale,
+          x:    (rect.left + rect.width  / 2 - workspaceRect.left) / viewScale,
+          y:    (rect.top  + rect.height / 2 - workspaceRect.top)  / viewScale,
           side: detectTerminalSide(node),
         };
       }
@@ -358,12 +357,12 @@ const WiringCanvas = ({
       <path
         d={path}
         fill="none"
-        stroke="#00ff88"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray="6 4"
-        style={{ filter: 'drop-shadow(0 0 8px #00ff88)', pointerEvents: 'none' }}
+        stroke="#1a6b2e"
+        strokeWidth="5"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeDasharray="8 5"
+        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))', pointerEvents: 'none' }}
       />
     );
   };
@@ -391,7 +390,7 @@ const WiringCanvas = ({
           const isSelected = selectedWireId === line.id;
           const isActive   = (line.logicLevel ?? 0) > 0;
           const wireStroke = isActive ? line.color : 'rgba(120,120,120,0.45)';
-          const wireWidth  = isActive ? 3 : 2;
+          const wireWidth  = isActive ? 4.5 : 3;
 
           return (
             <g
@@ -408,7 +407,7 @@ const WiringCanvas = ({
                   d={path}
                   fill="none"
                   stroke={line.color}
-                  strokeWidth="7"
+                  strokeWidth="10"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   opacity="0.25"

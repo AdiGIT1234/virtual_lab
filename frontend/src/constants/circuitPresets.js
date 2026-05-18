@@ -15,9 +15,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "led-1",  type: "LED_RED",      pin: 13, pins: { main: 13 }, x: 840, y: 120 },
-      { id: "res-1",  type: "RESISTOR",      pin: 13, pins: { main: 13 }, resistance: 330, x: 660, y: 120 },
-      { id: "gnd-1",  type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 1000, y: 120 },
+      { id: "res-1",  type: "RESISTOR",    pin: 13, pins: { main: 13 }, resistance: 330, x: 720, y: 200 },
+      { id: "led-1",  type: "LED_RED",     pin: 13, pins: { main: 13 }, x: 720, y: 310 },
+      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 720, y: 420 },
     ],
     wires: [
       { id: "blink-w1", source: "mcu::13",   target: "res-1::t1",   bends: [], color: "#fbbf24" },
@@ -31,9 +31,9 @@ void loop() {
       { componentTypes: ['GROUND_NODE', 'GND'], label: 'Ground connection present' },
     ],
     arlabPositions: {
-      "res-1": { pos: [0.175, 0.035, 0],      rot: [0, 0, 0] },
-      "led-1": { pos: [0.575, 0.035, 0],      rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.775, 0.01,  0.40],   rot: [0, 0, 0] },
+      "res-1": { pins: { t1: "h25", t2: "h29" }, rot: [0, 0, 0] },
+      "led-1": { pins: { anode: "h31", cathode: "h32" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B35" }, rot: [0, 0, 0] },
     },
   },
 
@@ -55,10 +55,10 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "btn-1",  type: "BUTTON",        pin: 2,  pins: { main: 2  }, x: 720, y: 860 },
-      { id: "led-1",  type: "LED_RED",        pin: 13, pins: { main: 13 }, x: 820, y: 120 },
-      { id: "res-1",  type: "RESISTOR",       pin: 13, pins: { main: 13 }, resistance: 330, x: 640, y: 120 },
-      { id: "gnd-1",  type: "GROUND_NODE",    pin: null, pins: { main: null }, x: 1000, y: 120 },
+      { id: "res-1",  type: "RESISTOR",    pin: 13, pins: { main: 13 }, resistance: 330, x: 720, y: 200 },
+      { id: "led-1",  type: "LED_RED",     pin: 13, pins: { main: 13 }, x: 720, y: 310 },
+      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 720, y: 420 },
+      { id: "btn-1",  type: "BUTTON",      pin: 2,  pins: { main: 2  }, x: 720, y: 530 },
     ],
     wires: [
       { id: "btnled-w1", source: "mcu::2",    target: "btn-1::main",  bends: [], color: "#4dabf7" },
@@ -74,10 +74,10 @@ void loop() {
       { pin: 13, componentTypes: ['RESISTOR'], label: 'Resistor on LED path' },
     ],
     arlabPositions: {
-      "btn-1": { pos: [0.075, 0.035, 0],      rot: [0, 0, 0] },
-      "led-1": { pos: [0.675, 0.035, 0],      rot: [0, 0, 0] },
-      "res-1": { pos: [0.375, 0.035, 0],      rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.875, 0.01,  0.40],   rot: [0, 0, 0] },
+      "btn-1": { pins: { main: "h20" }, rot: [0, 0, 0] },
+      "res-1": { pins: { t1: "h27", t2: "h31" }, rot: [0, 0, 0] },
+      "led-1": { pins: { anode: "h33", cathode: "h34" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B38" }, rot: [0, 0, 0] },
     },
   },
 
@@ -86,28 +86,40 @@ void loop() {
     name: "Servo Sweep",
     description: "A standard hobby servo connected to PWM capable pin 9, sweeping back and forth.",
     mcu: "atmega328p",
-    starterCode: `#include <Servo.h>
+    starterCode: `// Servo Sweep using PWM (no Servo.h needed)
+// Pin 9 (OC1A) outputs 50 Hz PWM; duty cycle maps 0°–180°
+// Pulse width: 1 ms (0°) → 2 ms (180°) within a 20 ms period
+// Timer counts: OCR1A range 2000–4000 at ICR1=40000 (8 MHz / 8 prescaler)
 
-Servo myServo;
+#define SERVO_PIN 9
+
+void servoWrite(int deg) {
+  // Map 0-180 degrees to ~1000-2000 µs pulse
+  int pulseUs = map(deg, 0, 180, 1000, 2000);
+  analogWrite(SERVO_PIN, map(pulseUs, 0, 20000, 0, 255));
+}
 
 void setup() {
-  myServo.attach(9);
+  pinMode(SERVO_PIN, OUTPUT);
+  Serial.begin(9600);
+  Serial.println("Servo sweep start");
 }
 
 void loop() {
-  for (int pos = 0; pos <= 180; pos++) {
-    myServo.write(pos);
-    delay(15);
+  for (int pos = 0; pos <= 180; pos += 5) {
+    servoWrite(pos);
+    Serial.print("Angle: "); Serial.println(pos);
+    delay(50);
   }
-  for (int pos = 180; pos >= 0; pos--) {
-    myServo.write(pos);
-    delay(15);
+  for (int pos = 180; pos >= 0; pos -= 5) {
+    servoWrite(pos);
+    delay(50);
   }
 }`,
     workspace: [
-      { id: "srv-1",  type: "SERVO",       pin: 9,  pins: { main: 9  }, x: 800, y: 110 },
-      { id: "vcc-1",  type: "VCC_NODE",    pin: null, pins: { main: null }, x: 540, y: 100 },
-      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 540, y: 210 },
+      { id: "srv-1",  type: "SERVO",       pin: 9,  pins: { main: 9  }, x: 720, y: 200 },
+      { id: "vcc-1",  type: "VCC_NODE",    pin: null, pins: { main: null }, x: 720, y: 310 },
+      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 720, y: 420 },
     ],
     wires: [
       { id: "servo-w1", source: "mcu::9",       target: "srv-1::main", bends: [], color: "#ff6600" },
@@ -120,9 +132,9 @@ void loop() {
       { componentTypes: ['VCC_NODE'], label: 'VCC power connected to servo' },
     ],
     arlabPositions: {
-      "srv-1": { pos: [0.575, 0.035, 0],      rot: [0, Math.PI / 2, 0] },
-      "vcc-1": { pos: [0.175, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.175, 0.01,  0.40],   rot: [0, 0, 0] },
+      "srv-1": { pins: { main: "h30" }, rot: [0, Math.PI / 2, 0] },
+      "vcc-1": { pins: { main: "+T25" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B25" }, rot: [0, 0, 0] },
     },
   },
 
@@ -139,13 +151,13 @@ void loop() {
 void setup() {}
 void loop() {}`,
     workspace: [
-      { id: "ic-555",       type: "TIMER_555",  pin: 3,  pins: { main: 3  }, x: 1200, y: 360 },
-      { id: "led-timer",    type: "LED_RED",     pin: 3,  pins: { main: 3  }, x: 1400, y: 360 },
-      { id: "res-timing",   type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 10000, x: 1040, y: 430 },
-      { id: "cap-timing",   type: "CAPACITOR",   pin: 6,  pins: { main: 6  }, x: 1200, y: 560, metadata: { capacitance: 10, unit: "µF" } },
-      { id: "res-discharge",type: "RESISTOR",    pin: 7,  pins: { main: 7  }, resistance: 47000, x: 1040,  y: 290 },
-      { id: "vcc-timer",    type: "VCC_NODE",    pin: null, pins: { main: null }, x: 1040, y: 140  },
-      { id: "gnd-timer",    type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1040, y: 700 },
+      { id: "ic-555",        type: "TIMER_555",  pin: 3,  pins: { main: 3  }, x: 720,  y: 200 },
+      { id: "led-timer",     type: "LED_RED",    pin: 3,  pins: { main: 3  }, x: 720,  y: 310 },
+      { id: "res-discharge", type: "RESISTOR",   pin: 7,  pins: { main: 7  }, resistance: 47000, x: 720, y: 420 },
+      { id: "res-timing",    type: "RESISTOR",   pin: 7,  pins: { main: 7  }, resistance: 10000, x: 720, y: 530 },
+      { id: "cap-timing",    type: "CAPACITOR",  pin: 6,  pins: { main: 6  }, x: 720, y: 640, metadata: { capacitance: 10, unit: "µF" } },
+      { id: "vcc-timer",     type: "VCC_NODE",   pin: null, pins: { main: null }, x: 860, y: 200 },
+      { id: "gnd-timer",     type: "GROUND_NODE",pin: null, pins: { main: null }, x: 860, y: 310 },
     ],
     wires: [
       { id: "t555-w1", source: "ic-555::out",      target: "led-timer::main",   bends: [], color: "#fbbf24" },
@@ -161,13 +173,13 @@ void loop() {}`,
     ],
     outputs: { 3: 1 },
     arlabPositions: {
-      "ic-555":        { pos: [0.475, 0.035,  0],      rot: [0, 0, 0] },
-      "led-timer":     { pos: [0.975, 0.035,  0],      rot: [0, 0, 0] },
-      "res-timing":    { pos: [0.175, 0.035, -0.115],  rot: [0, 0, 0] },
-      "cap-timing":    { pos: [0.175, 0.035,  0.115],  rot: [0, 0, 0] },
-      "res-discharge": { pos: [0.075, 0.035,  0],      rot: [0, 0, 0] },
-      "vcc-timer":     { pos: [-0.025, 0.01, -0.35],   rot: [0, 0, 0] },
-      "gnd-timer":     { pos: [-0.025, 0.01,  0.40],   rot: [0, 0, 0] },
+      "ic-555":        { pins: { main: "h28" }, rot: [0, 0, 0] },
+      "led-timer":     { pins: { anode: "h36", cathode: "h37" }, rot: [0, 0, 0] },
+      "res-timing":    { pins: { t1: "g22", t2: "g26" }, rot: [0, 0, 0] },
+      "cap-timing":    { pins: { t1: "i22", t2: "i26" }, rot: [0, 0, 0] },
+      "res-discharge": { pins: { t1: "g31", t2: "g35" }, rot: [0, 0, 0] },
+      "vcc-timer":     { pins: { main: "+T28" }, rot: [0, 0, 0] },
+      "gnd-timer":     { pins: { main: "-B28" }, rot: [0, 0, 0] },
     },
   },
 
@@ -187,12 +199,12 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "q1",            type: "NPN_TRANSISTOR", pin: 9,   pins: { main: 9   }, x: 870, y: 130 },
-      { id: "led-q",         type: "LED_GREEN",       pin: 9,    pins: { main: 9    }, x: 1190, y: 50 },
-      { id: "res-base",      type: "RESISTOR",        pin: 9,   pins: { main: 9   }, resistance: 1000, x: 720, y: 130 },
-      { id: "res-collector", type: "RESISTOR",        pin: null, pins: { main: null }, resistance: 330, x: 1030, y: 50 },
-      { id: "vcc-q",         type: "VCC_NODE",        pin: null, pins: { main: null }, x: 1360, y: 50 },
-      { id: "gnd-q",         type: "GROUND_NODE",     pin: null, pins: { main: null }, x: 870, y: 240 },
+      { id: "res-base",      type: "RESISTOR",       pin: 9,   pins: { main: 9   }, resistance: 1000, x: 720, y: 200 },
+      { id: "q1",            type: "NPN_TRANSISTOR",  pin: 9,   pins: { main: 9   }, x: 720, y: 310 },
+      { id: "res-collector", type: "RESISTOR",        pin: null, pins: { main: null }, resistance: 330, x: 720, y: 420 },
+      { id: "led-q",         type: "LED_GREEN",       pin: 9,   pins: { main: 9   }, x: 720, y: 530 },
+      { id: "vcc-q",         type: "VCC_NODE",        pin: null, pins: { main: null }, x: 720, y: 640 },
+      { id: "gnd-q",         type: "GROUND_NODE",     pin: null, pins: { main: null }, x: 860, y: 200 },
     ],
     wires: [
       { id: "npn-w1", source: "mcu::9",              target: "res-base::t1",      bends: [], color: "#4dabf7" },
@@ -204,12 +216,12 @@ void loop() {
     ],
     outputs: { 9: 0 },
     arlabPositions: {
-      "q1":            { pos: [0.375, 0.035,  0],      rot: [0, 0, 0] },
-      "led-q":         { pos: [0.975, 0.035,  0],      rot: [0, 0, 0] },
-      "res-base":      { pos: [0.175, 0.035,  0],      rot: [0, 0, 0] },
-      "res-collector": { pos: [0.675, 0.035, -0.115],  rot: [0, 0, 0] },
-      "vcc-q":         { pos: [1.175, 0.01,  -0.35],   rot: [0, 0, 0] },
-      "gnd-q":         { pos: [0.075, 0.01,   0.40],   rot: [0, 0, 0] },
+      "q1":            { pins: { b: "h25", c: "h26", e: "h27" }, rot: [0, 0, 0] },
+      "led-q":         { pins: { anode: "h35", cathode: "h36" }, rot: [0, 0, 0] },
+      "res-base":      { pins: { t1: "h18", t2: "h22" }, rot: [0, 0, 0] },
+      "res-collector": { pins: { t1: "h29", t2: "h33" }, rot: [0, 0, 0] },
+      "vcc-q":         { pins: { main: "+T38" }, rot: [0, 0, 0] },
+      "gnd-q":         { pins: { main: "-B25" }, rot: [0, 0, 0] },
     },
   },
 
@@ -231,10 +243,10 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "buzz-1",   type: "BUZZER",       pin: 11, pins: { main: 11 }, x: 900, y: 120 },
-      { id: "btn-alarm",type: "BUTTON",        pin: 4,  pins: { main: 4  }, x: 680, y: 860 },
-      { id: "res-buzz", type: "RESISTOR",      pin: 11, pins: { main: 11 }, resistance: 100, x: 720, y: 120 },
-      { id: "gnd-buzz", type: "GROUND_NODE",   pin: null, pins: { main: null }, x: 1070, y: 120 },
+      { id: "res-buzz",  type: "RESISTOR",     pin: 11, pins: { main: 11 }, resistance: 100, x: 720, y: 200 },
+      { id: "buzz-1",    type: "BUZZER",       pin: 11, pins: { main: 11 }, x: 720, y: 310 },
+      { id: "gnd-buzz",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 720, y: 420 },
+      { id: "btn-alarm", type: "BUTTON",       pin: 4,  pins: { main: 4  }, x: 720, y: 530 },
     ],
     wires: [
       { id: "buzz-w1", source: "mcu::4",       target: "btn-alarm::main", bends: [], color: "#4dabf7" },
@@ -245,10 +257,10 @@ void loop() {
     outputs: { 11: 0 },
     inputs:  { 4: 0 },
     arlabPositions: {
-      "buzz-1":    { pos: [0.875, 0.035, 0],      rot: [0, 0, 0] },
-      "btn-alarm": { pos: [0.075, 0.035, 0],      rot: [0, 0, 0] },
-      "res-buzz":  { pos: [0.475, 0.035, 0],      rot: [0, 0, 0] },
-      "gnd-buzz":  { pos: [1.075, 0.01,  0.40],   rot: [0, 0, 0] },
+      "btn-alarm": { pins: { main: "h20" }, rot: [0, 0, 0] },
+      "res-buzz":  { pins: { t1: "h27", t2: "h31" }, rot: [0, 0, 0] },
+      "buzz-1":    { pins: { main: "h38" }, rot: [0, 0, 0] },
+      "gnd-buzz":  { pins: { main: "-B42" }, rot: [0, 0, 0] },
     },
   },
 
@@ -306,10 +318,10 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "oled-1", type: "OLED_SSD1306", pin: 21, pins: { SCL: 22, SDA: 21 }, x: 700, y: 110 },
-      { id: "dht-1",  type: "DHT22",        pin: 4,  pins: { DATA: 4 },           x: 960, y: 110 },
-      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null },       x: 450,  y: 80  },
-      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 450,  y: 860 },
+      { id: "oled-1", type: "OLED_SSD1306", pin: 21, pins: { SCL: 22, SDA: 21 }, x: 720, y: 200 },
+      { id: "dht-1",  type: "DHT22",        pin: 4,  pins: { DATA: 4 },           x: 720, y: 310 },
+      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null },       x: 720, y: 420 },
+      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 720, y: 530 },
     ],
     wires: [
       { id: "oled-w1", source: "mcu::22",    target: "oled-1::scl",  bends: [], color: "#4dabf7" },
@@ -323,10 +335,10 @@ void loop() {
     outputs: {},
     inputs: { 34: 0.5, 35: 0.6 },
     arlabPositions: {
-      "oled-1": { pos: [0.575, 0.035,  0],     rot: [0, 0, 0] },
-      "dht-1":  { pos: [0.175, 0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1":  { pos: [-0.025, 0.01, -0.35],  rot: [0, 0, 0] },
-      "gnd-1":  { pos: [-0.025, 0.01,  0.40],  rot: [0, 0, 0] },
+      "oled-1": { pins: { main: "h25" }, rot: [0, 0, 0] },
+      "dht-1":  { pins: { main: "h40" }, rot: [0, 0, 0] },
+      "vcc-1":  { pins: { main: "+T32" }, rot: [0, 0, 0] },
+      "gnd-1":  { pins: { main: "-B32" }, rot: [0, 0, 0] },
     },
   },
 
@@ -365,16 +377,16 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "btn-0", type: "BUTTON", pin: 2,  pins: { main: 2  }, x: 440,  y: 860 },
-      { id: "btn-1", type: "BUTTON", pin: 3,  pins: { main: 3  }, x: 540, y: 860 },
-      { id: "btn-2", type: "BUTTON", pin: 4,  pins: { main: 4  }, x: 640, y: 860 },
-      { id: "btn-3", type: "BUTTON", pin: 5,  pins: { main: 5  }, x: 740, y: 860 },
-      { id: "btn-4", type: "BUTTON", pin: 6,  pins: { main: 6  }, x: 840, y: 860 },
-      { id: "btn-5", type: "BUTTON", pin: 7,  pins: { main: 7  }, x: 940, y: 860 },
-      { id: "btn-6", type: "BUTTON", pin: 8,  pins: { main: 8  }, x: 1040, y: 860 },
-      { id: "btn-7", type: "BUTTON", pin: 9,  pins: { main: 9  }, x: 1140, y: 860 },
-      { id: "buz-1", type: "BUZZER", pin: 11, pins: { main: 11 }, x: 760, y: 120 },
-      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1280, y: 860 },
+      { id: "buz-1",  type: "BUZZER",      pin: 11, pins: { main: 11 }, x: 720, y: 200 },
+      { id: "gnd-1",  type: "GROUND_NODE", pin: null, pins: { main: null }, x: 720, y: 310 },
+      { id: "btn-0",  type: "BUTTON", pin: 2, pins: { main: 2  }, x: 720, y: 420 },
+      { id: "btn-1",  type: "BUTTON", pin: 3, pins: { main: 3  }, x: 720, y: 530 },
+      { id: "btn-2",  type: "BUTTON", pin: 4, pins: { main: 4  }, x: 720, y: 640 },
+      { id: "btn-3",  type: "BUTTON", pin: 5, pins: { main: 5  }, x: 860, y: 200 },
+      { id: "btn-4",  type: "BUTTON", pin: 6, pins: { main: 6  }, x: 860, y: 310 },
+      { id: "btn-5",  type: "BUTTON", pin: 7, pins: { main: 7  }, x: 860, y: 420 },
+      { id: "btn-6",  type: "BUTTON", pin: 8, pins: { main: 8  }, x: 860, y: 530 },
+      { id: "btn-7",  type: "BUTTON", pin: 9, pins: { main: 9  }, x: 860, y: 640 },
     ],
     wires: [
       { id: "piano-w0",  source: "mcu::2",    target: "btn-0::main", bends: [], color: "#4dabf7" },
@@ -391,16 +403,16 @@ void loop() {
     outputs: { 11: 0 },
     inputs:  { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 },
     arlabPositions: {
-      "btn-0": { pos: [-0.025, 0.035, 0],  rot: [0, 0, 0] },
-      "btn-1": { pos: [0.125,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-2": { pos: [0.275,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-3": { pos: [0.425,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-4": { pos: [0.575,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-5": { pos: [0.725,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-6": { pos: [0.875,  0.035, 0],  rot: [0, 0, 0] },
-      "btn-7": { pos: [1.025,  0.035, 0],  rot: [0, 0, 0] },
-      "buz-1": { pos: [1.475,  0.035, 0],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [1.675,  0.01,  0.40], rot: [0, 0, 0] },
+      "btn-0": { pins: { main: "h18" }, rot: [0, 0, 0] },
+      "btn-1": { pins: { main: "h22" }, rot: [0, 0, 0] },
+      "btn-2": { pins: { main: "h26" }, rot: [0, 0, 0] },
+      "btn-3": { pins: { main: "h30" }, rot: [0, 0, 0] },
+      "btn-4": { pins: { main: "h34" }, rot: [0, 0, 0] },
+      "btn-5": { pins: { main: "h38" }, rot: [0, 0, 0] },
+      "btn-6": { pins: { main: "h42" }, rot: [0, 0, 0] },
+      "btn-7": { pins: { main: "h46" }, rot: [0, 0, 0] },
+      "buz-1": { pins: { main: "h52" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B55" }, rot: [0, 0, 0] },
     },
   },
 
@@ -464,10 +476,10 @@ void loop() {
   delay(50);
 }`,
     workspace: [
-      { id: "tft-1", type: "ILI9341_TFT", pin: 5,  pins: { CS: 5, DC: 2, RESET: 4, MOSI: 23, SCK: 18 }, x: 760, y: 110 },
-      { id: "pot-1", type: "DIAL",         pin: 34, pins: { main: 34 },                                   x: 1090, y: 110 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },                                x: 450,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },                                x: 450,  y: 860 },
+      { id: "tft-1", type: "ILI9341_TFT", pin: 5,  pins: { CS: 5, DC: 2, RESET: 4, MOSI: 23, SCK: 18 }, x: 720, y: 200 },
+      { id: "pot-1", type: "DIAL",        pin: 34, pins: { main: 34 },                                   x: 720, y: 310 },
+      { id: "vcc-1", type: "VCC_NODE",    pin: null, pins: { main: null },                                x: 720, y: 420 },
+      { id: "gnd-1", type: "GROUND_NODE", pin: null, pins: { main: null },                                x: 720, y: 530 },
     ],
     wires: [
       { id: "dash-w1", source: "mcu::5",    target: "tft-1::cs",    bends: [], color: "#4dabf7" },
@@ -483,10 +495,10 @@ void loop() {
     outputs: {},
     inputs: { 34: 0.5 },
     arlabPositions: {
-      "tft-1": { pos: [0.575,  0.035,  0],     rot: [0, 0, 0] },
-      "pot-1": { pos: [0.175,  0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1": { pos: [-0.025, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [-0.025, 0.01,   0.40],  rot: [0, 0, 0] },
+      "tft-1": { pins: { main: "h25" }, rot: [0, 0, 0] },
+      "pot-1": { pins: { main: "h40" }, rot: [0, 0, 0] },
+      "vcc-1": { pins: { main: "+T32" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B32" }, rot: [0, 0, 0] },
     },
   },
 
@@ -551,9 +563,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "max-1", type: "MAX30102_PULSE", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 800, y: 110 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 550,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 550,  y: 860 },
+      { id: "max-1", type: "MAX30102_PULSE", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 720, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",       pin: null, pins: { main: null },     x: 720, y: 310 },
+      { id: "gnd-1", type: "GROUND_NODE",    pin: null, pins: { main: null },     x: 720, y: 420 },
     ],
     wires: [
       { id: "max-w1", source: "mcu::18",     target: "max-1::sda",   bends: [], color: "#fbbf24" },
@@ -564,9 +576,9 @@ void loop() {
     outputs: {},
     inputs: {},
     arlabPositions: {
-      "max-1": { pos: [0.375, 0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1": { pos: [0.675, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.675, 0.01,   0.40],  rot: [0, 0, 0] },
+      "max-1": { pins: { main: "h30" }, rot: [0, 0, 0] },
+      "vcc-1": { pins: { main: "+T35" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B35" }, rot: [0, 0, 0] },
     },
   },
 
@@ -629,9 +641,9 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "tcs-1", type: "TCS34725_COLOR", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 800, y: 110 },
-      { id: "vcc-1", type: "VCC_NODE",     pin: null, pins: { main: null },       x: 550,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",  pin: null, pins: { main: null },       x: 550,  y: 860 },
+      { id: "tcs-1", type: "TCS34725_COLOR", pin: 18, pins: { SDA: 18, SCL: 19 }, x: 720, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",       pin: null, pins: { main: null },     x: 720, y: 310 },
+      { id: "gnd-1", type: "GROUND_NODE",    pin: null, pins: { main: null },     x: 720, y: 420 },
     ],
     wires: [
       { id: "tcs-w1", source: "mcu::18",     target: "tcs-1::sda",   bends: [], color: "#fbbf24" },
@@ -642,9 +654,9 @@ void loop() {
     outputs: {},
     inputs: {},
     arlabPositions: {
-      "tcs-1": { pos: [0.375, 0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1": { pos: [0.675, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.675, 0.01,   0.40],  rot: [0, 0, 0] },
+      "tcs-1": { pins: { main: "h30" }, rot: [0, 0, 0] },
+      "vcc-1": { pins: { main: "+T35" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B35" }, rot: [0, 0, 0] },
     },
   },
 
@@ -667,7 +679,7 @@ void setup() {
 void loop() {
   while (Serial.available()) {
     char c = (char)Serial.read();
-    if (c == '\\n') {
+    if (c == '\n') {
       Serial.print("Echo: ");
       Serial.println(inputBuffer);
       inputBuffer = "";
@@ -677,9 +689,9 @@ void loop() {
   }
 }`,
     workspace: [
-      { id: "bt-1",  type: "HC05_BLUETOOTH", pin: 1,   pins: { TXD: 1, RXD: 0 },  x: 780, y: 860 },
-      { id: "vcc-1", type: "VCC_NODE",        pin: null, pins: { main: null },      x: 500,  y: 80  },
-      { id: "gnd-1", type: "GROUND_NODE",     pin: null, pins: { main: null },      x: 1020,  y: 860 },
+      { id: "bt-1",  type: "HC05_BLUETOOTH", pin: 1,   pins: { TXD: 1, RXD: 0 },  x: 720, y: 200 },
+      { id: "vcc-1", type: "VCC_NODE",       pin: null, pins: { main: null },     x: 720, y: 310 },
+      { id: "gnd-1", type: "GROUND_NODE",    pin: null, pins: { main: null },     x: 720, y: 420 },
     ],
     wires: [
       { id: "bt-w1", source: "mcu::1",      target: "bt-1::rxd",    bends: [], color: "#22d3ee" },
@@ -690,9 +702,9 @@ void loop() {
     outputs: {},
     inputs: {},
     arlabPositions: {
-      "bt-1":  { pos: [0.375, 0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1": { pos: [0.675, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1": { pos: [0.675, 0.01,   0.40],  rot: [0, 0, 0] },
+      "bt-1":  { pins: { main: "h30" }, rot: [0, 0, 0] },
+      "vcc-1": { pins: { main: "+T35" }, rot: [0, 0, 0] },
+      "gnd-1": { pins: { main: "-B35" }, rot: [0, 0, 0] },
     },
   },
 
@@ -730,7 +742,7 @@ void loop() {
   delay(800);
 }`,
     workspace: [
-      { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 700, y: 860 },
+      { id: "seg-1", type: "SEVEN_SEG", pin: 2, pins: { a:2, b:3, c:4, d:5, e:6, f:7, g:8 }, x: 720, y: 200 },
     ],
     wires: [
       { id: "seg-wa", source: "mcu::2", target: "seg-1::a", bends: [], color: "#ff4444" },
@@ -744,7 +756,7 @@ void loop() {
     outputs: { 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0 },
     inputs: {},
     arlabPositions: {
-      "seg-1": { pos: [0.475, 0.035, 0], rot: [0, 0, 0] },
+      "seg-1": { pins: { main: "h30" }, rot: [0, 0, 0] },
     },
   },
 
@@ -798,10 +810,10 @@ void loop() {
   delay(1000);
 }`,
     workspace: [
-      { id: "l298-1", type: "L298N_DRIVER", pin: 3,  pins: { ena: 3, in1: 4, in2: 5, enb: null, in3: null, in4: null, vcc: null, gnd: null }, x: 660, y: 860 },
-      { id: "mot-1",  type: "DC_MOTOR",     pin: null, pins: { "m+": null, "m-": null, ena: 3 }, x: 870, y: 860 },
-      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null }, x: 450, y: 80  },
-      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 1100, y: 860 },
+      { id: "l298-1", type: "L298N_DRIVER", pin: 3,  pins: { ena: 3, in1: 4, in2: 5, enb: null, in3: null, in4: null, vcc: null, gnd: null }, x: 720, y: 200 },
+      { id: "mot-1",  type: "DC_MOTOR",     pin: null, pins: { "m+": null, "m-": null, ena: 3 }, x: 720, y: 310 },
+      { id: "vcc-1",  type: "VCC_NODE",     pin: null, pins: { main: null }, x: 720, y: 420 },
+      { id: "gnd-1",  type: "GROUND_NODE",  pin: null, pins: { main: null }, x: 720, y: 530 },
     ],
     wires: [
       { id: "mot-w1", source: "mcu::3",      target: "l298-1::ena",  bends: [], color: "#fbbf24" },
@@ -815,10 +827,10 @@ void loop() {
     outputs: { 3: 0, 4: 0, 5: 0 },
     inputs: {},
     arlabPositions: {
-      "l298-1": { pos: [0.275, 0.035,  0],     rot: [0, 0, 0] },
-      "mot-1":  { pos: [0.975, 0.035,  0],     rot: [0, 0, 0] },
-      "vcc-1":  { pos: [0.075, 0.01,  -0.35],  rot: [0, 0, 0] },
-      "gnd-1":  { pos: [0.075, 0.01,   0.40],  rot: [0, 0, 0] },
+      "l298-1": { pins: { main: "h25" }, rot: [0, 0, 0] },
+      "mot-1":  { pins: { main: "h45" }, rot: [0, 0, 0] },
+      "vcc-1":  { pins: { main: "+T30" }, rot: [0, 0, 0] },
+      "gnd-1":  { pins: { main: "-B30" }, rot: [0, 0, 0] },
     },
   },
 
@@ -855,18 +867,18 @@ void loop() {
   delay(100);
 }`,
     workspace: [
-      { id: "btn-a",  type: "BUTTON",       pin: 2,  pins: { main: 2  }, x: 720, y: 860 },
-      { id: "btn-b",  type: "BUTTON",       pin: 3,  pins: { main: 3  }, x: 800, y: 960 },
-      { id: "and-1",  type: "LOGIC_AND",    pin: 10, pins: { in1: 2, in2: 3, out: 10 }, x: 820, y: 60 },
-      { id: "or-1",   type: "LOGIC_OR",     pin: 11, pins: { in1: 2, in2: 3, out: 11 }, x: 820, y: 150 },
-      { id: "not-1",  type: "LOGIC_NOT",    pin: 12, pins: { in1: 2, out: 12 }, x: 820, y: 240 },
-      { id: "led-and", type: "LED_GREEN",   pin: 10, pins: { main: 10 }, x: 1150, y: 60 },
-      { id: "led-or",  type: "LED_YELLOW",  pin: 11, pins: { main: 11 }, x: 1150, y: 150 },
-      { id: "led-not", type: "LED_RED",     pin: 12, pins: { main: 12 }, x: 1150, y: 240 },
-      { id: "res-and", type: "RESISTOR",    pin: 10, pins: { main: 10 }, resistance: 330, x: 990, y: 60 },
-      { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 990, y: 150 },
-      { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 990, y: 240 },
-      { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 1300, y: 150 },
+      { id: "btn-a",  type: "BUTTON",       pin: 2,  pins: { main: 2  }, x: 720, y: 200 },
+      { id: "btn-b",  type: "BUTTON",       pin: 3,  pins: { main: 3  }, x: 720, y: 310 },
+      { id: "and-1",  type: "LOGIC_AND",    pin: 10, pins: { in1: 2, in2: 3, out: 10 }, x: 720, y: 420 },
+      { id: "or-1",   type: "LOGIC_OR",     pin: 11, pins: { in1: 2, in2: 3, out: 11 }, x: 720, y: 530 },
+      { id: "not-1",  type: "LOGIC_NOT",    pin: 12, pins: { in1: 2, out: 12 }, x: 720, y: 640 },
+      { id: "res-and", type: "RESISTOR",    pin: 10, pins: { main: 10 }, resistance: 330, x: 860, y: 200 },
+      { id: "res-or",  type: "RESISTOR",    pin: 11, pins: { main: 11 }, resistance: 330, x: 860, y: 310 },
+      { id: "res-not", type: "RESISTOR",    pin: 12, pins: { main: 12 }, resistance: 330, x: 860, y: 420 },
+      { id: "led-and", type: "LED_GREEN",   pin: 10, pins: { main: 10 }, x: 860, y: 530 },
+      { id: "led-or",  type: "LED_YELLOW",  pin: 11, pins: { main: 11 }, x: 860, y: 640 },
+      { id: "led-not", type: "LED_RED",     pin: 12, pins: { main: 12 }, x: 720, y: 200 },
+      { id: "gnd-1",   type: "GROUND_NODE", pin: null, pins: { main: null }, x: 720, y: 310 },
     ],
     wires: [
       { id: "lg-w1",  source: "mcu::2",       target: "btn-a::main",    bends: [], color: "#4dabf7" },
@@ -889,18 +901,18 @@ void loop() {
     outputs: { 10: 0, 11: 0, 12: 0 },
     inputs: { 2: 0, 3: 0 },
     arlabPositions: {
-      "btn-a":   { pos: [-0.025, 0.035, -0.115],  rot: [0, 0, 0] },
-      "btn-b":   { pos: [-0.025, 0.035,  0.115],  rot: [0, 0, 0] },
-      "and-1":   { pos: [ 0.275, 0.035, -0.115],  rot: [0, 0, 0] },
-      "or-1":    { pos: [ 0.275, 0.035,  0],      rot: [0, 0, 0] },
-      "not-1":   { pos: [ 0.275, 0.035,  0.115],  rot: [0, 0, 0] },
-      "res-and": { pos: [ 0.675, 0.035, -0.115],  rot: [0, 0, 0] },
-      "res-or":  { pos: [ 0.675, 0.035,  0],      rot: [0, 0, 0] },
-      "res-not": { pos: [ 0.675, 0.035,  0.115],  rot: [0, 0, 0] },
-      "led-and": { pos: [ 0.975, 0.035, -0.115],  rot: [0, 0, 0] },
-      "led-or":  { pos: [ 0.975, 0.035,  0],      rot: [0, 0, 0] },
-      "led-not": { pos: [ 0.975, 0.035,  0.115],  rot: [0, 0, 0] },
-      "gnd-1":   { pos: [ 1.175, 0.01,   0.40],   rot: [0, 0, 0] },
+      "btn-a":   { pins: { main: "j22" }, rot: [0, 0, 0] },
+      "btn-b":   { pins: { main: "j28" }, rot: [0, 0, 0] },
+      "and-1":   { pins: { main: "i22" }, rot: [0, 0, 0] },
+      "or-1":    { pins: { main: "i28" }, rot: [0, 0, 0] },
+      "not-1":   { pins: { main: "i34" }, rot: [0, 0, 0] },
+      "res-and": { pins: { t1: "h20", t2: "h24" }, rot: [0, 0, 0] },
+      "res-or":  { pins: { t1: "h26", t2: "h30" }, rot: [0, 0, 0] },
+      "res-not": { pins: { t1: "h32", t2: "h36" }, rot: [0, 0, 0] },
+      "led-and": { pins: { anode: "g22", cathode: "g23" }, rot: [0, 0, 0] },
+      "led-or":  { pins: { anode: "g28", cathode: "g29" }, rot: [0, 0, 0] },
+      "led-not": { pins: { anode: "g34", cathode: "g35" }, rot: [0, 0, 0] },
+      "gnd-1":   { pins: { main: "-B30" }, rot: [0, 0, 0] },
     },
   },
 
@@ -942,7 +954,7 @@ void loop() {
   delay(500);
 }`,
     workspace: [
-      { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 880, y: 120 },
+      { id: "stp-1", type: "STEPPER_MOTOR", pin: 8, pins: { "a+": 8, "a-": 9, "b+": 10, "b-": 11 }, x: 720, y: 200 },
     ],
     wires: [
       { id: "stp-w1", source: "mcu::8",  target: "stp-1::a+", bends: [], color: "#f97316" },
@@ -953,7 +965,7 @@ void loop() {
     outputs: { 8: 0, 9: 0, 10: 0, 11: 0 },
     inputs: {},
     arlabPositions: {
-      "stp-1": { pos: [0.475, 0.035, 0], rot: [0, 0, 0] },
+      "stp-1": { pins: { main: "h30" }, rot: [0, 0, 0] },
     },
   },
 };

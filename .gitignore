@@ -24,3 +24,28 @@ test_harbor.py
 
 # Research docs (reference only)
 docs/esp32_research_and_plan.md
+
+# Large 3D model files (too big for git — use Git LFS or CDN instead)
+frontend/src/assets/models/arduino_uno_proper.glb
+frontend/src/assets/models/arduino_uno_raw.glb
+frontend/src/assets/models/arduino_uno_top.png
+frontend/src/assets/models/esp32_30pin.glb
+
+# Blender / 3D scratch directory
+3d/
+
+# Dev scripts (not part of the app)
+find_pins.py
+parse_*.py
+scripts/step_to_gltf*.py
+
+# Patch artifacts
+frontend/src/components/*.orig
+frontend/src/components/*.patch
+frontend/src/components/*.rej
+
+# ChromaDB binary (regenerated at runtime — do not commit)
+backend/data/chromadb_store/chroma.sqlite3
+
+# Docs reference folder
+docs/

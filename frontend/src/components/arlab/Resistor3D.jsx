@@ -78,23 +78,23 @@ export default function Resistor3D({ id, resistance = 330, position = [0, 0, 0],
           );
         })}
 
-        {/* Axial leads — horizontal portion inside the inner rotated group */}
-        <mesh position={[0,  HL + 0.12, 0]}>
-          <cylinderGeometry args={[LR, LR, 0.22, 8]} />
+        {/* Axial leads — from body end to bend point at ±0.100 outer x */}
+        <mesh position={[0,  HL + 0.005, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.010, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
-        <mesh position={[0, -HL - 0.12, 0]}>
-          <cylinderGeometry args={[LR, LR, 0.22, 8]} />
+        <mesh position={[0, -HL - 0.005, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.010, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
       </group>
 
-      {/* Bent leads — vertical portion going down into breadboard holes.
-          Lead bends at x ≈ ±(HL + 0.22) = ±0.31 in outer (unrotated) space,
-          but we keep hole-span realistic: ±0.115 (≈ 4 breadboard pitches = 10 mm). */}
-      {[0.115, -0.115].map((lx) => (
-        <mesh key={lx} position={[lx, -0.016, 0]}>
-          <cylinderGeometry args={[LR, LR, 0.032, 8]} />
+      {/* Bent leads — vertical, ±0.100 = 2 hole pitches so leads land in real holes.
+          Center at -0.060 with height 0.12 → top at y=0 (body level),
+          bottom at y=-0.12 (deep inside breadboard body). */}
+      {[0.100, -0.100].map((lx) => (
+        <mesh key={lx} position={[lx, -0.060, 0]}>
+          <cylinderGeometry args={[LR, LR, 0.12, 8]} />
           <meshStandardMaterial color="#b0bbc5" roughness={0.3} metalness={0.9} />
         </mesh>
       ))}

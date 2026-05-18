@@ -4,50 +4,50 @@ const BW = 680;
 const BH = 480;
 
 // ── Pin layout (coordinates unchanged — wiring system depends on these) ───────
-const TOP_POWER = [
-  { id: "IOREF", x: 72,  y: 14, label: "IOREF" },
-  { id: "RST",   x: 94,  y: 14, label: "RST"   },
-  { id: "3V3",   x: 116, y: 14, label: "3V3"   },
-  { id: "5V",    x: 138, y: 14, label: "5V"     },
-  { id: "GND1",  x: 160, y: 14, label: "GND"   },
-  { id: "GND2",  x: 182, y: 14, label: "GND"   },
-  { id: "VIN",   x: 204, y: 14, label: "VIN"   },
+const TOP_DIGITAL_HIGH = [
+  { id: "SCL",  x: 72,  y: 14, label: "SCL"  },
+  { id: "SDA",  x: 94,  y: 14, label: "SDA"  },
+  { id: "AREF", x: 116, y: 14, label: "AREF" },
+  { id: "GND3", x: 138, y: 14, label: "GND"  },
+  { pinId: 13, x: 160, y: 14, label: "13",  pwm: false },
+  { pinId: 12, x: 182, y: 14, label: "12",  pwm: false },
+  { pinId: 11, x: 204, y: 14, label: "~11", pwm: true  },
+  { pinId: 10, x: 226, y: 14, label: "~10", pwm: true  },
+  { pinId:  9, x: 248, y: 14, label: "~9",  pwm: true  },
+  { pinId:  8, x: 270, y: 14, label: "8",   pwm: false },
 ];
-const TOP_DIGITAL = [
-  { id: "SCL",  x: 348, y: 14, label: "SCL"  },
-  { id: "SDA",  x: 370, y: 14, label: "SDA"  },
-  { id: "AREF", x: 392, y: 14, label: "AREF" },
-  { id: "GND3", x: 414, y: 14, label: "GND"  },
-  { pinId: 13, x: 436, y: 14, label: "13",  pwm: false },
-  { pinId: 12, x: 458, y: 14, label: "12",  pwm: false },
-  { pinId: 11, x: 480, y: 14, label: "~11", pwm: true  },
-  { pinId: 10, x: 502, y: 14, label: "~10", pwm: true  },
-  { pinId:  9, x: 524, y: 14, label: "~9",  pwm: true  },
-  { pinId:  8, x: 546, y: 14, label: "8",   pwm: false },
+const TOP_DIGITAL_LOW = [
+  { pinId:  7, x: 314, y: 14, label: "7",   pwm: false },
+  { pinId:  6, x: 336, y: 14, label: "~6",  pwm: true  },
+  { pinId:  5, x: 358, y: 14, label: "~5",  pwm: true  },
+  { pinId:  4, x: 380, y: 14, label: "4",   pwm: false },
+  { pinId:  3, x: 402, y: 14, label: "~3",  pwm: true  },
+  { pinId:  2, x: 424, y: 14, label: "2",   pwm: false },
+  { pinId:  1, x: 446, y: 14, label: "TX",  pwm: false },
+  { pinId:  0, x: 468, y: 14, label: "RX",  pwm: false },
+];
+const BOTTOM_POWER = [
+  { id: "IOREF", x: 138, y: 466, label: "IOREF" },
+  { id: "RST",   x: 160, y: 466, label: "RST"   },
+  { id: "3V3",   x: 182, y: 466, label: "3V3"   },
+  { id: "5V",    x: 204, y: 466, label: "5V"     },
+  { id: "GND1",  x: 226, y: 466, label: "GND"   },
+  { id: "GND2",  x: 248, y: 466, label: "GND"   },
+  { id: "VIN",   x: 270, y: 466, label: "VIN"   },
 ];
 const BOTTOM_ANALOG = [
-  { pinId: 14, x: 72,  y: 466, label: "A0" },
-  { pinId: 15, x: 94,  y: 466, label: "A1" },
-  { pinId: 16, x: 116, y: 466, label: "A2" },
-  { pinId: 17, x: 138, y: 466, label: "A3" },
-  { pinId: 18, x: 160, y: 466, label: "A4" },
-  { pinId: 19, x: 182, y: 466, label: "A5" },
-];
-const BOTTOM_DIGITAL = [
-  { pinId:  7, x: 348, y: 466, label: "7",   pwm: false },
-  { pinId:  6, x: 370, y: 466, label: "~6",  pwm: true  },
-  { pinId:  5, x: 392, y: 466, label: "~5",  pwm: true  },
-  { pinId:  4, x: 414, y: 466, label: "4",   pwm: false },
-  { pinId:  3, x: 436, y: 466, label: "~3",  pwm: true  },
-  { pinId:  2, x: 458, y: 466, label: "2",   pwm: false },
-  { pinId:  1, x: 480, y: 466, label: "TX",  pwm: false },
-  { pinId:  0, x: 502, y: 466, label: "RX",  pwm: false },
+  { pinId: 14, x: 314, y: 466, label: "A0" },
+  { pinId: 15, x: 336, y: 466, label: "A1" },
+  { pinId: 16, x: 358, y: 466, label: "A2" },
+  { pinId: 17, x: 380, y: 466, label: "A3" },
+  { pinId: 18, x: 402, y: 466, label: "A4" },
+  { pinId: 19, x: 424, y: 466, label: "A5" },
 ];
 
 const ALL_INTERACTIVE = [
-  ...TOP_DIGITAL.filter(p => p.pinId !== undefined),
+  ...TOP_DIGITAL_HIGH.filter(p => p.pinId !== undefined),
+  ...TOP_DIGITAL_LOW,
   ...BOTTOM_ANALOG,
-  ...BOTTOM_DIGITAL,
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -412,28 +412,28 @@ export default function ArduinoUnoBoard({ registers, toggleInput }) {
         </g>
 
         {/* ── Pin connector housings ── */}
-        {/* Top: POWER group */}
-        <rect x={57} y={5} width={162} height={17} rx={2} fill="#0d0d0d" />
-        {/* Top: DIGITAL group */}
-        <rect x={333} y={5} width={228} height={17} rx={2} fill="#0d0d0d" />
+        {/* Top: DIGITAL HIGH group */}
+        <rect x={57} y={5} width={228} height={17} rx={2} fill="#0d0d0d" />
+        {/* Top: DIGITAL LOW group */}
+        <rect x={300} y={5} width={184} height={17} rx={2} fill="#0d0d0d" />
+        {/* Bottom: POWER group */}
+        <rect x={123} y={458} width={162} height={17} rx={2} fill="#0d0d0d" />
         {/* Bottom: ANALOG IN group */}
-        <rect x={57} y={458} width={140} height={17} rx={2} fill="#0d0d0d" />
-        {/* Bottom: DIGITAL group */}
-        <rect x={333} y={458} width={184} height={17} rx={2} fill="#0d0d0d" />
+        <rect x={300} y={458} width={140} height={17} rx={2} fill="#0d0d0d" />
 
         {/* ── Header silkscreen labels ── */}
-        <text x={138} y={44} textAnchor="middle"
-          fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">POWER</text>
-        <text x={456} y={44} textAnchor="middle"
+        <text x={171} y={44} textAnchor="middle"
           fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">DIGITAL (PWM ~)</text>
-        <text x={127} y={448} textAnchor="middle"
-          fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">ANALOG IN</text>
-        <text x={425} y={448} textAnchor="middle"
+        <text x={392} y={44} textAnchor="middle"
           fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">DIGITAL</text>
+        <text x={204} y={448} textAnchor="middle"
+          fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">POWER</text>
+        <text x={370} y={448} textAnchor="middle"
+          fill="rgba(255,255,255,0.42)" fontSize={6.5} fontFamily="monospace" fontWeight="700">ANALOG IN</text>
 
         {/* ── Pin pads — power/special (wirable) ── */}
-        {TOP_POWER.map(p => <WirablePad key={p.id} pin={p} />)}
-        {TOP_DIGITAL.filter(p => !("pinId" in p)).map(p => <WirablePad key={p.id} pin={p} />)}
+        {BOTTOM_POWER.map(p => <WirablePad key={p.id} pin={p} />)}
+        {TOP_DIGITAL_HIGH.filter(p => !("pinId" in p)).map(p => <WirablePad key={p.id} pin={p} />)}
 
         {/* ── Pin pads — interactive ── */}
         {ALL_INTERACTIVE.map(p => (

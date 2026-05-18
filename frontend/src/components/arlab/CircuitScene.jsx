@@ -4,11 +4,18 @@ import * as THREE from "three";
 import { useCircuitStore } from "../../state/useCircuitStore";
 import { getPinCoord } from "../../constants/unoPinCoords";
 import { CIRCUIT_PRESETS } from "../../constants/circuitPresets";
+import {
+  holeCoords,
+  midpoint,
+  validateComponentPins,
+} from "../../constants/breadboardHoles";
 import { Environment, ContactShadows, Html } from "@react-three/drei";
 import SceneLighting from "./SceneLighting";
 import BoardModel from "./BoardModel";
+import Esp32BoardModel from "./Esp32BoardModel";
 import BreadboardModel from "./BreadboardModel";
 import PinHotspots from "./PinHotspots";
+import { getEsp32PinCoord } from "../../constants/esp32PinCoords";
 import Led3D from "./Led3D";
 import PushButton3D from "./PushButton3D";
 import Wire3D from "./Wire3D";
@@ -37,20 +44,25 @@ import {
 } from "./ExtraComponents3D";
 
 // Convert Arduino pin number to scene-group coordinates
-function pinToSceneCoords(pinNum, boardOff = { x: 0, z: 0 }) {
-  const local = getPinCoord(Number(pinNum));
+function pinToSceneCoords(pinNum, boardOff = { x: 0, z: 0 }, mcuId = "atmega328p") {
+  let local;
+  if (mcuId === "esp32") {
+    // pinNum might be a string (e.g., "VIN") or a number (e.g., "13")
+    local = getEsp32PinCoord(pinNum);
+  } else {
+    local = getPinCoord(Number(pinNum));
+  }
+  if (!local) return null;
   return [-0.6 + boardOff.x + local[0], 0.01 + local[1] + 0.04, boardOff.z + local[2]];
 }
 
 // Resolve a wire endpoint string like "mcu::13" or "res-1::t1" to scene-group [x,y,z]
-function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }) {
+function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }, mcuId = "atmega328p") {
   if (!str) return null;
   const [id, terminal] = str.split("::");
 
   if (id === "mcu") {
-    const pinNum = Number(terminal);
-    if (!isNaN(pinNum)) return pinToSceneCoords(pinNum, boardOff);
-    return null;
+    return pinToSceneCoords(terminal, boardOff, mcuId);
   }
 
   const pos = posMap[id];
@@ -62,8 +74,8 @@ function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }) {
   // All offsets are in scene-group units (1 unit ≈ 200 mm).
   // Components sit at y≈0.085; wires drop down from y≈0.085 so dy=0 here.
   const OFF = {
-    // Resistor leads — match new HL=0.090 + bent-lead offset ≈ 0.115
-    t1: [-0.115, 0, 0],  t2: [+0.115, 0, 0],
+    // Resistor leads — ±0.100 = exactly 2 breadboard hole pitches (0.05 each)
+    t1: [-0.100, 0, 0],  t2: [+0.100, 0, 0],
     // Generic
     main:[0,0,0], sig:[+0.05,0,0], out:[+0.05,0,0],
     // Power (four-pin row: VCC GND SCL SDA or VCC GND SDA SCL)
@@ -110,10 +122,142 @@ function resolveEndpoint(str, posMap, boardOff = { x: 0, z: 0 }) {
   return [bx, by, bz];
 }
 
-const PERP_EXIT = 0.04; // how far the wire rises above the highest pin before routing
+const PERP_EXIT = 0.18; // wire rises high above pins for realistic jumper-cable arc
 
 // Board surface y in scene-group space (breadboard group y=0.01 + holes group y=0.025)
 const BOARD_Y = 0.035;
+
+// ── Breadboard snap ────────────────────────────────────────────────────────
+// Returns the nearest hole's scene-group [x, z] to a dragged component.
+// Snaps X to the nearest column (0.05 pitch) and Z to the nearest row.
+const BB_ROWS = [
+  { z: -0.265 }, { z: -0.215 }, { z: -0.165 }, { z: -0.115 }, { z: -0.065 }, // a-e
+  { z:  0.065 }, { z:  0.115 }, { z:  0.165 }, { z:  0.215 }, { z:  0.265 }, // f-j
+  { z: -0.350 }, { z: -0.400 }, // +T, -T
+  { z:  0.350 }, { z:  0.400 }, // +B, -B
+];
+const BB_STEP = 0.05;
+const BB_COL1_X = 1.2 - (63 * BB_STEP) / 2; // scene-group X of column 1 = -0.375
+
+// Map a row Z (in breadboard-local space) to its row letter (a-j / +T / -T / +B / -B).
+// Used by the snap-safety pass to compose hole IDs from snapped coordinates.
+const BB_ROW_KEYS = ["a","b","c","d","e","f","g","h","i","j","+T","-T","+B","-B"];
+
+function rowKeyForZ(localZ) {
+  // Find the closest entry in BB_ROWS by Z and return its row letter.
+  let bestIdx = 7;
+  let minD = Infinity;
+  for (let i = 0; i < BB_ROWS.length; i++) {
+    const d = Math.abs(localZ - BB_ROWS[i].z);
+    if (d < minD) { minD = d; bestIdx = i; }
+  }
+  return BB_ROW_KEYS[bestIdx];
+}
+
+/**
+ * Snap a dragged component to the nearest breadboard hole.
+ *
+ * Two-pass behaviour:
+ *   1. First pass — snap X to the nearest column, Z to the nearest row.
+ *   2. Safety pass — if the caller provides a `leadOffsetsCols` array
+ *      describing the component's leads as integer column offsets from the
+ *      centre (e.g. resistor leads are [-2, +2], LED leads are [0, +1]),
+ *      and a `componentType` for power-rail exemption, simulate where each
+ *      lead would land and detect a short circuit. If shorted, shift the
+ *      whole component one column at a time (alternating +/-) until safe
+ *      or 6 attempts have been exhausted.
+ *
+ * The function does not validate against other components on the same node
+ * — that is intentional: shorting two components together is sometimes the
+ * user's goal (e.g. wiring two resistors in parallel). We only block the
+ * "single component shorts itself" case here; cross-component shorts are
+ * surfaced via the per-component violation badges in the scene.
+ */
+function snapToNearestHole(
+  sceneX,
+  sceneZ,
+  bbOffsetX = 0,
+  bbOffsetZ = 0,
+  leadOffsetsCols = null,
+  componentType = null,
+) {
+  // Only snap when within the breadboard's X/Z footprint (+1 hole margin)
+  const xMin = BB_COL1_X + bbOffsetX - BB_STEP;
+  const xMax = BB_COL1_X + bbOffsetX + 63 * BB_STEP;
+  const zMin = -0.42 + bbOffsetZ;
+  const zMax =  0.42 + bbOffsetZ;
+  if (sceneX < xMin || sceneX > xMax || sceneZ < zMin || sceneZ > zMax) return null;
+
+  // Nearest column
+  const raw = (sceneX - BB_COL1_X - bbOffsetX) / BB_STEP;
+  let col = Math.max(0, Math.min(62, Math.round(raw)));
+
+  // Nearest row (find both Z value and the corresponding local row letter)
+  let nearestZ = BB_ROWS[7].z + bbOffsetZ; // default to row h
+  let nearestLocalZ = BB_ROWS[7].z;
+  let minDist = Infinity;
+  for (const row of BB_ROWS) {
+    const d = Math.abs(sceneZ - (row.z + bbOffsetZ));
+    if (d < minDist) {
+      minDist = d;
+      nearestZ = row.z + bbOffsetZ;
+      nearestLocalZ = row.z;
+    }
+  }
+
+  // ── Safety pass ──────────────────────────────────────────────────────────
+  // If we know the component's lead layout in columns, verify the snapped
+  // position doesn't put two leads onto the same electrical node. The check
+  // mirrors validateComponentPins() but operates on hole IDs we synthesise
+  // from (col + leadOffset, row).
+  if (Array.isArray(leadOffsetsCols) && leadOffsetsCols.length >= 2) {
+    const rowKey = rowKeyForZ(nearestLocalZ);
+    const buildPins = (centreCol) => {
+      const pins = {};
+      leadOffsetsCols.forEach((dCol, i) => {
+        const c = Math.max(1, Math.min(63, centreCol + dCol + 1)); // col is 0-indexed; holes are 1-indexed
+        pins[`t${i + 1}`] = `${rowKey}${c}`;
+      });
+      return pins;
+    };
+
+    // Up to 6 attempts: 0, +1, -1, +2, -2, +3
+    const trials = [0, 1, -1, 2, -2, 3];
+    for (const shift of trials) {
+      const trialCol = col + shift;
+      if (trialCol < 0 || trialCol > 62) continue;
+      const pins = buildPins(trialCol);
+      const violations = validateComponentPins(pins, componentType);
+      // Only the short-circuit case is grounds for shifting; rail misuse is
+      // surfaced as a warning, not auto-corrected (the user may want it).
+      const hasShort = violations.some((v) => v.type === "SHORT_CIRCUIT");
+      if (!hasShort) {
+        col = trialCol;
+        break;
+      }
+    }
+  }
+
+  const snappedX = BB_COL1_X + bbOffsetX + col * BB_STEP;
+  return { x: snappedX, z: nearestZ };
+}
+
+// Lead offsets (in breadboard columns) per component type, relative to the
+// component's centre column. Used by the snap-safety pass and the
+// component-violation check during dragging. These mirror the OFF[] table
+// in resolveEndpoint above, but expressed in column-pitch units (0.05 = 1 col).
+const LEAD_COLS_BY_TYPE = {
+  RESISTOR: [-2, +2],            // ±0.100 = 2 column pitches
+  LED:        [0, +1],           // leads 1 column apart
+  LED_RED:    [0, +1],
+  LED_GREEN:  [0, +1],
+  LED_YELLOW: [0, +1],
+  LED_BLUE:   [0, +1],
+  RGB_LED:    [0, +1],
+  CAPACITOR:  [-1, +1],
+  NPN_TRANSISTOR: [-1, 0, +1],
+  PNP_TRANSISTOR: [-1, 0, +1],
+};
 
 // Per-type y-lift: distance from BOARD_Y to model origin so body bottom sits at BOARD_Y.
 // Derived from each model's geometry (body-center to body-bottom distance).
@@ -123,7 +267,7 @@ const COMP_Y = {
   LED_GREEN: BOARD_Y + 0.090,
   LED_YELLOW: BOARD_Y + 0.090,
   LED_BLUE: BOARD_Y + 0.090,
-  RESISTOR: BOARD_Y + 0.032,     // horizontal cylinder radius 0.032
+  RESISTOR: BOARD_Y + 0.048,     // body floats above surface; bent leads go into holes
   BUTTON: BOARD_Y + 0.000,       // body bottom already at y=0 in group
   BUZZER: BOARD_Y + 0.015,       // disk bottom at y=-0.015
   CAPACITOR: BOARD_Y + 0.013,    // disk bottom at y=-0.013
@@ -293,6 +437,7 @@ export default function CircuitScene({
   const inputs       = useCircuitStore((s) => s.inputs);
   const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
   const presetId     = useCircuitStore((s) => s.presetId);
+  const mcuId        = useCircuitStore((s) => s.mcuId);
   const sandboxWires = useCircuitStore((s) => s.sandboxWires);
   const sandboxColMap = useCircuitStore((s) => s.sandboxColMap);
 
@@ -329,17 +474,29 @@ export default function CircuitScene({
       const ny = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
       raycaster.setFromCamera({ x: nx, y: ny }, camera);
       if (raycaster.ray.intersectPlane(dragPlane, target)) {
-        // target is world-space; scene group origin is (-0.8 + setupPos.x, 0, setupPos.z)
         const sp = setupPosRef.current;
         const localX = target.x - (-0.8 + sp.x);
         const localZ = target.z - sp.z;
         const comp = components.find(c => c.id === id);
         const compY = COMP_Y[comp?.type] ?? (BOARD_Y + 0.025);
-        setLocalPosOverrides(prev => ({ ...prev, [id]: [localX, compY, localZ] }));
+
+        // Snap to nearest breadboard hole while hovering. If the dragged
+        // component has a known lead layout we pass it through so the snap
+        // helper can avoid placing both leads on the same node.
+        const bb = bbOffsetRef.current;
+        const leadCols = LEAD_COLS_BY_TYPE[comp?.type] || null;
+        const snapped = snapToNearestHole(localX, localZ, bb.x, bb.z, leadCols, comp?.type);
+        const finalX = snapped ? snapped.x : localX;
+        const finalZ = snapped ? snapped.z : localZ;
+
+        setLocalPosOverrides(prev => ({ ...prev, [id]: [finalX, compY, finalZ] }));
+        // Visual cursor hint: grabbing-hand on breadboard, default elsewhere
+        gl.domElement.style.cursor = snapped ? 'cell' : 'grabbing';
       }
     };
 
     const onUp = () => {
+      // Commit snapped position — already applied in onMove, just clear drag state
       setDraggingId(null);
       gl.domElement.style.cursor = '';
       onDragEnd?.();
@@ -472,11 +629,33 @@ export default function CircuitScene({
       return map;
     }
 
-    // Preset mode: seed from explicit arlabPositions first
+    // Preset mode: seed from explicit arlabPositions, offset by bbOffset so
+    // components move with the breadboard when it is dragged.
+    //
+    // Two layout shapes are supported:
+    //   - { pins: { t1: "h25", t2: "h29" } }  — hole-based; position is the
+    //     centroid of all referenced breadboard holes. This is the preferred
+    //     shape so leads land on real holes regardless of bbOffset.
+    //   - { pos: [x, y, z] }                  — raw scene-group coordinates
+    //     (legacy). bbOffset is added on top.
     Object.entries(arlabPositions).forEach(([id, layout]) => {
       const type = typeById[id] || null;
       const y = COMP_Y[type] ?? (BOARD_Y + 0.025);
-      map[id] = [layout.pos[0], y, layout.pos[2], type];
+
+      if (layout && layout.pins && typeof layout.pins === "object") {
+        const coords = Object.values(layout.pins)
+          .filter((h) => typeof h === "string" && h.length > 0)
+          .map((h) => holeCoords(h, bbOffset));
+        if (coords.length > 0) {
+          const [cx, , cz] = midpoint(coords);
+          map[id] = [cx, y, cz, type];
+          return;
+        }
+      }
+
+      if (layout && Array.isArray(layout.pos)) {
+        map[id] = [layout.pos[0] + bbOffset.x, y, layout.pos[2] + bbOffset.z, type];
+      }
     });
     // Fallback for components without an explicit layout entry.
     // manuallyPlaced components store their position as encoded scene coords;
@@ -499,6 +678,34 @@ export default function CircuitScene({
     return map;
   }, [components, arlabPositions, presetId, sandboxColMap, localPosOverrides, bbOffset]);
 
+  // Validate each component's pin assignments against breadboard topology
+  // rules (short circuits, power-rail misuse). Returns:
+  //   { [componentId]: Array<{ type, message, ... }> }
+  // Components without an explicit `pins` map in arlabPositions, or whose
+  // pins reference non-breadboard locations, contribute nothing.
+  const componentViolations = useMemo(() => {
+    const out = {};
+    if (presetId === "__sandbox__") return out;
+    const typeById = {};
+    components.forEach((c) => { typeById[c.id] = c.type; });
+
+    Object.entries(arlabPositions).forEach(([id, layout]) => {
+      if (!layout || !layout.pins || typeof layout.pins !== "object") return;
+      // Skip layouts that only carry a single { main: "..." } pin — those
+      // describe components that sit on the board but don't have multiple
+      // leads on the breadboard surface (servos, modules, IC bodies).
+      const pinKeys = Object.keys(layout.pins);
+      if (pinKeys.length < 2 && !(pinKeys[0] === "main" && typeById[id] === "VCC_NODE")) {
+        // Single-pin layouts can still trigger POWER_RAIL_MISUSE for non-power
+        // components, but the SHORT_CIRCUIT rule needs ≥2 pins. We still run
+        // the validator for the rail check.
+      }
+      const v = validateComponentPins(layout.pins, typeById[id]);
+      if (v.length > 0) out[id] = v;
+    });
+    return out;
+  }, [arlabPositions, components, presetId]);
+
   // Resolve wires to 3D points.
   // Sandbox wires take precedence when the user has drawn connections in the 2D lab;
   // otherwise fall back to the preset's built-in wire definitions.
@@ -506,13 +713,13 @@ export default function CircuitScene({
     const wires = sandboxWires.length > 0 ? sandboxWires : (preset.wires || []);
     return wires.flatMap((wire) => {
       if (!wire.source || !wire.target) return [];
-      const p1 = resolveEndpoint(wire.source, posMap, boardOffset);
-      const p2 = resolveEndpoint(wire.target, posMap, boardOffset);
+      const p1 = resolveEndpoint(wire.source, posMap, boardOffset, mcuId);
+      const p2 = resolveEndpoint(wire.target, posMap, boardOffset, mcuId);
       const pts = buildWirePoints(p1, p2);
       if (!pts) return [];
       return [{ ...wire, points: pts }];
     });
-  }, [sandboxWires, preset.wires, posMap, boardOffset]);
+  }, [sandboxWires, preset.wires, posMap, boardOffset, mcuId]);
 
   // Build sceneComponents with final positions/rotations.
   // y is always derived from COMP_Y[type] so every component sits at the correct height
@@ -520,7 +727,9 @@ export default function CircuitScene({
   const sceneComponents = useMemo(() => {
     return components.map((component) => {
       const layout = arlabPositions[component.id];
-      const base = localPosOverrides[component.id] ?? (layout ? layout.pos : (posMap[component.id] || [0, BOARD_Y, 0]));
+      // Always use posMap so bbOffset / boardOffset are already baked in.
+      // localPosOverrides still take priority (user has dragged the component).
+      const base = localPosOverrides[component.id] ?? (posMap[component.id] || [0, BOARD_Y, 0]);
       const y = COMP_Y[component.type] ?? (BOARD_Y + 0.025);
       const position = [base[0], y, base[2]];
       const rotation = layout ? (layout.rot || [0, 0, 0]) : [0, 0, 0];
@@ -528,23 +737,30 @@ export default function CircuitScene({
     });
   }, [components, arlabPositions, posMap, localPosOverrides]);
 
-  // ── Power-bus jumper wires ─────────────────────────────────────────────────
-  // Arduino power header sits at board-local [x, 0.075, -0.52].
-  // Pin order (left→right): IOREF RST 3V3 5V GND GND VIN
-  //   5V  → local x = 0.35  → scene-group x = -0.25 + boardOffset.x
-  //   GND → local x = 0.45  → scene-group x = -0.15 + boardOffset.x
-  // Breadboard top rails (local): +rail z=-0.35, -rail z=-0.40
-  //   column 3 x ≈ -0.275, column 5 x ≈ -0.175 (aligns visually with above pins)
   const powerBusWires = useMemo(() => {
-    const vccPin    = [-0.25 + boardOffset.x, 0.085, -0.52 + boardOffset.z];
-    const gndPin    = [-0.15 + boardOffset.x, 0.085, -0.52 + boardOffset.z];
     const bbVccRail = [-0.275 + bbOffset.x,   0.045, -0.35  + bbOffset.z];
     const bbGndRail = [-0.175 + bbOffset.x,   0.045, -0.40  + bbOffset.z];
+    
+    if (mcuId === "esp32") {
+      const vccLocal = getEsp32PinCoord("3V3");
+      const gndLocal = getEsp32PinCoord("GND"); // Gets the first GND
+      if (!vccLocal || !gndLocal) return { vcc: null, gnd: null };
+      
+      const vccPin = [-0.6 + boardOffset.x + vccLocal[0], 0.188, boardOffset.z + vccLocal[2]];
+      const gndPin = [-0.6 + boardOffset.x + gndLocal[0], 0.188, boardOffset.z + gndLocal[2]];
+      return {
+        vcc: buildWirePoints(vccPin, bbVccRail),
+        gnd: buildWirePoints(gndPin, bbGndRail),
+      };
+    }
+
+    const vccPin    = [-0.021 + boardOffset.x, 0.188, -0.570 + boardOffset.z];
+    const gndPin    = [ 0.046 + boardOffset.x, 0.188, -0.570 + boardOffset.z];
     return {
       vcc: buildWirePoints(vccPin, bbVccRail),
       gnd: buildWirePoints(gndPin, bbGndRail),
     };
-  }, [boardOffset.x, boardOffset.z, bbOffset.x, bbOffset.z]);
+  }, [boardOffset.x, boardOffset.z, bbOffset.x, bbOffset.z, mcuId]);
 
   return (
     <group position={[-0.8 + setupPos.x, 0, setupPos.z]}>
@@ -579,7 +795,7 @@ export default function CircuitScene({
 
       {/* Drag is handled via DOM pointermove/pointerup in the useEffect above — no plane mesh needed */}
       <SceneLighting />
-      <Environment preset="warehouse" intensity={0.22} />
+      <Environment preset="warehouse" intensity={0.08} />
 
       {/* ── Workbench ──────────────────────────────────────────────────────── */}
       {/* Top surface — receives shadows, provides the lit deck appearance */}
@@ -608,14 +824,23 @@ export default function CircuitScene({
       <ContactShadows opacity={0.7} blur={3} far={5} resolution={1024} color="#000820" position={[0.2, -0.04, 0]} />
 
       {/* Arduino Uno — draggable board */}
-      <group
-        position={[-0.6 + boardOffset.x, 0.01, boardOffset.z]}
-        onPointerDown={(e) => { if (draggingId === null && !isDraggingSetup) startBoardDrag('arduino', e); }}
-        onPointerEnter={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = 'grab'; }}
-        onPointerLeave={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = ''; }}
-      >
-        <BoardModel />
-        <PinHotspots onPinClick={onPinClick} wiringFrom={wiringFrom} />
+      {/* Board meshes are non-raycastable so they don't block breadboard clicks
+          in the overlap zone. Dragging is handled by a dedicated invisible plane
+          that covers only the left (clear-of-breadboard) portion of the board. */}
+      <group position={[-0.6 + boardOffset.x, 0.01, boardOffset.z]}>
+        {mcuId === "esp32" ? <Esp32BoardModel /> : <BoardModel />}
+        <PinHotspots onPinClick={onPinClick} wiringFrom={wiringFrom} mcuId={mcuId} />
+        {/* Drag handle — left 60% of board, stays clear of breadboard overlap */}
+        <mesh
+          position={[-0.34, 0.20, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          onPointerDown={(e) => { if (draggingId === null && !isDraggingSetup) startBoardDrag('arduino', e); }}
+          onPointerEnter={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = 'grab'; }}
+          onPointerLeave={() => { if (draggingBoard === null && draggingId === null) gl.domElement.style.cursor = ''; }}
+        >
+          <planeGeometry args={[1.1, 1.28]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
       </group>
 
       {/* Breadboard — draggable board */}
@@ -917,6 +1142,12 @@ export default function CircuitScene({
         if (element) {
           const tooltipLabel = compTooltip(component);
           const [cx, cy, cz] = component.position || [0, 0, 0];
+          const violations = componentViolations[component.id] || [];
+          const hasShort = violations.some((v) => v.type === "SHORT_CIRCUIT");
+          // Short circuits dominate the badge colour — they're the more
+          // serious failure mode (current flows where it shouldn't).
+          const badgeBg = hasShort ? "rgba(180,0,0,0.92)" : "rgba(200,110,0,0.92)";
+          const badgeBorder = hasShort ? "#ff4444" : "#ffaa44";
           return (
             <group
               key={component.id}
@@ -959,6 +1190,26 @@ export default function CircuitScene({
                   </div>
                 </Html>
               )}
+              {violations.length > 0 && (
+                <Html position={[0, 0.3, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: "none" }}>
+                  <div style={{
+                    background: badgeBg,
+                    color: "#fff",
+                    padding: "3px 8px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontFamily: "monospace",
+                    whiteSpace: "nowrap",
+                    border: `1px solid ${badgeBorder}`,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+                    lineHeight: 1.4,
+                  }}>
+                    {violations.map((v, vi) => (
+                      <div key={vi}>{"⚠ "}{v.message}</div>
+                    ))}
+                  </div>
+                </Html>
+              )}
             </group>
           );
         }
@@ -981,9 +1232,9 @@ export default function CircuitScene({
         />
       ))}
 
-      {/* Power-bus jumpers — always visible, connect Arduino 5V/GND to breadboard rails */}
-      <Wire3D points={powerBusWires.vcc} color="#dc2626" />
-      <Wire3D points={powerBusWires.gnd} color="#111111" />
+      {/* Power-bus jumpers — always visible, connect MCU power to breadboard rails */}
+      {powerBusWires.vcc && <Wire3D points={powerBusWires.vcc} color="#dc2626" />}
+      {powerBusWires.gnd && <Wire3D points={powerBusWires.gnd} color="#111111" />}
     </group>
   );
 }

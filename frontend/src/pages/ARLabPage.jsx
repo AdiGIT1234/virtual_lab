@@ -49,7 +49,7 @@ const holeToSceneCoords = (holeId) => {
 };
 
 const buildWirePoints = (p1, p2) => {
-  const exitY = Math.max(p1[1], p2[1]) + 0.10;
+  const exitY = Math.max(p1[1], p2[1]) + 0.18;
   return [p1, [p1[0], exitY, p1[2]], [p2[0], exitY, p2[2]], p2];
 };
 

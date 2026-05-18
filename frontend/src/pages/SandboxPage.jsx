@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EditorPanel from "../components/EditorPanel";
 import Chip from "../components/Chip";
@@ -180,6 +180,7 @@ void loop() {
   const workspaceVersion = useCircuitStore((state) => state.workspaceVersion);
   const lastUpdatedBy = useCircuitStore((state) => state.lastUpdatedBy);
   const syncFromWorkspace = useCircuitStore((state) => state.syncFromWorkspace);
+  const setMcuId = useCircuitStore((state) => state.setMcuId);
   const setOutputsFromRegisters = useCircuitStore((state) => state.setOutputsFromRegisters);
   const storeOutputs = useCircuitStore((state) => state.outputs);
   const storeInputs = useCircuitStore((state) => state.inputs);
@@ -205,8 +206,12 @@ void loop() {
     });
   }, [syncFromWorkspace]);
 
+  // Sync items from the store back to local state only when the ARLab page
+  // is driving the workspace (lastUpdatedBy === "arlab"). When the sandbox
+  // itself just loaded a preset (source "sandbox"), the local state is already
+  // correct and we must NOT overwrite it with the store's copy.
   useEffect(() => {
-    if (lastUpdatedBy && lastUpdatedBy !== "sandbox" && storedWorkspaceItems) {
+    if (lastUpdatedBy && lastUpdatedBy === "arlab" && storedWorkspaceItems) {
       internalSetWorkspaceItems(storedWorkspaceItems);
     }
   }, [workspaceVersion, lastUpdatedBy, storedWorkspaceItems]);
@@ -215,6 +220,10 @@ void loop() {
   useEffect(() => {
     syncWires(wires);
   }, [wires, syncWires]);
+
+  useEffect(() => {
+    setMcuId(selectedMcuId);
+  }, [selectedMcuId, setMcuId]);
 
   // Auto-load experiment preset from URL query param
   useEffect(() => {
@@ -261,9 +270,24 @@ void loop() {
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const panSessionRef = useRef(null);
-  const [chipTransform, setChipTransform] = useState({ x: 300, y: 250, scale: 1.0 });
+  const [chipTransform, setChipTransform] = useState({ x: 2660, y: 1760, scale: 1.0 });
   const chipDragDataRef = useRef(null);
   const [isChipDragging, setIsChipDragging] = useState(false);
+  const chipColumnRef = useRef(null);
+
+  // With workplane at absolute (0,0) + transform translate(vx,vy):
+  // chip center is at canvas (3000, 2000). We want it at col center:
+  //   vx + 3000 = col.width/2  =>  vx = col.width/2 - 3000
+  const getCenterOffset = () => {
+    if (!chipColumnRef.current) return { x: -2660, y: -1760 };
+    const { width, height } = chipColumnRef.current.getBoundingClientRect();
+    return { x: width / 2 - 3000, y: height / 2 - 2000 };
+  };
+
+  // Center chip in viewport on first paint (useLayoutEffect fires before browser paint).
+  useLayoutEffect(() => {
+    setViewOffset(getCenterOffset());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [saveStatus, setSaveStatus] = useState(null); // 'local' | 'cloud' | 'error'
   const [activePresetKey, setActivePresetKey] = useState(null);
@@ -982,7 +1006,8 @@ void loop() {
     }
 
     return { pin: null, resistance: currentResistance };
-  }, [workspaceItems, wires, getPinLogic]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceItems, wires, getPinLogic, getPinAnalog]);
 
   const handleSaveWorkspace = async () => {
     const payload = { items: workspaceItems, inputs, wireColors, wires };
@@ -1062,7 +1087,7 @@ void loop() {
 
   const handleResetView = () => {
     setViewScale(1);
-    setViewOffset({ x: 0, y: 0 });
+    setViewOffset(getCenterOffset());
   };
 
   const handleChipMouseDown = useCallback((e) => {
@@ -1093,8 +1118,9 @@ void loop() {
   }, []);
 
   const resetChipTransform = useCallback(() => {
-    setChipTransform({ x: 300, y: 250, scale: 1.0 });
-  }, []);
+    setChipTransform({ x: 2660, y: 1760, scale: 1.0 });
+    setViewOffset(getCenterOffset());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePanMove = useCallback((e) => {
     if (!panSessionRef.current) return;
@@ -1173,7 +1199,7 @@ void loop() {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
     };
-  }, [isChipDragging, viewScale]);
+  }, [isChipDragging, viewScale, setWorkspaceItems]);
 
   // Sync potentiometer / dial position → pin input state.
   // Must live in a useEffect (not in the render loop) to avoid the
@@ -1197,7 +1223,7 @@ void loop() {
     if (Object.keys(updates).length > 0) {
       setInputs(prev => ({ ...prev, ...updates }));
     }
-  }, [workspaceItems, wires, inputs]);
+  }, [workspaceItems, wires, inputs, setInputs]);
 
   const handleAddBreakpoint = (address) => {
     setBreakpoints((prev) => (prev.includes(address) ? prev : [...prev, address]));
@@ -1322,32 +1348,41 @@ void loop() {
               if (!preset) return;
 
               stopSimulation();
-              loadPreset(key);
               setActivePresetKey(key);
               setWiringCheckResults(null);
               setShowInstructions(true);
 
+              // Place components to the RIGHT of the chip in workplane coords.
+              // chipTransform.x/y is the chip's top-left corner in the 3000px workplane.
+              // Actual rendered sizes: ArduinoUnoBoard BW=680px, ESP32Board BW=1000px.
+              const isEsp32Preset = preset.mcu === "esp32";
+              const CHIP_W = isEsp32Preset ? 1000 : 680;
+              const COMP_X_START = chipTransform.x + CHIP_W + 60;  // 60px gap right of chip
+              const COMP_Y_START = chipTransform.y;                  // align with chip top
+              const Y_STEP = 130;
+
+              // Set workspace items first with "sandbox" source so the store-sync
+              // useEffect (guard: lastUpdatedBy === "arlab") does not overwrite them.
+              const presetItems = (preset.workspace || []).map((item, idx) => ({
+                ...item,
+                x: COMP_X_START + Math.floor(idx / 5) * 160,
+                y: COMP_Y_START + (idx % 5) * Y_STEP,
+              }));
+              setWorkspaceItems(presetItems, "sandbox");
+
               // Wires
               setWires(preset.wires || []);
 
-              // Position components relative to wherever the chip currently sits
-              // Preset positions were designed for chip at (300, 250)
-              const CHIP_REF_X = 300, CHIP_REF_Y = 250;
-              const ox = chipTransform.x - CHIP_REF_X;
-              const oy = chipTransform.y - CHIP_REF_Y;
-              setWorkspaceItems((preset.workspace || []).map(item => ({
-                ...item,
-                x: item.x + ox,
-                y: item.y + oy,
-              })), "sandbox");
+              // Sync preset meta (outputs, inputs, presetId) to the global store.
+              loadPreset(key);
 
               // Code
               if (preset.starterCode) setCode(preset.starterCode);
 
-              // MCU (switch board if preset targets a different MCU)
+              // Switch MCU if preset targets a different board
               if (preset.mcu) setSelectedMcuId(preset.mcu);
 
-              // Open editor so the code is visible
+              // Open editor
               setIsEditorOpen(true);
             }}
           >
@@ -1560,7 +1595,7 @@ void loop() {
           <HardwareConfigPanel manualRegisters={manualRegisters} setManualRegisters={setManualRegisters} />
         </div>
 
-        <div style={styles.chipColumn}>
+        <div ref={chipColumnRef} style={styles.chipColumn}>
           <div
             id="workplane-container"
             ref={workplaneRef}
@@ -1607,6 +1642,8 @@ void loop() {
               const resolvedMain = resolveConnection(item.id, "main");
               const configState = getPinLogic(resolvedMain.pin);
               const analogState = getPinAnalog(resolvedMain.pin, resolvedMain.resistance);
+              // resistorFactor is pre-computed for potential future use in voltage divider display
+              // eslint-disable-next-line no-unused-vars
               const resistorFactor = getResistorFactor(resolvedMain.resistance);
 
               let terminals = [{ id: "main", label: "PIN" }];
@@ -2450,18 +2487,17 @@ function getStyles(theme, isCompact) {
     },
     chipColumn: {
       flex: 1,
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
       overflow: "hidden",
       position: "relative",
       background: "radial-gradient(circle at top, rgba(255,255,255,0.04), transparent)",
     },
     workplane: {
-      position: "relative",
-      width: 3000,
-      height: 2000,
-      backgroundColor: "#e2e8f0", // slate-200, greyish
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: 6000,
+      height: 4000,
+      backgroundColor: "#e2e8f0",
       backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 60px)",
       borderRadius: 20,
       border: "1px solid #cbd5e1",

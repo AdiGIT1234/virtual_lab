@@ -55,15 +55,15 @@ export default function Led3D({ position = [0, 0, 0], rotation = [0, 0, 0], colo
         <meshStandardMaterial color="#dfe7ef" metalness={0.9} roughness={0.1} />
       </mesh>
 
-      {/* Long lead (anode) */}
-      <mesh position={[0.014, -HH - 0.125, 0]}>
-        <cylinderGeometry args={[0.007, 0.007, 0.25, 8]} />
+      {/* Anode (+) lead — offset +0.025 = 1 hole pitch, extends deep into breadboard */}
+      <mesh position={[0.025, -HH - 0.16, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.34, 8]} />
         <meshStandardMaterial color="#d9e2e8" roughness={0.2} metalness={0.9} />
       </mesh>
 
-      {/* Short lead (cathode) */}
-      <mesh position={[-0.014, -HH - 0.105, 0]}>
-        <cylinderGeometry args={[0.007, 0.007, 0.21, 8]} />
+      {/* Cathode (−) lead — offset -0.025 = 1 hole pitch, slightly shorter */}
+      <mesh position={[-0.025, -HH - 0.14, 0]}>
+        <cylinderGeometry args={[0.007, 0.007, 0.30, 8]} />
         <meshStandardMaterial color="#929cab" roughness={0.3} metalness={0.9} />
       </mesh>
 

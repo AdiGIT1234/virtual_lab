@@ -14,9 +14,11 @@ const COLOR_HOVER = new THREE.Color("#ff8c00");
 const COLOR_OCCUPIED = new THREE.Color("#00dd55");
 const COLOR_WIRING = new THREE.Color("#00e5ff");
 
+// Hole visuals are fully transparent — the breadboard body shows through naturally.
+// Interaction is handled exclusively by the invisible hit cylinders below.
 const holeGeo    = new THREE.BoxGeometry(HOLE_RADIUS * 2.0, 0.018, HOLE_RADIUS * 2.0);
-const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true });
-// Larger transparent cylinders used only for pointer hit-testing — makes hover forgiving
+const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true, colorWrite: false, depthWrite: false });
+// Hit cylinders: transparent but raycastable — the only interaction target
 const holeHitGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.025, 8);
 const holeHitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
@@ -106,16 +108,16 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
 
   return (
     <group>
-      {/* PCB Body — mid-tone warm gray, toned down in dark lab environment */}
+      {/* PCB Body — clean white like tinkered.ai */}
       <mesh receiveShadow castShadow position={[0, -0.008, 0]}>
         <boxGeometry args={[boardWidth, 0.065, boardDepth]} />
-        <meshStandardMaterial color="#f0ede4" roughness={0.82} metalness={0.03} />
+        <meshStandardMaterial color="#f8f8f6" roughness={0.75} metalness={0.0} />
       </mesh>
 
-      {/* Subtle rounded edge bevel */}
+      {/* Subtle edge bevel */}
       <mesh position={[0, -0.008, 0]}>
         <boxGeometry args={[boardWidth + 0.01, 0.058, boardDepth + 0.01]} />
-        <meshStandardMaterial color="#dedad2" roughness={0.92} metalness={0} transparent opacity={0.45} />
+        <meshStandardMaterial color="#efefed" roughness={0.88} metalness={0} transparent opacity={0.4} />
       </mesh>
 
       {/* Center channel divider */}
@@ -124,18 +126,40 @@ export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick
         <meshStandardMaterial color="#d8d4cc" roughness={0.9} />
       </mesh>
 
-      {/* Power rail stripes */}
+      {/* Power rail stripes — red = VCC, blue = GND */}
       {[
-        { z: -(0.04 + MAIN_ROWS * HOLE_SPACING + 0.03), color: "#d42020" },
-        { z: -(0.04 + MAIN_ROWS * HOLE_SPACING + 0.08), color: "#2040cc" },
-        { z: 0.04 + MAIN_ROWS * HOLE_SPACING + 0.03,  color: "#d42020" },
-        { z: 0.04 + MAIN_ROWS * HOLE_SPACING + 0.08,  color: "#2040cc" },
+        { z: -(0.04 + MAIN_ROWS * HOLE_SPACING + 0.03), color: "#cc1515" },
+        { z: -(0.04 + MAIN_ROWS * HOLE_SPACING + 0.08), color: "#1535cc" },
+        { z:  0.04 + MAIN_ROWS * HOLE_SPACING + 0.03,  color: "#cc1515" },
+        { z:  0.04 + MAIN_ROWS * HOLE_SPACING + 0.08,  color: "#1535cc" },
       ].map((stripe, i) => (
-        <mesh key={i} position={[0, 0.023, stripe.z]}>
-          <boxGeometry args={[boardWidth - 0.06, 0.004, 0.010]} />
-          <meshStandardMaterial color={stripe.color} />
+        <mesh key={i} position={[0, 0.0245, stripe.z]}>
+          <boxGeometry args={[boardWidth - 0.04, 0.003, 0.012]} />
+          <meshStandardMaterial color={stripe.color} roughness={0.3} metalness={0.1} />
         </mesh>
       ))}
+
+      {/* Internal column connection lines — thin silver strips showing which
+          holes share a node within each half (top a-e, bottom f-j).
+          Each column has one strip per half running the full 5-hole depth. */}
+      {Array.from({ length: COLS }).map((_, ci) => {
+        const x = -(COLS * HOLE_SPACING) / 2 + ci * HOLE_SPACING;
+        const topZ   = -(0.04 + MAIN_ROWS * HOLE_SPACING / 2);
+        const botZ   =   0.04 + MAIN_ROWS * HOLE_SPACING / 2;
+        const stripH = MAIN_ROWS * HOLE_SPACING - 0.012;
+        return (
+          <group key={ci}>
+            <mesh position={[x, 0.0230, topZ]}>
+              <boxGeometry args={[0.006, 0.002, stripH]} />
+              <meshStandardMaterial color="#c8ccd2" roughness={0.4} metalness={0.5} />
+            </mesh>
+            <mesh position={[x, 0.0230, botZ]}>
+              <boxGeometry args={[0.006, 0.002, stripH]} />
+              <meshStandardMaterial color="#c8ccd2" roughness={0.4} metalness={0.5} />
+            </mesh>
+          </group>
+        );
+      })}
 
       {/* Column labels — every 5 cols */}
       <group position={[0, 0.025, 0]}>

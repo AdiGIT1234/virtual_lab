@@ -106,6 +106,7 @@ export const useCircuitStore = create((set) => ({
   inputs: { ...(defaultPreset.inputs || {}) },
   inputsVersion: 0,
   lastInputsSource: null,
+  mcuId: "atmega328p", // Default MCU
   // Wires drawn in the 2D sandbox — synced here so the 3D lab can read them
   sandboxWires: [],
   // Stable breadboard column assignments for sandbox components (id → col number)
@@ -135,12 +136,16 @@ export const useCircuitStore = create((set) => ({
       presetMeta: { name: preset.name, description: preset.description },
       workspaceItems,
       workspaceVersion: state.workspaceVersion + 1,
-      lastUpdatedBy: "arlab",
+      // Use "preset_meta" so the sandbox local-state sync useEffect
+      // (which only fires for lastUpdatedBy === "arlab") does NOT overwrite
+      // the workspace items that the sandbox dropdown just set.
+      lastUpdatedBy: "preset_meta",
       components: deriveComponents(workspaceItems),
       outputs: { ...(preset.outputs || {}) },
       inputs: nextInputs,
       inputsVersion: state.inputsVersion + 1,
       lastInputsSource: "arlab",
+      mcuId: preset.mcu || "atmega328p",
       sandboxWires: [], // clear sandbox wires so 3D lab shows preset wires on fresh load
     }));
   },
@@ -172,6 +177,7 @@ export const useCircuitStore = create((set) => ({
       };
     });
   },
+  setMcuId: (mcuId) => set(() => ({ mcuId })),
   setOutputLevel: (pin, value) => {
     set((state) => ({
       outputs: { ...state.outputs, [pin]: Math.max(0, Math.min(1, value)) },
