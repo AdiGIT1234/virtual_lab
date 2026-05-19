@@ -145,9 +145,9 @@ export default function ARLabCanvas({
             minPolarAngle={0.05}
             minDistance={0.5}
             maxDistance={120.0}
-            rotateSpeed={0.28}
-            zoomSpeed={0.6}
-            panSpeed={0.5}
+            rotateSpeed={0.55}
+            zoomSpeed={1.0}
+            panSpeed={0.8}
             mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }}
           />
           {showStats && <Stats showPanel={0} className="arlab-stats" />}

@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { UNO_PIN_COORDS } from "../../constants/unoPinCoords";
 import { ESP32_PIN_COORDS } from "../../constants/esp32PinCoords";
+import { ESP32_PIN_LAYOUT, getESP32PinColor } from "../../constants/esp32PinLayout";
 import { useCircuitStore } from "../../state/useCircuitStore";
 
 const PIN_INFO = {
@@ -29,14 +30,20 @@ const PIN_INFO = {
   19: { label: "A5",  port: "PC5", fn: "SCL"  },
 };
 
-// Socket geometry constants (real Arduino pin-header scale)
-const OUTER_R  = 0.022;   // outer socket radius  ≈ 1.7 mm real
-const INNER_R  = 0.012;   // inner hole  radius   ≈ 0.9 mm real
-const SOCK_H   = 0.055;   // socket depth into header ≈ 2.1 mm real
-const SEGS     = 14;      // cylinder segments (smooth enough, cheap)
+// ── Arduino: female socket geometry (invisible click target) ─────────────────
+const OUTER_R  = 0.022;
+const SOCK_H   = 0.055;
+const SEGS     = 14;
+
+// ── ESP32: male header pin geometry ──────────────────────────────────────────
+const PIN_BASE_H   = 0.032;   // black plastic base height
+const PIN_BASE_W   = 0.050;   // black plastic base width
+const PIN_POST_R   = 0.008;   // gold post radius
+const PIN_POST_H   = 0.062;   // gold post above base
+const PIN_SEGS     = 8;
 
 // Pulsing ring shown at the socket opening when this pin is the wire start
-function PulsingRing() {
+function PulsingRing({ isEsp32 }) {
   const ref = useRef();
   useFrame(({ clock }) => {
     if (!ref.current) return;
@@ -46,9 +53,10 @@ function PulsingRing() {
     if (ref.current.material)
       ref.current.material.opacity = 0.55 + 0.4 * Math.abs(Math.sin(t * 5));
   });
+  const r = isEsp32 ? PIN_POST_R * 2.5 : OUTER_R * 1.1;
   return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[OUTER_R * 1.1, OUTER_R * 1.7, SEGS]} />
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, isEsp32 ? PIN_POST_H + 0.005 : 0, 0]}>
+      <ringGeometry args={[r, r * 1.6, SEGS]} />
       <meshStandardMaterial
         color="#00e5ff" emissive="#00e5ff" emissiveIntensity={3}
         transparent opacity={0.9} side={THREE.DoubleSide} depthWrite={false}
@@ -57,50 +65,80 @@ function PulsingRing() {
   );
 }
 
-// Hollow pin socket — fully transparent, interaction-only
-function PinSocket() {
+// Arduino hollow socket — invisible geometry for click target only
+function ArduinoSocket() {
   return (
-    <>
-      {/* Outer tube — invisible but occupies space for the cylinder shape */}
-      <mesh position={[0, -SOCK_H / 2, 0]}>
-        <cylinderGeometry args={[OUTER_R, OUTER_R, SOCK_H, SEGS, 1, true]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-    </>
+    <mesh position={[0, -SOCK_H / 2, 0]}>
+      <cylinderGeometry args={[OUTER_R, OUTER_R, SOCK_H, SEGS, 1, true]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
   );
 }
 
-const formatPinLabel = (pin) => PIN_INFO[pin]?.label ?? `Pin ${pin}`;
-const formatEsp32PinLabel = (pin) => String(pin);
+// Invisible click/hover cylinder — works for both Arduino socket and ESP32 male pin
+// (ESP32 pins are already in the GLB model, no extra geometry needed)
+function PinHitCylinder({ isEsp32 }) {
+  return (
+    <mesh position={[0, isEsp32 ? (PIN_BASE_H + PIN_POST_H) / 2 : -SOCK_H / 2, 0]}>
+      <cylinderGeometry args={[
+        isEsp32 ? PIN_BASE_W * 0.7 : OUTER_R * 1.8,
+        isEsp32 ? PIN_BASE_W * 0.7 : OUTER_R * 1.8,
+        isEsp32 ? PIN_BASE_H + PIN_POST_H + 0.01 : SOCK_H * 1.4,
+        SEGS
+      ]} />
+      <meshStandardMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+// Build a quick lookup: label → ESP32 pin metadata
+const ESP32_LABEL_MAP = {};
+[...ESP32_PIN_LAYOUT].forEach((p) => {
+  ESP32_LABEL_MAP[p.label] = p;
+  if (p.gpio != null) ESP32_LABEL_MAP[String(p.gpio)] = p;
+});
+
+const formatPinLabel    = (pin) => PIN_INFO[pin]?.label ?? `Pin ${pin}`;
+const formatEsp32Label  = (pinKey) => {
+  const meta = ESP32_LABEL_MAP[String(pinKey)];
+  return meta?.label ?? String(pinKey);
+};
 
 export default function PinHotspots({ onPinClick, wiringFrom = null, mcuId = "atmega328p" }) {
   const outputs        = useCircuitStore((s) => s.outputs);
   const inputs         = useCircuitStore((s) => s.inputs);
   const toggleInputPin = useCircuitStore((s) => s.toggleInputPin);
-  
+  const isEsp32        = mcuId === "esp32";
+
   const pins = useMemo(() => {
-    if (mcuId === "esp32") return Object.entries(ESP32_PIN_COORDS);
+    if (isEsp32) return Object.entries(ESP32_PIN_COORDS);
     return Object.entries(UNO_PIN_COORDS);
-  }, [mcuId]);
+  }, [isEsp32]);
 
   const [hoveredPin, setHoveredPin] = useState(null);
 
   return (
     <group>
       {pins.map(([pin, position]) => {
-        // pin could be a string ("VIN") for ESP32, or a number string ("13") for Arduino
-        const numPin      = isNaN(Number(pin)) ? pin : Number(pin);
-        const level       = Math.max(outputs[numPin] ?? 0, inputs[numPin] ?? 0);
-        const active      = level > 0.5;
-        const isHovered   = hoveredPin === numPin;
+        const numPin       = isNaN(Number(pin)) ? pin : Number(pin);
+        const level        = Math.max(outputs[numPin] ?? 0, inputs[numPin] ?? 0);
+        const active       = level > 0.5;
+        const isHovered    = hoveredPin === numPin;
         const isWiringFrom = wiringFrom === numPin;
-        const label       = mcuId === "esp32" ? formatEsp32PinLabel(pin) : formatPinLabel(numPin);
+        const label        = isEsp32 ? formatEsp32Label(pin) : formatPinLabel(numPin);
+
+        // Per-pin colour from pin category (ESP32 only)
+        const esp32Meta    = isEsp32 ? ESP32_LABEL_MAP[String(pin)] : null;
+        const pinColor     = esp32Meta ? getESP32PinColor(esp32Meta) : "#c0a830";
+
+        // For ESP32: group origin at PCB surface, pins stick up from there
+        // For Arduino: keep legacy offset
+        const groupY = isEsp32 ? position[1] : position[1] + 0.04;
 
         return (
-          // Group sits at the header surface (PIN_Y + 0.04 set in unoPinCoords keeps Y=0 = hole opening)
-          <group key={pin} position={[position[0], position[1] + 0.04, position[2]]}>
+          <group key={pin} position={[position[0], groupY, position[2]]}>
 
-            {/* ── Invisible click / hover cylinder ── */}
+            {/* ── Invisible click / hover hit cylinder ── */}
             <mesh
               onPointerOver={(e) => { e.stopPropagation(); setHoveredPin(numPin); }}
               onPointerOut={(e)  => { e.stopPropagation(); setHoveredPin((p) => p === numPin ? null : p); }}
@@ -109,39 +147,68 @@ export default function PinHotspots({ onPinClick, wiringFrom = null, mcuId = "at
                 if (typeof onPinClick === "function") onPinClick(numPin);
                 else toggleInputPin(numPin, "arlab");
               }}
-              position={[0, -SOCK_H / 2, 0]}
+              position={[0, isEsp32 ? (PIN_BASE_H + PIN_POST_H) / 2 : -SOCK_H / 2, 0]}
             >
-              {/* slightly oversized cylinder covers the full socket for easy picking */}
-              <cylinderGeometry args={[OUTER_R * 1.8, OUTER_R * 1.8, SOCK_H * 1.4, SEGS]} />
+              <cylinderGeometry args={[
+                isEsp32 ? PIN_BASE_W * 0.7 : OUTER_R * 1.8,
+                isEsp32 ? PIN_BASE_W * 0.7 : OUTER_R * 1.8,
+                isEsp32 ? PIN_BASE_H + PIN_POST_H + 0.01 : SOCK_H * 1.4,
+                SEGS
+              ]} />
               <meshStandardMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
 
-            {/* ── Visible hollow socket ── */}
-            <PinSocket active={active} isHovered={isHovered} isWiringFrom={isWiringFrom} />
+            {/* ── No extra visible geometry — GLB model already has pin geometry ── */}
+            {!isEsp32 && <ArduinoSocket />}
+
+            {/* ── DEBUG: colored spheres at GLB-extracted pin positions ── */}
+            {/* Blue = left row (X<0), Red = right row (X>0) */}
+            {isEsp32 && (
+              <mesh position={[0, 0, 0]}>
+                <sphereGeometry args={[0.016, 12, 12]} />
+                <meshStandardMaterial
+                  color={position[0] < 0 ? "#0066ff" : "#ff2222"}
+                  emissive={position[0] < 0 ? "#0066ff" : "#ff2222"}
+                  emissiveIntensity={2}
+                />
+              </mesh>
+            )}
 
             {/* ── Pulsing ring when this pin is the wire start ── */}
-            {isWiringFrom && <PulsingRing />}
+            {isWiringFrom && <PulsingRing isEsp32={isEsp32} />}
 
             {/* ── Tooltip ── */}
             {(isHovered || isWiringFrom) && (
-              <Html position={[0, 0.10, 0]} center distanceFactor={10}>
+              <Html
+                position={[0, isEsp32 ? PIN_BASE_H + PIN_POST_H + 0.08 : 0.10, 0]}
+                center distanceFactor={10}
+              >
                 <div style={{
-                  background: "rgba(2,10,22,0.95)",
-                  border: `1px solid ${isWiringFrom ? "rgba(0,229,255,0.9)" : "rgba(0,229,255,0.4)"}`,
+                  background: "rgba(2,10,22,0.97)",
+                  border: `1px solid ${isWiringFrom ? "rgba(0,229,255,0.9)" : `${pinColor}88`}`,
                   borderRadius: 8,
                   padding: "6px 12px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 2,
+                  gap: 3,
                   whiteSpace: "nowrap",
                   fontFamily: "'Inter', monospace",
-                  boxShadow: "0 4px 16px rgba(0,229,255,0.18)",
+                  boxShadow: `0 4px 16px ${pinColor}33`,
                   pointerEvents: "none",
                 }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#a8f0ff" }}>{label}</span>
-                    {mcuId !== "esp32" && PIN_INFO[numPin]?.port && (
+                    {isEsp32 && esp32Meta && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, color: pinColor,
+                        background: `${pinColor}22`, border: `1px solid ${pinColor}55`,
+                        borderRadius: 4, padding: "1px 5px",
+                      }}>
+                        {esp32Meta.desc?.split(" | ")[0]?.split(" — ")[0] ?? ""}
+                      </span>
+                    )}
+                    {!isEsp32 && PIN_INFO[numPin]?.port && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, color: "#00e5ff",
                         background: "rgba(0,229,255,0.12)", border: "1px solid rgba(0,229,255,0.3)",
@@ -150,7 +217,7 @@ export default function PinHotspots({ onPinClick, wiringFrom = null, mcuId = "at
                         {PIN_INFO[numPin].port}
                       </span>
                     )}
-                    {mcuId !== "esp32" && PIN_INFO[numPin]?.fn && (
+                    {!isEsp32 && PIN_INFO[numPin]?.fn && (
                       <span style={{
                         fontSize: 10, fontWeight: 600, color: "#fbbf24",
                         background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.25)",
@@ -161,7 +228,7 @@ export default function PinHotspots({ onPinClick, wiringFrom = null, mcuId = "at
                     )}
                   </div>
                   <div style={{ fontSize: 10, color: isWiringFrom ? "#00e5ff" : active ? "#4ac26b" : "#6e7681" }}>
-                    {isWiringFrom ? "wire start" : active ? "HIGH" : "LOW"}
+                    {isWiringFrom ? "click component to wire" : active ? "HIGH" : "LOW"}
                   </div>
                 </div>
               </Html>

@@ -622,9 +622,14 @@ export default function CircuitScene({
       const startX = 1.2 + bbOffset.x - (63 * 0.05) / 2;
       const rowZ   = bbOffset.z + 0.165;
       components.forEach((c) => {
-        const col = sandboxColMap[c.id] ?? 3;
         const y = COMP_Y[c.type] ?? (BOARD_Y + 0.025);
-        map[c.id] = [startX + (col - 1) * 0.05, y, rowZ, c.type];
+        // Manually placed components from the 3D sidebar store hole-encoded x/y coords
+        if (c.manuallyPlaced && c.x != null && c.y != null) {
+          map[c.id] = [(c.x - 450) * 0.005, y, (c.y - 300) * 0.005, c.type];
+        } else {
+          const col = sandboxColMap[c.id] ?? 3;
+          map[c.id] = [startX + (col - 1) * 0.05, y, rowZ, c.type];
+        }
       });
       return map;
     }
@@ -843,7 +848,7 @@ export default function CircuitScene({
         </mesh>
       </group>
 
-      {/* Breadboard — draggable board */}
+      {/* Breadboard — always shown, draggable */}
       <group
         position={[1.2 + bbOffset.x, 0.01, bbOffset.z]}
         onPointerDown={(e) => { if (draggingId === null && !isDraggingSetup) startBoardDrag('breadboard', e); }}
@@ -852,6 +857,7 @@ export default function CircuitScene({
       >
         <BreadboardModel occupiedHoles={occupiedHoles || new Set()} onHoleClick={onHoleClick} wiringFromHole={wiringFromHole} />
       </group>
+
 
       {/* Components */}
       {sceneComponents.map((component) => {

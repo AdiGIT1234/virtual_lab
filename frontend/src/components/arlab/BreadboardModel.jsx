@@ -9,18 +9,17 @@ const HOLE_RADIUS = 0.012;
 const ROW_LABELS_TOP = ["a", "b", "c", "d", "e"];
 const ROW_LABELS_BOT = ["f", "g", "h", "i", "j"];
 
-const COLOR_DEFAULT = new THREE.Color("#101010");
-const COLOR_HOVER = new THREE.Color("#ff8c00");
-const COLOR_OCCUPIED = new THREE.Color("#00dd55");
-const COLOR_WIRING = new THREE.Color("#00e5ff");
+const COLOR_DEFAULT  = new THREE.Color("#1a1a1a");  // dark charcoal — punched hole
+const COLOR_HOVER    = new THREE.Color("#ff8c00");  // orange on hover
+const COLOR_OCCUPIED = new THREE.Color("#00dd55");  // green when component placed
+const COLOR_WIRING   = new THREE.Color("#00e5ff");  // cyan when wire-from selected
 
-// Hole visuals are fully transparent — the breadboard body shows through naturally.
-// Interaction is handled exclusively by the invisible hit cylinders below.
-const holeGeo    = new THREE.BoxGeometry(HOLE_RADIUS * 2.0, 0.018, HOLE_RADIUS * 2.0);
-const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.1, vertexColors: true, colorWrite: false, depthWrite: false });
+// Hole squares: visible dark punched-through look on the white breadboard body
+const holeGeo    = new THREE.BoxGeometry(HOLE_RADIUS * 2.0, 0.022, HOLE_RADIUS * 2.0);
+const holeMat    = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.05, vertexColors: true });
 // Hit cylinders: transparent but raycastable — the only interaction target
 const holeHitGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.025, 8);
-const holeHitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+const holeHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 export default function BreadboardModel({ occupiedHoles = new Set(), onHoleClick, onHoleHover: externalHover, wiringFromHole }) {
   const instancedRef    = useRef();
