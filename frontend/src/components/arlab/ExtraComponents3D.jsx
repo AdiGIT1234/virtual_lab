@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
+import { PeripheralSimulator } from "../../engine/PeripheralSimulator";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared helpers
@@ -265,8 +266,30 @@ export function ScrewTerminal3D({ position = [0,0,0], rotation = [0,0,0], highli
 // Display / Output
 // ──────────────────────────────────────────────────────────────────────────────
 
-export function Lcd1602_3D({ position = [0,0,0], rotation = [0,0,0], highlighted = false, active = false }) {
-  const on = active || highlighted;
+export function Lcd1602_3D({ id, wiredPins, position = [0,0,0], rotation = [0,0,0], highlighted = false, active = false }) {
+  const [buffer, setBuffer] = useState(new Array(32).fill(" "));
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    PeripheralSimulator.registerComponent(id, 'LCD1602', {
+      pins: {
+        rs: wiredPins?.rs,
+        e: wiredPins?.e,
+        d4: wiredPins?.d4,
+        d5: wiredPins?.d5,
+        d6: wiredPins?.d6,
+        d7: wiredPins?.d7,
+      },
+      onRenderTarget: (newBuffer) => {
+        setBuffer([...newBuffer]);
+        setIsActive(true);
+      },
+    });
+    return () => PeripheralSimulator.unregisterComponent(id);
+  }, [id, wiredPins]);
+
+  const on = active || highlighted || isActive;
   const emissive = on ? "#15803d" : "#000";
   return (
     <group position={position} rotation={rotation}>
@@ -277,19 +300,15 @@ export function Lcd1602_3D({ position = [0,0,0], rotation = [0,0,0], highlighted
         <meshStandardMaterial color={on ? "#1a6b5a" : "#134e4a"} roughness={0.4} metalness={0.1}
           emissive={on ? "#0ea5a4" : "#022c22"} emissiveIntensity={on ? 0.7 : 0.15}/>
       </mesh>
-      {/* Character rows — 2 rows of dashes */}
-      {Array.from({length:16},(_,i)=>(
-        <mesh key={`r0-${i}`} position={[-0.072+i*0.0095,0.051,-0.008]} rotation={[-Math.PI/2,0,0]}>
-          <planeGeometry args={[0.007,0.003]}/>
-          <meshStandardMaterial color={on?"#a3e635":"#1a3a1a"} emissive={on?"#a3e635":"#000"} emissiveIntensity={on?0.6:0}/>
-        </mesh>
-      ))}
-      {Array.from({length:16},(_,i)=>(
-        <mesh key={`r1-${i}`} position={[-0.072+i*0.0095,0.051,0.015]} rotation={[-Math.PI/2,0,0]}>
-          <planeGeometry args={[0.007,0.003]}/>
-          <meshStandardMaterial color={on?"#a3e635":"#1a3a1a"} emissive={on?"#a3e635":"#000"} emissiveIntensity={on?0.4:0}/>
-        </mesh>
-      ))}
+      
+      {/* Character display */}
+      <Text position={[-0.076, 0.052, -0.008]} rotation={[-Math.PI/2, 0, 0]} fontSize={0.016} color={on?"#064e3b":"#1a3a1a"} anchorX="left" anchorY="middle" fontFamily="monospace">
+        {buffer.slice(0,16).join("")}
+      </Text>
+      <Text position={[-0.076, 0.052, 0.014]} rotation={[-Math.PI/2, 0, 0]} fontSize={0.016} color={on?"#064e3b":"#1a3a1a"} anchorX="left" anchorY="middle" fontFamily="monospace">
+        {buffer.slice(16,32).join("")}
+      </Text>
+
       {[-0.075,-0.065,-0.055,-0.045].map((x,i)=>(
         <PinLead key={i} x={x} z={-0.060}/>
       ))}
@@ -369,29 +388,49 @@ export function LedBarGraph3D({ position = [0,0,0], rotation = [0,0,0], highligh
   );
 }
 
-export function NeopixelRing3D({ position = [0,0,0], rotation = [0,0,0], highlighted = false, active = false }) {
+export function NeopixelRing3D({ id, type, wiredPins, position = [0,0,0], rotation = [0,0,0], highlighted = false, active = false }) {
+  const ringSize = type === 'NEOPIXEL_RING_24' ? 24 : type === 'NEOPIXEL_RING_16' ? 16 : 12;
+  const OFF = '#0d1f0d';
+  const [colors, setColors] = useState(new Array(ringSize).fill(OFF));
+
+  useEffect(() => {
+    if (!id || !wiredPins?.din) return;
+    PeripheralSimulator.registerComponent(id, 'NEOPIXEL', {
+      pin: wiredPins['din'],
+      length: ringSize,
+      onRenderTarget: (buffer) => {
+        const c = [];
+        for (let i = 0; i < ringSize; i++) {
+          const g = buffer[i * 3];
+          const r = buffer[i * 3 + 1] ?? 0;
+          const b = buffer[i * 3 + 2] ?? 0;
+          c.push(r === 0 && g === 0 && b === 0 ? OFF : `rgb(${r},${g},${b})`);
+        }
+        setColors(c);
+      },
+    });
+    return () => PeripheralSimulator.unregisterComponent(id);
+  }, [id, wiredPins, ringSize]);
+
   const emissive = (highlighted||active) ? "#a855f7" : "#000";
-  const ledCount = 12, ringR = 0.06;
-  const rot = useRef(0);
-  useFrame((_,dt) => { if (active) rot.current += dt * 1.5; });
+  const ringR = 0.06;
   return (
     <group position={position} rotation={rotation}>
       <mesh position={[0,0.006,0]} rotation={[Math.PI/2,0,0]}>
         <torusGeometry args={[ringR,0.012,8,32]}/>
         <meshStandardMaterial color="#064e3b" roughness={0.6} metalness={0.2} emissive={emissive} emissiveIntensity={0.2}/>
       </mesh>
-      {Array.from({length:ledCount},(_,i)=>{
-        const ang = (i/ledCount)*Math.PI*2;
+      {Array.from({length:ringSize},(_,i)=>{
+        const ang = (i/ringSize)*Math.PI*2;
         const x = Math.cos(ang)*ringR, z = Math.sin(ang)*ringR;
-        const c = RAINBOW[i%RAINBOW.length];
-        const lit = active || highlighted;
-        // when active, chase pattern rotates
-        const chaseOn = active ? (i % 4 === Math.floor(rot.current * 2) % 4) : highlighted;
+        const litColor = colors[i] !== OFF ? colors[i] : null;
+        const lit = litColor !== null || highlighted;
+        const c = litColor || RAINBOW[i%RAINBOW.length];
         return (
           <mesh key={i} position={[x,0.018,z]}>
             <cylinderGeometry args={[0.008,0.008,0.012,10]}/>
             <meshStandardMaterial color={lit?c:"#222"}
-              emissive={lit?c:"#000"} emissiveIntensity={chaseOn?1.0:lit?0.3:0.05} roughness={0.4}/>
+              emissive={lit?c:"#000"} emissiveIntensity={litColor ? 1.0 : highlighted ? 0.3 : 0.05} roughness={0.4}/>
           </mesh>
         );
       })}

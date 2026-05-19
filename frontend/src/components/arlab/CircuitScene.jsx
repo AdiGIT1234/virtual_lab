@@ -1019,9 +1019,9 @@ export default function CircuitScene({
         } else if (component.type === "DHT22") {
           element = <Dht22_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "OLED_SSD1306") {
-          element = <OledDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <OledDisplay3D id={component.id} wiredPins={component.pins} position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "ILI9341_TFT") {
-          element = <TftDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
+          element = <TftDisplay3D id={component.id} wiredPins={component.pins} position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "DIAL" || component.type === "POTENTIOMETER") {
           const val = inputs[component.pin] ?? 0.5;
           element = <Potentiometer3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} value={val} />;
@@ -1043,7 +1043,7 @@ export default function CircuitScene({
           element = <Rc522_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         // Displays
         } else if (component.type === "LCD1602" || component.type === "LCD2004") {
-          element = <Lcd1602_3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
+          element = <Lcd1602_3D id={component.id} wiredPins={component.pins} position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "EPAPER_BASIC") {
           element = <EpaperDisplay3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "LED_MATRIX") {
@@ -1051,7 +1051,7 @@ export default function CircuitScene({
         } else if (component.type === "LED_BAR_GRAPH") {
           element = <LedBarGraph3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} level={outputs[component.pin] ?? 0} />;
         } else if (component.type === "NEOPIXEL_RING" || component.type === "NEOPIXEL_RING_12" || component.type === "NEOPIXEL_RING_16" || component.type === "NEOPIXEL_RING_24") {
-          element = <NeopixelRing3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
+          element = <NeopixelRing3D id={component.id} type={component.type} wiredPins={{ din: component.pin }} position={component.position} rotation={component.rotation} highlighted={isHighlighted} active={(outputs[component.pin] ?? 0) > 0.1} />;
         } else if (component.type === "NEOPIXEL_MATRIX") {
           element = <NeopixelMatrix3D position={component.position} rotation={component.rotation} highlighted={isHighlighted} />;
         } else if (component.type === "NEOPIXEL_PIXEL") {

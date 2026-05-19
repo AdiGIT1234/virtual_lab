@@ -1,4 +1,6 @@
-import { useRef } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
+import * as THREE from "three";
+import { PeripheralSimulator } from "../../engine/PeripheralSimulator";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 
@@ -85,9 +87,64 @@ export function Dht22_3D({ position, rotation, highlighted }) {
 }
 
 // SSD1306 OLED 128×64 display module
-export function OledDisplay3D({ position, rotation, highlighted }) {
+export function OledDisplay3D({ id, wiredPins, position, rotation, highlighted }) {
   const w = 0.14, h = 0.006, d = 0.12;
   const screenW = 0.10, screenD = 0.08;
+  
+  const canvasRef = useRef(document.createElement('canvas'));
+  const textureRef = useRef(null);
+  const [hasContent, setHasContent] = useState(false);
+
+  useEffect(() => {
+    canvasRef.current.width = 128;
+    canvasRef.current.height = 64;
+    textureRef.current = new THREE.CanvasTexture(canvasRef.current);
+    textureRef.current.magFilter = THREE.NearestFilter;
+    textureRef.current.minFilter = THREE.NearestFilter;
+  }, []);
+
+  const drawBuffer = useCallback((buffer) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(128, 64);
+
+    for (let page = 0; page < 8; page++) {
+      for (let col = 0; col < 128; col++) {
+        const byte = buffer[page * 128 + col];
+        for (let bit = 0; bit < 8; bit++) {
+          const on = (byte & (1 << bit)) !== 0;
+          const x = col;
+          const y = page * 8 + bit;
+          const idx = (y * 128 + x) * 4;
+          imgData.data[idx]     = 0;
+          imgData.data[idx + 1] = on ? 220 : 4;
+          imgData.data[idx + 2] = on ? 255 : 18;
+          imgData.data[idx + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    if (textureRef.current) textureRef.current.needsUpdate = true;
+    setHasContent(true);
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 128, 64);
+    if (textureRef.current) textureRef.current.needsUpdate = true;
+
+    PeripheralSimulator.registerComponent(id, 'OLED_SSD1306', {
+      address: 0x3c,
+      onRenderTarget: drawBuffer,
+    });
+
+    return () => PeripheralSimulator.unregisterComponent(id);
+  }, [id, wiredPins, drawBuffer]);
+
   return (
     <group position={position} rotation={rotation}>
       {/* PCB */}
@@ -103,16 +160,20 @@ export function OledDisplay3D({ position, rotation, highlighted }) {
       {/* OLED screen face */}
       <mesh position={[0, h + 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[screenW, screenD]} />
-        <meshStandardMaterial
-          color={highlighted ? "#0044aa" : "#001133"}
-          emissive={highlighted ? "#0033ff" : "#0011aa"}
-          emissiveIntensity={highlighted ? 0.9 : 0.5}
-          roughness={0.1}
-          metalness={0}
-        />
+        {hasContent && textureRef.current ? (
+          <meshBasicMaterial map={textureRef.current} color={highlighted ? "#00aaff" : "#ffffff"} />
+        ) : (
+          <meshStandardMaterial
+            color={highlighted ? "#0044aa" : "#001133"}
+            emissive={highlighted ? "#0033ff" : "#0011aa"}
+            emissiveIntensity={highlighted ? 0.9 : 0.5}
+            roughness={0.1}
+            metalness={0}
+          />
+        )}
       </mesh>
-      {/* Pixel lines — decorative */}
-      {[0, 0.012, 0.024, 0.036, -0.012, -0.024].map((zOff, i) => (
+      {/* Pixel lines — decorative (only when idle) */}
+      {!hasContent && [0, 0.012, 0.024, 0.036, -0.012, -0.024].map((zOff, i) => (
         <mesh key={i} position={[0, h + 0.0065, zOff]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[screenW * 0.8, 0.003]} />
           <meshStandardMaterial color="#2277ff" emissive="#2277ff" emissiveIntensity={0.6} />
@@ -143,9 +204,64 @@ export function OledDisplay3D({ position, rotation, highlighted }) {
 }
 
 // ILI9341 2.8" TFT display (larger, in landscape)
-export function TftDisplay3D({ position, rotation, highlighted }) {
+export function TftDisplay3D({ id, wiredPins, position, rotation, highlighted }) {
   const w = 0.22, h = 0.006, d = 0.18;
   const screenW = 0.18, screenD = 0.14;
+
+  const canvasRef = useRef(document.createElement('canvas'));
+  const textureRef = useRef(null);
+  const [hasContent, setHasContent] = useState(false);
+  const renderRef = useRef(null);
+
+  useEffect(() => {
+    canvasRef.current.width = 320;
+    canvasRef.current.height = 240;
+    textureRef.current = new THREE.CanvasTexture(canvasRef.current);
+    textureRef.current.magFilter = THREE.NearestFilter;
+    textureRef.current.minFilter = THREE.NearestFilter;
+  }, []);
+
+  useEffect(() => {
+    if (!id || !wiredPins) return;
+
+    PeripheralSimulator.registerComponent(id, 'TFT_ILI9341', {
+      pins: {
+        cs:   wiredPins['cs'],
+        dc:   wiredPins['dc'],
+        rst:  wiredPins['rst'],
+        mosi: wiredPins['mosi'],
+        sck:  wiredPins['sck'],
+      },
+    });
+
+    renderRef.current = setInterval(() => {
+      const comp = PeripheralSimulator.components.get(id);
+      if (!comp?.state?.buffer || !canvasRef.current) return;
+
+      const buf = comp.state.buffer;
+      const hasData = buf.some(v => v !== 0);
+      if (!hasData) return;
+
+      const ctx = canvasRef.current.getContext('2d');
+      const imgData = ctx.createImageData(320, 240);
+      for (let i = 0; i < buf.length; i++) {
+        const c = buf[i];
+        imgData.data[i * 4]     = ((c >> 11) & 0x1f) * 255 / 31;
+        imgData.data[i * 4 + 1] = ((c >> 5)  & 0x3f) * 255 / 63;
+        imgData.data[i * 4 + 2] = (c & 0x1f)         * 255 / 31;
+        imgData.data[i * 4 + 3] = 255;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      if (textureRef.current) textureRef.current.needsUpdate = true;
+      setHasContent(true);
+    }, 80);
+
+    return () => {
+      clearInterval(renderRef.current);
+      PeripheralSimulator.unregisterComponent(id);
+    };
+  }, [id, wiredPins]);
+
   return (
     <group position={position} rotation={rotation}>
       {/* PCB */}
@@ -161,16 +277,20 @@ export function TftDisplay3D({ position, rotation, highlighted }) {
       {/* TFT screen */}
       <mesh position={[0, h + 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[screenW, screenD]} />
-        <meshStandardMaterial
-          color={highlighted ? "#001a33" : "#000d1a"}
-          emissive={highlighted ? "#0088ff" : "#003366"}
-          emissiveIntensity={highlighted ? 1.0 : 0.3}
-          roughness={0.1}
-          metalness={0}
-        />
+        {hasContent && textureRef.current ? (
+          <meshBasicMaterial map={textureRef.current} />
+        ) : (
+          <meshStandardMaterial
+            color={highlighted ? "#001a33" : "#000d1a"}
+            emissive={highlighted ? "#0088ff" : "#003366"}
+            emissiveIntensity={highlighted ? 1.0 : 0.3}
+            roughness={0.1}
+            metalness={0}
+          />
+        )}
       </mesh>
-      {/* Color bands to suggest TFT color display */}
-      {[["#ff4444", -0.03], ["#44ff44", 0], ["#4444ff", 0.03]].map(([col, zOff], i) => (
+      {/* Color bands to suggest TFT color display (when idle) */}
+      {!hasContent && [["#ff4444", -0.03], ["#44ff44", 0], ["#4444ff", 0.03]].map(([col, zOff], i) => (
         <mesh key={i} position={[0, h + 0.009, zOff]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[screenW * 0.7, 0.018]} />
           <meshStandardMaterial color={col} emissive={col} emissiveIntensity={0.5} transparent opacity={0.4} />
